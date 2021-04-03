@@ -15,33 +15,19 @@
  *          <li> Gerald LaMountain, 2019. gerald(at)ece.neu.edu
  *          <li> Jordi Vila-Valls 2019. jvila(at)cttc.es
  *          </ul>
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_NONLINEAR_TRACKING_H_
-#define GNSS_SDR_NONLINEAR_TRACKING_H_
+#ifndef GNSS_SDR_NONLINEAR_TRACKING_H
+#define GNSS_SDR_NONLINEAR_TRACKING_H
 
 #if ARMA_NO_BOUND_CHECKING
 #define ARMA_NO_DEBUG 1
@@ -49,6 +35,12 @@
 
 #include <armadillo>
 #include <gnuradio/gr_complex.h>
+
+/** \addtogroup Tracking
+ * \{ */
+/** \addtogroup Tracking_libs
+ * \{ */
+
 
 // Abstract model function
 class ModelFunction
@@ -64,7 +56,7 @@ class CubatureFilter
 public:
     // Constructors and destructors
     CubatureFilter();
-    CubatureFilter(int nx);
+    explicit CubatureFilter(int nx);
     CubatureFilter(const arma::vec& x_pred_0, const arma::mat& P_x_pred_0);
     ~CubatureFilter() = default;
 
@@ -93,7 +85,7 @@ class UnscentedFilter
 public:
     // Constructors and destructors
     UnscentedFilter();
-    UnscentedFilter(int nx);
+    explicit UnscentedFilter(int nx);
     UnscentedFilter(const arma::vec& x_pred_0, const arma::mat& P_x_pred_0);
     ~UnscentedFilter() = default;
 
@@ -117,4 +109,7 @@ private:
     arma::mat P_x_est;
 };
 
-#endif
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_NONLINEAR_TRACKING_H

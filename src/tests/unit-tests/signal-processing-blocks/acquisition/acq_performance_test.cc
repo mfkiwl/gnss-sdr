@@ -4,31 +4,18 @@
  * \author Carles Fernandez-Prades, 2018. cfernandez(at)cttc.cat
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
+#include "GPS_L1_CA.h"
 #include "acquisition_dump_reader.h"
 #include "display.h"
 #include "file_configuration.h"
@@ -36,6 +23,7 @@
 #include "galileo_e5a_pcps_acquisition.h"
 #include "glonass_l1_ca_pcps_acquisition.h"
 #include "glonass_l2_ca_pcps_acquisition.h"
+#include "gnss_block_interface.h"
 #include "gnss_sdr_valve.h"
 #include "gnuplot_i.h"
 #include "gps_l1_ca_pcps_acquisition.h"
@@ -54,6 +42,11 @@
 #include <pmt/pmt.h>
 #include <thread>
 #include <utility>
+
+#if HAS_GENERIC_LAMBDA
+#else
+#include <boost/bind/bind.hpp>
+#endif
 
 #if HAS_STD_FILESYSTEM
 #include <system_error>
@@ -81,7 +74,6 @@ DEFINE_int32(acq_test_doppler_max, 5000, "Maximum Doppler, in Hz");
 DEFINE_int32(acq_test_doppler_step, 125, "Doppler step, in Hz.");
 DEFINE_int32(acq_test_coherent_time_ms, 1, "Acquisition coherent time, in ms");
 DEFINE_int32(acq_test_max_dwells, 1, "Number of non-coherent integrations.");
-DEFINE_bool(acq_test_use_CFAR_algorithm, true, "Use CFAR algorithm.");
 DEFINE_bool(acq_test_bit_transition_flag, false, "Bit transition flag.");
 DEFINE_bool(acq_test_make_two_steps, false, "Perform second step in a thinner grid.");
 DEFINE_int32(acq_test_second_nbins, 4, "If --acq_test_make_two_steps is set to true, this parameter sets the number of bins done in the acquisition refinement stage.");
@@ -111,7 +103,7 @@ DEFINE_bool(acq_test_dump, false, "Dump the results of an acquisition block into
 // ######## GNURADIO BLOCK MESSAGE RECEVER #########
 class AcqPerfTest_msg_rx;
 
-using AcqPerfTest_msg_rx_sptr = boost::shared_ptr<AcqPerfTest_msg_rx>;
+using AcqPerfTest_msg_rx_sptr = gnss_shared_ptr<AcqPerfTest_msg_rx>;
 
 AcqPerfTest_msg_rx_sptr AcqPerfTest_msg_rx_make(Concurrent_Queue<int>& queue);
 
@@ -119,8 +111,8 @@ class AcqPerfTest_msg_rx : public gr::block
 {
 private:
     friend AcqPerfTest_msg_rx_sptr AcqPerfTest_msg_rx_make(Concurrent_Queue<int>& queue);
-    void msg_handler_events(pmt::pmt_t msg);
-    AcqPerfTest_msg_rx(Concurrent_Queue<int>& queue);
+    void msg_handler_channel_events(const pmt::pmt_t msg);
+    explicit AcqPerfTest_msg_rx(Concurrent_Queue<int>& queue);
     Concurrent_Queue<int>& channel_internal_queue;
 
 public:
@@ -135,7 +127,7 @@ AcqPerfTest_msg_rx_sptr AcqPerfTest_msg_rx_make(Concurrent_Queue<int>& queue)
 }
 
 
-void AcqPerfTest_msg_rx::msg_handler_events(pmt::pmt_t msg)
+void AcqPerfTest_msg_rx::msg_handler_channel_events(const pmt::pmt_t msg)
 {
     try
         {
@@ -143,9 +135,9 @@ void AcqPerfTest_msg_rx::msg_handler_events(pmt::pmt_t msg)
             rx_message = message;
             channel_internal_queue.push(rx_message);
         }
-    catch (boost::bad_any_cast& e)
+    catch (const boost::bad_any_cast& e)
         {
-            LOG(WARNING) << "msg_handler_telemetry Bad any cast!";
+            LOG(WARNING) << "msg_handler_channel_events Bad any_cast: " << e.what();
             rx_message = 0;
         }
 }
@@ -154,7 +146,16 @@ void AcqPerfTest_msg_rx::msg_handler_events(pmt::pmt_t msg)
 AcqPerfTest_msg_rx::AcqPerfTest_msg_rx(Concurrent_Queue<int>& queue) : gr::block("AcqPerfTest_msg_rx", gr::io_signature::make(0, 0, 0), gr::io_signature::make(0, 0, 0)), channel_internal_queue(queue)
 {
     this->message_port_register_in(pmt::mp("events"));
-    this->set_msg_handler(pmt::mp("events"), boost::bind(&AcqPerfTest_msg_rx::msg_handler_events, this, _1));
+    this->set_msg_handler(pmt::mp("events"),
+#if HAS_GENERIC_LAMBDA
+        [this](auto&& PH1) { msg_handler_channel_events(PH1); });
+#else
+#if USE_BOOST_BIND_PLACEHOLDERS
+        boost::bind(&AcqPerfTest_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
+#else
+        boost::bind(&AcqPerfTest_msg_rx::msg_handler_channel_events, this, _1));
+#endif
+#endif
     rx_message = 0;
 }
 
@@ -473,7 +474,7 @@ int AcquisitionPerformanceTest::generate_signal()
 {
     pid_t wait_result;
     int child_status;
-    std::cout << "Generating signal for " << p6 << "..." << std::endl;
+    std::cout << "Generating signal for " << p6 << "...\n";
     char* const parmList[] = {&generator_binary[0], &generator_binary[0], &p1[0], &p2[0], &p3[0], &p4[0], &p5[0], &p6[0], nullptr};
 
     int pid;
@@ -484,7 +485,7 @@ int AcquisitionPerformanceTest::generate_signal()
     else if (pid == 0)
         {
             execv(&generator_binary[0], parmList);
-            std::cout << "Return not expected. Must be an execv error." << std::endl;
+            std::cout << "Return not expected. Must be an execv error.\n";
             std::terminate();
         }
 
@@ -514,18 +515,10 @@ int AcquisitionPerformanceTest::configure_receiver(double cn0, float pfa, unsign
             config->set_property("Acquisition.doppler_step", std::to_string(doppler_step));
 
             config->set_property("Acquisition.threshold", std::to_string(pfa));
-            //if (FLAGS_acq_test_pfa_init > 0.0) config->supersede_property("Acquisition.pfa", std::to_string(pfa));
+            // if (FLAGS_acq_test_pfa_init > 0.0) config->supersede_property("Acquisition.pfa", std::to_string(pfa));
             if (FLAGS_acq_test_pfa_init > 0.0)
                 {
                     config->supersede_property("Acquisition.pfa", std::to_string(pfa));
-                }
-            if (FLAGS_acq_test_use_CFAR_algorithm)
-                {
-                    config->set_property("Acquisition.use_CFAR_algorithm", "true");
-                }
-            else
-                {
-                    config->set_property("Acquisition.use_CFAR_algorithm", "false");
                 }
 
             config->set_property("Acquisition.coherent_integration_time_ms", std::to_string(coherent_integration_time_ms));
@@ -596,7 +589,7 @@ int AcquisitionPerformanceTest::run_receiver()
     gr::blocks::interleaved_char_to_complex::sptr gr_interleaved_char_to_complex = gr::blocks::interleaved_char_to_complex::make();
 
     top_block = gr::make_top_block("Acquisition test");
-    boost::shared_ptr<AcqPerfTest_msg_rx> msg_rx = AcqPerfTest_msg_rx_make(channel_internal_queue);
+    auto msg_rx = AcqPerfTest_msg_rx_make(channel_internal_queue);
     gr::blocks::skiphead::sptr skiphead = gr::blocks::skiphead::make(sizeof(gr_complex), FLAGS_acq_test_skiphead);
 
     queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
@@ -604,7 +597,7 @@ int AcquisitionPerformanceTest::run_receiver()
     init();
 
     int nsamples = floor(config->property("GNSS-SDR.internal_fs_sps", 2000000) * generated_signal_duration_s);
-    boost::shared_ptr<gr::block> valve = gnss_sdr_make_valve(sizeof(gr_complex), nsamples, queue);
+    auto valve = gnss_sdr_make_valve(sizeof(gr_complex), nsamples, queue.get());
     if (implementation == "GPS_L1_CA_PCPS_Acquisition")
         {
             acquisition = std::make_shared<GpsL1CaPcpsAcquisition>(config.get(), "Acquisition", 1, 0);
@@ -680,7 +673,7 @@ int AcquisitionPerformanceTest::count_executions(const std::string& basename, un
     int num_executions = 1;
     if (fp == nullptr)
         {
-            std::cout << "Failed to run command: " << argum2 << std::endl;
+            std::cout << "Failed to run command: " << argum2 << '\n';
             return 0;
         }
     while (fgets(buffer, sizeof(buffer), fp) != nullptr)
@@ -701,9 +694,9 @@ void AcquisitionPerformanceTest::plot_results()
             const std::string gnuplot_executable(FLAGS_gnuplot_executable);
             if (gnuplot_executable.empty())
                 {
-                    std::cout << "WARNING: Although the flag plot_gps_l1_tracking_test has been set to TRUE," << std::endl;
-                    std::cout << "gnuplot has not been found in your system." << std::endl;
-                    std::cout << "Test results will not be plotted." << std::endl;
+                    std::cout << "WARNING: Although the flag plot_gps_l1_tracking_test has been set to TRUE,\n";
+                    std::cout << "gnuplot has not been found in your system.\n";
+                    std::cout << "Test results will not be plotted.\n";
                 }
             else
                 {
@@ -788,7 +781,7 @@ void AcquisitionPerformanceTest::plot_results()
                         }
                     catch (const GnuplotException& ge)
                         {
-                            std::cout << ge.what() << std::endl;
+                            std::cout << ge.what() << '\n';
                         }
                 }
         }
@@ -815,7 +808,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
 
             if (FLAGS_acq_test_input_file.empty())
                 {
-                    std::cout << "Execution for CN0 = " << it << " dB-Hz" << std::endl;
+                    std::cout << "Execution for CN0 = " << it << " dB-Hz\n";
                 }
 
             // Do N_iterations of the experiment
@@ -823,11 +816,11 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                 {
                     if (FLAGS_acq_test_pfa_init > 0.0)
                         {
-                            std::cout << "Setting threshold for Pfa = " << pfa_vector[pfa_iter] << std::endl;
+                            std::cout << "Setting threshold for Pfa = " << pfa_vector[pfa_iter] << '\n';
                         }
                     else
                         {
-                            std::cout << "Setting threshold to " << pfa_vector[pfa_iter] << std::endl;
+                            std::cout << "Setting threshold to " << pfa_vector[pfa_iter] << '\n';
                         }
 
                     // Configure the signal generator
@@ -875,7 +868,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
 
                                     double coh_time_ms = config->property("Acquisition.coherent_integration_time_ms", 1);
 
-                                    std::cout << "Num executions: " << num_executions << std::endl;
+                                    std::cout << "Num executions: " << num_executions << '\n';
 
                                     unsigned int fft_size = 0;
                                     unsigned int d_consumed_samples = coh_time_ms * config->property("GNSS-SDR.internal_fs_sps", 0) * 0.001;  // * (config->property("Acquisition.bit_transition_flag", false) ? 2 : 1);
@@ -900,15 +893,15 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                                             acq_dump.read_binary_acq();
                                             if (acq_dump.positive_acq)
                                                 {
-                                                    //std::cout << "Meas acq_delay_samples: " << acq_dump.acq_delay_samples << " chips: " << acq_dump.acq_delay_samples / (baseband_sampling_freq * GPS_L1_CA_CODE_PERIOD / GPS_L1_CA_CODE_LENGTH_CHIPS) << std::endl;
+                                                    // std::cout << "Meas acq_delay_samples: " << acq_dump.acq_delay_samples << " chips: " << acq_dump.acq_delay_samples / (baseband_sampling_freq * GPS_L1_CA_CODE_PERIOD_S / GPS_L1_CA_CODE_LENGTH_CHIPS) << '\n';
                                                     meas_timestamp_s(execution - 1) = acq_dump.sample_counter / baseband_sampling_freq;
                                                     meas_doppler(execution - 1) = acq_dump.acq_doppler_hz;
-                                                    meas_acq_delay_chips(execution - 1) = acq_dump.acq_delay_samples / (baseband_sampling_freq * GPS_L1_CA_CODE_PERIOD / GPS_L1_CA_CODE_LENGTH_CHIPS);
+                                                    meas_acq_delay_chips(execution - 1) = acq_dump.acq_delay_samples / (baseband_sampling_freq * GPS_L1_CA_CODE_PERIOD_S / GPS_L1_CA_CODE_LENGTH_CHIPS);
                                                     positive_acq(execution - 1) = acq_dump.positive_acq;
                                                 }
                                             else
                                                 {
-                                                    //std::cout << "Failed acquisition." << std::endl;
+                                                    // std::cout << "Failed acquisition.\n";
                                                     meas_timestamp_s(execution - 1) = arma::datum::inf;
                                                     meas_doppler(execution - 1) = arma::datum::inf;
                                                     meas_acq_delay_chips(execution - 1) = arma::datum::inf;
@@ -941,7 +934,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                                             true_prn_delay_chips(epoch_counter) = GPS_L1_CA_CODE_LENGTH_CHIPS - true_trk_data.prn_delay_chips;
                                             true_tow_s(epoch_counter) = true_trk_data.tow;
                                             epoch_counter++;
-                                            //std::cout << "True PRN_Delay chips = " << GPS_L1_CA_CODE_LENGTH_CHIPS - true_trk_data.prn_delay_chips << " at " << true_trk_data.signal_timestamp_s << std::endl;
+                                            // std::cout << "True PRN_Delay chips = " << GPS_L1_CA_CODE_LENGTH_CHIPS - true_trk_data.prn_delay_chips << " at " << true_trk_data.signal_timestamp_s << '\n';
                                         }
 
                                     // Process results
@@ -956,7 +949,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                                             interp1(true_timestamp_s, true_prn_delay_chips, meas_timestamp_s, true_interpolated_prn_delay_chips);
 
                                             arma::vec doppler_estimation_error = true_interpolated_doppler - meas_doppler;
-                                            arma::vec delay_estimation_error = true_interpolated_prn_delay_chips - (meas_acq_delay_chips - ((1.0 / baseband_sampling_freq) / GPS_L1_CA_CHIP_PERIOD));  // compensate 1 sample delay
+                                            arma::vec delay_estimation_error = true_interpolated_prn_delay_chips - (meas_acq_delay_chips - ((1.0 / baseband_sampling_freq) / GPS_L1_CA_CHIP_PERIOD_S));  // compensate 1 sample delay
 
                                             // Cut measurements without reference
                                             for (int i = 0; i < num_executions; i++)
@@ -984,7 +977,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                                                 {
                                                     std::cout << doppler_estimation_error(i) << " ";
                                                 }
-                                            std::cout << std::endl;
+                                            std::cout << '\n';
 
                                             std::cout << "Delay estimation error [chips]: ";
                                             for (int i = 0; i < num_executions - 1; i++)
@@ -992,7 +985,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                                                     std::cout << delay_estimation_error(i) << " ";
 
                                                 }
-                                            std::cout << std::endl; */
+                                            std::cout << '\n'; */
                                         }
                                     if (k == 0)
                                         {
@@ -1007,7 +1000,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                                                     meas_Pd_.push_back(0.0);
                                                 }
                                             std::cout << TEXT_BOLD_BLACK << "Probability of detection for channel=" << ch << ", CN0=" << it << " dBHz"
-                                                      << ": " << (num_executions > 0 ? computed_Pd : 0.0) << TEXT_RESET << std::endl;
+                                                      << ": " << (num_executions > 0 ? computed_Pd : 0.0) << TEXT_RESET << '\n';
                                         }
                                     if (num_clean_executions > 0)
                                         {
@@ -1024,11 +1017,11 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                                             double computed_Pd_correct = correctly_detected / static_cast<double>(num_clean_executions);
                                             meas_Pd_correct_.push_back(computed_Pd_correct);
                                             std::cout << TEXT_BOLD_BLACK << "Probability of correct detection for channel=" << ch << ", CN0=" << it << " dBHz"
-                                                      << ": " << computed_Pd_correct << TEXT_RESET << std::endl;
+                                                      << ": " << computed_Pd_correct << TEXT_RESET << '\n';
                                         }
                                     else
                                         {
-                                            //std::cout << "No reference data has been found. Maybe a non-present satellite?" << num_executions << std::endl;
+                                            // std::cout << "No reference data has been found. Maybe a non-present satellite?" << num_executions << '\n';
                                             if (k == 1)
                                                 {
                                                     double wrongly_detected = arma::accu(positive_acq);
@@ -1042,7 +1035,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                                                             meas_Pfa_.push_back(0.0);
                                                         }
                                                     std::cout << TEXT_BOLD_BLACK << "Probability of false alarm for channel=" << ch << ", CN0=" << it << " dBHz"
-                                                              << ": " << (num_executions > 0 ? computed_Pfa : 0.0) << TEXT_RESET << std::endl;
+                                                              << ": " << (num_executions > 0 ? computed_Pfa : 0.0) << TEXT_RESET << '\n';
                                                 }
                                         }
                                     true_trk_data.restart();
@@ -1095,25 +1088,25 @@ TEST_F(AcquisitionPerformanceTest, ROC)
     unsigned int aux_index = 0;
     for (double it : cn0_vector)
         {
-            std::cout << "Results for CN0 = " << it << " dBHz:" << std::endl;
+            std::cout << "Results for CN0 = " << it << " dBHz:\n";
             std::cout << "Pd = ";
             for (int pfa_iter = 0; pfa_iter < num_thresholds; pfa_iter++)
                 {
                     std::cout << Pd[aux_index][pfa_iter] << " ";
                 }
-            std::cout << std::endl;
+            std::cout << '\n';
             std::cout << "Pd_correct = ";
             for (int pfa_iter = 0; pfa_iter < num_thresholds; pfa_iter++)
                 {
                     std::cout << Pd_correct[aux_index][pfa_iter] << " ";
                 }
-            std::cout << std::endl;
+            std::cout << '\n';
             std::cout << "Pfa = ";
             for (int pfa_iter = 0; pfa_iter < num_thresholds; pfa_iter++)
                 {
                     std::cout << Pfa[aux_index][pfa_iter] << " ";
                 }
-            std::cout << std::endl;
+            std::cout << '\n';
 
             aux_index++;
         }

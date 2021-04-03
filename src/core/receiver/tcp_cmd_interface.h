@@ -4,32 +4,19 @@
  * \brief Class that implements a TCP/IP telecommand command line interface
  * for GNSS-SDR
  * \author Javier Arribas jarribas (at) cttc.es
- * -------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
+ * -----------------------------------------------------------------------------
  *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
-#ifndef GNSS_SDR_TCP_CMD_INTERFACE_H_
-#define GNSS_SDR_TCP_CMD_INTERFACE_H_
+#ifndef GNSS_SDR_TCP_CMD_INTERFACE_H
+#define GNSS_SDR_TCP_CMD_INTERFACE_H
 
 
 #include "concurrent_queue.h"
@@ -42,6 +29,12 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+/** \addtogroup Core
+ * \{ */
+/** \addtogroup Core_Receiver
+ * \{ */
+
 
 class PvtInterface;
 
@@ -56,7 +49,7 @@ public:
     /*!
      * \brief gets the UTC time parsed from the last TC command issued
      */
-    time_t get_utc_time();
+    time_t get_utc_time() const;
 
     /*!
      * \brief gets the Latitude, Longitude and Altitude vector from the last TC command issued
@@ -67,7 +60,7 @@ public:
 
 private:
     std::unordered_map<std::string, std::function<std::string(const std::vector<std::string> &)>>
-        functions;
+        functions_;
     std::string status(const std::vector<std::string> &commandLine);
     std::string reset(const std::vector<std::string> &commandLine);
     std::string standby(const std::vector<std::string> &commandLine);
@@ -79,15 +72,18 @@ private:
     void register_functions();
 
     std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> control_queue_;
-    bool keep_running_;
-
-    time_t receiver_utc_time_;
+    std::shared_ptr<PvtInterface> PVT_sptr_;
 
     float rx_latitude_;
     float rx_longitude_;
     float rx_altitude_;
 
-    std::shared_ptr<PvtInterface> PVT_sptr_;
+    time_t receiver_utc_time_;
+
+    bool keep_running_;
 };
 
-#endif /* GNSS_SDR_TCP_CMD_INTERFACE_H_ */
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_TCP_CMD_INTERFACE_H

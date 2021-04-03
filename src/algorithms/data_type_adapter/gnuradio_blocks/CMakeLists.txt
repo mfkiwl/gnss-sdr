@@ -1,20 +1,8 @@
-# Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
-#
+# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 
 set(DATA_TYPE_GR_BLOCKS_SOURCES
@@ -32,21 +20,40 @@ set(DATA_TYPE_GR_BLOCKS_HEADERS
 list(SORT DATA_TYPE_GR_BLOCKS_HEADERS)
 list(SORT DATA_TYPE_GR_BLOCKS_SOURCES)
 
-source_group(Headers FILES ${DATA_TYPE_GR_BLOCKS_HEADERS})
-
-add_library(data_type_gr_blocks
-    ${DATA_TYPE_GR_BLOCKS_SOURCES}
-    ${DATA_TYPE_GR_BLOCKS_HEADERS}
-)
+if(USE_CMAKE_TARGET_SOURCES)
+    add_library(data_type_gr_blocks STATIC)
+    target_sources(data_type_gr_blocks
+        PRIVATE
+            ${DATA_TYPE_GR_BLOCKS_SOURCES}
+        PUBLIC
+            ${DATA_TYPE_GR_BLOCKS_HEADERS}
+    )
+else()
+    source_group(Headers FILES ${DATA_TYPE_GR_BLOCKS_HEADERS})
+    add_library(data_type_gr_blocks
+        ${DATA_TYPE_GR_BLOCKS_SOURCES}
+        ${DATA_TYPE_GR_BLOCKS_HEADERS}
+    )
+endif()
 
 target_link_libraries(data_type_gr_blocks
     PUBLIC
         Gnuradio::runtime
-        Boost::boost
-        algorithms_libs
+        Boost::headers
     PRIVATE
         Volk::volk
 )
+
+target_include_directories(data_type_gr_blocks
+    PUBLIC
+        ${CMAKE_SOURCE_DIR}/src/core/interfaces
+)
+
+if(GNURADIO_USES_STD_POINTERS)
+    target_compile_definitions(data_type_gr_blocks
+        PUBLIC -DGNURADIO_USES_STD_POINTERS=1
+    )
+endif()
 
 set_property(TARGET data_type_gr_blocks
     APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES

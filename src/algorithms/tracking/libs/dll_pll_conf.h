@@ -5,55 +5,41 @@
  *
  * Class that contains all the configuration parameters for generic tracking block based on a DLL and a PLL.
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_DLL_PLL_CONF_H_
-#define GNSS_SDR_DLL_PLL_CONF_H_
+#ifndef GNSS_SDR_DLL_PLL_CONF_H
+#define GNSS_SDR_DLL_PLL_CONF_H
 
+#include "configuration_interface.h"
 #include <cstdint>
 #include <string>
+
+/** \addtogroup Tracking
+ * \{ */
+/** \addtogroup Tracking_libs
+ * \{ */
+
 
 class Dll_Pll_Conf
 {
 public:
+    Dll_Pll_Conf();
+    void SetFromConfiguration(const ConfigurationInterface *configuration, const std::string &role);
+
     /* DLL/PLL tracking configuration */
-
-    int fll_filter_order;
-    bool enable_fll_pull_in;
-    bool enable_fll_steady_state;
-    unsigned int pull_in_time_s;
-    unsigned int bit_synchronization_time_limit_s;
-    int pll_filter_order;
-    int dll_filter_order;
-
-    double fs_in;
-    uint32_t vector_length;
-    bool dump;
-    bool dump_mat;
+    std::string item_type;
     std::string dump_filename;
+    double fs_in;
+    double carrier_lock_th;
     float pll_pull_in_bw_hz;
     float dll_pull_in_bw_hz;
     float fll_bw_hz;
@@ -65,21 +51,38 @@ public:
     float very_early_late_space_chips;
     float early_late_space_narrow_chips;
     float very_early_late_space_narrow_chips;
+    float slope;
+    float spc;
+    float y_intercept;
+    float cn0_smoother_alpha;
+    float carrier_lock_test_smoother_alpha;
+    uint32_t pull_in_time_s;
+    uint32_t bit_synchronization_time_limit_s;
+    uint32_t vector_length;
+    uint32_t smoother_length;
+    int32_t fll_filter_order;
+    int32_t pll_filter_order;
+    int32_t dll_filter_order;
     int32_t extend_correlation_symbols;
-    bool high_dyn;
     int32_t cn0_samples;
-    int32_t carrier_lock_det_mav_samples;
+    int32_t cn0_smoother_samples;
+    int32_t carrier_lock_test_smoother_samples;
     int32_t cn0_min;
     int32_t max_code_lock_fail;
     int32_t max_carrier_lock_fail;
-    uint32_t smoother_length;
-    double carrier_lock_th;
+    char signal[3]{};
+    char system;
+    bool enable_fll_pull_in;
+    bool enable_fll_steady_state;
     bool track_pilot;
     bool enable_doppler_correction;
-    char system;
-    char signal[3]{};
-
-    Dll_Pll_Conf();
+    bool carrier_aiding;
+    bool high_dyn;
+    bool dump;
+    bool dump_mat;
 };
 
-#endif
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_DLL_PLL_CONF_H

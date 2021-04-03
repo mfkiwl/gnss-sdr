@@ -10,37 +10,29 @@
  * A Software-Defined GPS and Galileo Receiver. A Single-Frequency
  * Approach, Birkhauser, 2007
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_GPS_L5_DLL_PLL_TRACKING_FPGA_H_
-#define GNSS_SDR_GPS_L5_DLL_PLL_TRACKING_FPGA_H_
+#ifndef GNSS_SDR_GPS_L5_DLL_PLL_TRACKING_FPGA_H
+#define GNSS_SDR_GPS_L5_DLL_PLL_TRACKING_FPGA_H
 
 #include "dll_pll_veml_tracking_fpga.h"
 #include "tracking_interface.h"
 #include <string>
+
+/** \addtogroup Tracking
+ * \{ */
+/** \addtogroup Tracking_adapters
+ * \{ */
+
 
 class ConfigurationInterface;
 
@@ -53,7 +45,8 @@ public:
     /*!
      * \brief Constructor
      */
-    GpsL5DllPllTrackingFpga(ConfigurationInterface* configuration,
+    GpsL5DllPllTrackingFpga(
+        const ConfigurationInterface* configuration,
         const std::string& role,
         unsigned int in_streams,
         unsigned int out_streams);
@@ -129,12 +122,17 @@ public:
     void stop_tracking() override;
 
 private:
+    const std::string default_device_name = "multicorrelator_resampler_3_1_AXI";  // UIO device name
+
     static const uint32_t NUM_PRNs = 32;  // total number of PRNs
 
     // the following flags are FPGA-specific and they are using arrange the values of the local code in the way the FPGA
     // expects. This arrangement is done in the initialisation to avoid consuming unnecessary clock cycles during tracking.
     static const int32_t LOCAL_CODE_FPGA_ENABLE_WRITE_MEMORY = 0x0C000000;      // flag that enables WE (Write Enable) of the local code FPGA
     static const int32_t LOCAL_CODE_FPGA_CORRELATOR_SELECT_COUNT = 0x20000000;  // flag that selects the writing of the pilot code in the FPGA (as opposed to the data code)
+
+    std::string device_name;
+    uint32_t num_prev_assigned_ch;
 
     dll_pll_veml_tracking_fpga_sptr tracking_fpga_sc;
     uint32_t channel_;
@@ -146,4 +144,7 @@ private:
     int32_t* d_data_codes;
 };
 
-#endif  // GNSS_SDR_GPS_L5_DLL_PLL_TRACKING_FPGA_H_
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_GPS_L5_DLL_PLL_TRACKING_FPGA_H

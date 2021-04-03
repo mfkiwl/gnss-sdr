@@ -1,13 +1,12 @@
 /*-
- * Copyright (c) 2003, 2004, 2005, 2007 Lev Walkin <vlm@lionet.info>.
- * All rights reserved.
- * Redistribution and modifications are permitted subject to BSD license.
+ * SPDX-FileCopyrightText: (c) 2003, 2004 Lev Walkin <vlm@lionet.info>. All rights reserved.
+ * SPDX-License-Identifier: BSD-1-Clause
  */
 /*
  * Declarations internally useful for the ASN.1 support code.
  */
-#ifndef _ASN_INTERNAL_H_
-#define _ASN_INTERNAL_H_
+#ifndef _ASN_INTERNAL_H
+#define _ASN_INTERNAL_H
 
 #include "asn_application.h" /* Application-visible API */
 
@@ -20,6 +19,7 @@ extern "C"
 {
 #endif
 
+// clang-format off
 /* Environment version might be used to avoid running with the old library */
 #define ASN1C_ENVIRONMENT_VERSION 922        /* Compile-time version */
     int get_asn1c_environment_version(void); /* Run-time version */
@@ -41,15 +41,14 @@ extern "C"
 #else  /* !ASN_THREAD_SAFE */
     int asn_debug_indent;
 #endif /* ASN_THREAD_SAFE */
-#define ASN_DEBUG(fmt, args...)                 \
-    do                                          \
-        {                                       \
-            int adi = asn_debug_indent;         \
-            while (adi--) fprintf(stderr, " "); \
-            fprintf(stderr, fmt, ##args);       \
-            fprintf(stderr, " (%s:%d)\n",       \
-                __FILE__, __LINE__);            \
-        }                                       \
+#define ASN_DEBUG(fmt, args...)                                \
+    do                                                         \
+        {                                                      \
+            int adi = asn_debug_indent;                        \
+            while (adi--) fprintf(stderr, " ");                \
+            fprintf(stderr, fmt, ##args);                      \
+            fprintf(stderr, " (%s:%d)\n", __FILE__, __LINE__); \
+        }                                                      \
     while (0)
 #else /* !__GNUC__ */
     void ASN_DEBUG_f(const char *fmt, ...);
@@ -62,6 +61,7 @@ extern "C"
     }
 #endif /* EMIT_ASN_DEBUG */
 #endif /* ASN_DEBUG */
+// clang-format on
 
 /*
  * Invoke the application-supplied callback and fail, if something is wrong.
@@ -73,25 +73,24 @@ extern "C"
             if (foo) goto cb_failed; \
         }                            \
     while (0)
-#define _ASN_CALLBACK(buf, size) \
-    _ASN_E_CALLBACK(__ASN_E_cbc(buf, size))
+#define _ASN_CALLBACK(buf, size) _ASN_E_CALLBACK(__ASN_E_cbc(buf, size))
 #define _ASN_CALLBACK2(buf1, size1, buf2, size2) \
     _ASN_E_CALLBACK(__ASN_E_cbc(buf1, size1) || __ASN_E_cbc(buf2, size2))
-#define _ASN_CALLBACK3(buf1, size1, buf2, size2, buf3, size3) \
-    _ASN_E_CALLBACK(__ASN_E_cbc(buf1, size1) || __ASN_E_cbc(buf2, size2) || __ASN_E_cbc(buf3, size3))
+#define _ASN_CALLBACK3(buf1, size1, buf2, size2, buf3, size3)               \
+    _ASN_E_CALLBACK(__ASN_E_cbc(buf1, size1) || __ASN_E_cbc(buf2, size2) || \
+                    __ASN_E_cbc(buf3, size3))
 
-#define _i_ASN_TEXT_INDENT(nl, level)           \
-    do                                          \
-        {                                       \
-            int __level = (level);              \
-            int __nl = ((nl) != 0);             \
-            int __i;                            \
-            if (__nl) _ASN_CALLBACK("\n", 1);   \
-            if (__level < 0) __level = 0;       \
-            for (__i = 0; __i < __level; __i++) \
-                _ASN_CALLBACK("    ", 4);       \
-            er.encoded += __nl + 4 * __level;   \
-        }                                       \
+#define _i_ASN_TEXT_INDENT(nl, level)                                     \
+    do                                                                    \
+        {                                                                 \
+            int __level = (level);                                        \
+            int __nl = ((nl) != 0);                                       \
+            int __i;                                                      \
+            if (__nl) _ASN_CALLBACK("\n", 1);                             \
+            if (__level < 0) __level = 0;                                 \
+            for (__i = 0; __i < __level; __i++) _ASN_CALLBACK("    ", 4); \
+            er.encoded += __nl + 4 * __level;                             \
+        }                                                                 \
     while (0)
 
 #define _i_INDENT(nl)                                        \
@@ -108,8 +107,7 @@ extern "C"
  * Check stack against overflow, if limit is set.
  */
 #define _ASN_DEFAULT_STACK_MAX (30000)
-    static inline int
-    _ASN_STACK_OVERFLOW_CHECK(asn_codec_ctx_t *ctx)
+    static inline int _ASN_STACK_OVERFLOW_CHECK(asn_codec_ctx_t *ctx)
     {
         if (ctx && ctx->max_stack_size)
             {

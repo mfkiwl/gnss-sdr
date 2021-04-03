@@ -7,33 +7,19 @@
  * This class represents a file signal source. Internally it uses a GNU Radio's
  * gr_file_source as a connector to the data.
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_MULTICHANNEL_FILE_SIGNAL_SOURCE_H_
-#define GNSS_SDR_MULTICHANNEL_FILE_SIGNAL_SOURCE_H_
+#ifndef GNSS_SDR_MULTICHANNEL_FILE_SIGNAL_SOURCE_H
+#define GNSS_SDR_MULTICHANNEL_FILE_SIGNAL_SOURCE_H
 
 #include "concurrent_queue.h"
 #include "gnss_block_interface.h"
@@ -46,6 +32,13 @@
 #include <string>
 #include <vector>
 
+
+/** \addtogroup Signal_Source
+ * \{ */
+/** \addtogroup Signal_Source_adapters
+ * \{ */
+
+
 class ConfigurationInterface;
 
 /*!
@@ -55,9 +48,9 @@ class ConfigurationInterface;
 class MultichannelFileSignalSource : public GNSSBlockInterface
 {
 public:
-    MultichannelFileSignalSource(ConfigurationInterface* configuration, const std::string& role,
+    MultichannelFileSignalSource(const ConfigurationInterface* configuration, const std::string& role,
         unsigned int in_streams, unsigned int out_streams,
-        std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue);
+        Concurrent_Queue<pmt::pmt_t>* queue);
 
     ~MultichannelFileSignalSource() = default;
 
@@ -110,23 +103,25 @@ public:
     }
 
 private:
-    uint64_t samples_;
-    int64_t sampling_frequency_;
-    uint32_t n_channels_;
-    std::vector<std::string> filename_vec_;
-    std::string item_type_;
-    bool repeat_;
-    std::string role_;
-    uint32_t in_streams_;
-    uint32_t out_streams_;
     std::vector<gr::blocks::file_source::sptr> file_source_vec_;
-    boost::shared_ptr<gr::block> valve_;
+    gnss_shared_ptr<gr::block> valve_;
     gr::blocks::file_sink::sptr sink_;
     std::vector<gr::blocks::throttle::sptr> throttle_vec_;
-    std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue_;
+    std::vector<std::string> filename_vec_;
+    std::string item_type_;
+    std::string role_;
+    uint64_t samples_;
+    int64_t sampling_frequency_;
     size_t item_size_;
+    int32_t n_channels_;
+    uint32_t in_streams_;
+    uint32_t out_streams_;
+    bool repeat_;
     // Throttle control
     bool enable_throttle_control_;
 };
 
-#endif /* GNSS_SDR_MULTICHANNEL_FILE_SIGNAL_SOURCE_H_ */
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_MULTICHANNEL_FILE_SIGNAL_SOURCE_H

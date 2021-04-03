@@ -3,29 +3,15 @@
  * \brief This file implements tests for Serdes_Gnss_Synchro
  * \author Carles Fernandez-Prades, 2019. cfernandez(at)cttc.es
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
@@ -92,7 +78,8 @@ TEST(Protobuf, Works)
 
     // We can access like this:
     std::vector<Gnss_Synchro> vgs_read = serdes.readProtobuffer(obs);
-    Gnss_Synchro gs_read = vgs_read[0];
+    Gnss_Synchro gs_read{};
+    gs_read = vgs_read[0];
     uint32_t prn_read = gs_read.PRN;
     uint32_t prn_read2 = vgs_read[1].PRN;
     std::string system_read(1, gs_read.System);

@@ -3,36 +3,28 @@
  * \brief  Interface of the Monitor_Pvt class
  * \author
  *  Álvaro Cebrián Juan, 2019. acebrianjuan(at)gmail.com
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_MONITOR_PVT_H_
-#define GNSS_SDR_MONITOR_PVT_H_
+#ifndef GNSS_SDR_MONITOR_PVT_H
+#define GNSS_SDR_MONITOR_PVT_H
 
 #include <boost/serialization/nvp.hpp>
 #include <cstdint>
+
+/** \addtogroup PVT
+ * \{ */
+/** \addtogroup PVT_libs
+ * \{ */
+
 
 /*!
  * \brief This class contains parameters and outputs of the PVT block
@@ -89,6 +81,9 @@ public:
     double hdop;
     double vdop;
 
+    // User clock drift [ppm]
+    double user_clk_drift_ppm;
+
     /*!
      * \brief This member function serializes and restores
      * Monitor_Pvt objects from a byte stream.
@@ -134,7 +129,12 @@ public:
         ar& BOOST_SERIALIZATION_NVP(pdop);
         ar& BOOST_SERIALIZATION_NVP(hdop);
         ar& BOOST_SERIALIZATION_NVP(vdop);
+
+        ar& BOOST_SERIALIZATION_NVP(user_clk_drift_ppm);
     }
 };
 
-#endif /* GNSS_SDR_MONITOR_PVT_H_ */
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_MONITOR_PVT_H

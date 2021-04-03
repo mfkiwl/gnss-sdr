@@ -5,39 +5,26 @@
  *
  * The implementation of this block is a combination of various helpful
  * sources. The data format and command structure is taken from the
- * original Osmocom rtl_tcp_source_f (http://git.osmocom.org/gr-osmosdr).
+ * original Osmocom rtl_tcp_source_f (https://git.osmocom.org/gr-osmosdr).
  * The aynchronous reading code comes from the examples provides
  * by Boost.Asio and the bounded buffer producer-consumer solution is
- * taken from the Boost.CircularBuffer examples (http://boost.org/).
+ * taken from the Boost.CircularBuffer examples (https://www.boost.org/).
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #ifndef GNSS_SDR_RTL_TCP_SIGNAL_SOURCE_C_H
 #define GNSS_SDR_RTL_TCP_SIGNAL_SOURCE_C_H
 
+#include "gnss_block_interface.h"
 #include "rtl_tcp_dongle_info.h"
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
@@ -47,12 +34,20 @@
 #include <gnuradio/sync_block.h>
 #include <cstdint>
 #include <string>
+#include <vector>
+
+
+/** \addtogroup Signal_Source
+ * \{ */
+/** \addtogroup Signal_Source_gnuradio_blocks
+ * \{ */
+
 
 class rtl_tcp_signal_source_c;
 
-using rtl_tcp_signal_source_c_sptr = boost::shared_ptr<rtl_tcp_signal_source_c>;
+using rtl_tcp_signal_source_c_sptr = gnss_shared_ptr<rtl_tcp_signal_source_c>;
 
-#if BOOST_GREATER_1_65
+#if USE_BOOST_ASIO_IO_CONTEXT
 using b_io_context = boost::asio::io_context;
 #else
 using b_io_context = boost::asio::io_service;
@@ -83,8 +78,6 @@ public:
     void set_if_gain(int gain);
 
 private:
-    using buffer_type = boost::circular_buffer_space_optimized<float>;
-
     friend rtl_tcp_signal_source_c_sptr
     rtl_tcp_make_signal_source_c(const std::string &address,
         int16_t port,
@@ -93,24 +86,6 @@ private:
     rtl_tcp_signal_source_c(const std::string &address,
         int16_t port,
         bool flip_iq);
-
-    Rtl_Tcp_Dongle_Info info_;
-
-    // IO members
-    b_io_context io_context_;
-    boost::asio::ip::tcp::socket socket_;
-    std::vector<unsigned char> data_;
-    bool flip_iq_;
-
-    // producer-consumer helpers
-    boost::mutex mutex_;
-    boost::condition not_full_;
-    boost::condition not_empty_;
-    buffer_type buffer_;
-    size_t unread_;
-
-    // lookup for scaling data
-    boost::array<float, 0xff> lookup_{};
 
     // async read callback
     void handle_read(const boost::system::error_code &ec,
@@ -125,6 +100,27 @@ private:
     {
         return unread_ > 0 || io_context_.stopped();
     }
+
+    boost::circular_buffer_space_optimized<float> buffer_;
+    // producer-consumer helpers
+    boost::mutex mutex_;
+    boost::condition not_full_;
+    boost::condition not_empty_;
+
+    // lookup for scaling data
+    boost::array<float, 0xff> lookup_{};
+
+    // IO members
+    b_io_context io_context_;
+    boost::asio::ip::tcp::socket socket_;
+    std::vector<unsigned char> data_;
+
+    Rtl_Tcp_Dongle_Info info_;
+    size_t unread_;
+    bool flip_iq_;
 };
 
+
+/** \} */
+/** \} */
 #endif  // GNSS_SDR_RTL_TCP_SIGNAL_SOURCE_C_H

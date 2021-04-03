@@ -1,19 +1,8 @@
-# Copyright (C) 2011-2018 (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: 2011-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 if(DEFINED __INCLUDED_GNSSSDR_BUILD_TYPES_CMAKE)
     return()
@@ -47,8 +36,8 @@ list(APPEND AVAIL_BUILDTYPES
 # checks the value set in the cmake interface against the list of
 # known build types in AVAIL_BUILDTYPES. If the build type is found,
 # the function exits immediately. If nothing is found by the end of
-# checking all available build types, we exit with an error and list
-# the available build types.
+# checking all available build types, we exit with a soft warning, listing
+# the available build types, and setting the build type to None.
 ########################################################################
 function(GNSSSDR_CHECK_BUILD_TYPE settype)
   string(TOUPPER ${settype} _settype)
@@ -58,8 +47,10 @@ function(GNSSSDR_CHECK_BUILD_TYPE settype)
       return() # found it; exit cleanly
     endif()
   endforeach()
-  # Build type not found; error out
-  message(FATAL_ERROR "Build type '${settype}' not valid, must be one of: ${AVAIL_BUILDTYPES}")
+  # Build type not found; warn out at set it to None
+  message(STATUS "Warning: Build type '${settype}' not valid, must be one of: ${AVAIL_BUILDTYPES}.")
+  message(STATUS "Setting the build type to 'None'")
+  set(CMAKE_BUILD_TYPE "None" PARENT_SCOPE)
 endfunction()
 
 

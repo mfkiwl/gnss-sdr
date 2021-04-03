@@ -6,29 +6,15 @@
  * TODO: put here supl.c author info
  * class that implements a C++ interface to external Secure User Location Protocol (SUPL) client library.
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "gnss_sdr_supl_client.h"
@@ -190,9 +176,9 @@ int Gnss_Sdr_Supl_Client::get_assistance(int i_mcc, int i_mns, int i_lac, int i_
     else
         {
             /*
-	         * If supl_get_assist() fails, the connection remains open
-	         * and the memory/files are not released.
-	         */
+             * If supl_get_assist() fails, the connection remains open
+             * and the memory/files are not released.
+             */
             supl_close(&ctx);
         }
     return err;
@@ -310,11 +296,11 @@ void Gnss_Sdr_Supl_Client::read_supl_data()
                     gps_eph_iterator->second.i_satellite_PRN = e->prn;
                     // SV navigation model
                     gps_eph_iterator->second.i_code_on_L2 = e->bits;
-                    gps_eph_iterator->second.i_SV_accuracy = e->ura;  //User Range Accuracy (URA)
+                    gps_eph_iterator->second.i_SV_accuracy = e->ura;  // User Range Accuracy (URA)
                     gps_eph_iterator->second.i_SV_health = e->health;
                     gps_eph_iterator->second.d_IODC = static_cast<double>(e->IODC);
-                    //miss P flag (1 bit)
-                    //miss SF1 Reserved (87 bits)
+                    // miss P flag (1 bit)
+                    // miss SF1 Reserved (87 bits)
                     gps_eph_iterator->second.d_TGD = static_cast<double>(e->tgd) * T_GD_LSB;
                     gps_eph_iterator->second.d_Toc = static_cast<double>(e->toc) * T_OC_LSB;
                     gps_eph_iterator->second.d_A_f0 = static_cast<double>(e->AF0) * A_F0_LSB;
@@ -324,11 +310,11 @@ void Gnss_Sdr_Supl_Client::read_supl_data()
                     gps_eph_iterator->second.d_Delta_n = static_cast<double>(e->delta_n) * DELTA_N_LSB;
                     gps_eph_iterator->second.d_M_0 = static_cast<double>(e->M0) * M_0_LSB;
                     gps_eph_iterator->second.d_Cuc = static_cast<double>(e->Cuc) * C_UC_LSB;
-                    gps_eph_iterator->second.d_e_eccentricity = static_cast<double>(e->e) * E_LSB;
+                    gps_eph_iterator->second.d_e_eccentricity = static_cast<double>(e->e) * ECCENTRICITY_LSB;
                     gps_eph_iterator->second.d_Cus = static_cast<double>(e->Cus) * C_US_LSB;
                     gps_eph_iterator->second.d_sqrt_A = static_cast<double>(e->A_sqrt) * SQRT_A_LSB;
                     gps_eph_iterator->second.d_Toe = static_cast<double>(e->toe) * T_OE_LSB;
-                    //miss fit interval flag (1 bit)
+                    // miss fit interval flag (1 bit)
                     gps_eph_iterator->second.i_AODO = e->AODA * AODO_LSB;
                     gps_eph_iterator->second.d_Cic = static_cast<double>(e->Cic) * C_IC_LSB;
                     gps_eph_iterator->second.d_OMEGA0 = static_cast<double>(e->OMEGA_0) * OMEGA_0_LSB;
@@ -813,16 +799,16 @@ bool Gnss_Sdr_Supl_Client::load_gps_almanac_xml(const std::string& file_name)
 }
 
 
-bool Gnss_Sdr_Supl_Client::save_gps_almanac_xml(const std::string& file_name, std::map<int, Gps_Almanac> gps_almanac_map)
+bool Gnss_Sdr_Supl_Client::save_gps_almanac_xml(const std::string& file_name, std::map<int, Gps_Almanac> gps_almanac_map_to_save)
 {
-    if (gps_almanac_map.empty() == false)
+    if (gps_almanac_map_to_save.empty() == false)
         {
             std::ofstream ofs;
             try
                 {
                     ofs.open(file_name.c_str(), std::ofstream::trunc | std::ofstream::out);
                     boost::archive::xml_oarchive xml(ofs);
-                    xml << boost::serialization::make_nvp("GNSS-SDR_gps_almanac_map", gps_almanac_map);
+                    xml << boost::serialization::make_nvp("GNSS-SDR_gps_almanac_map", gps_almanac_map_to_save);
                     LOG(INFO) << "Saved GPS almanac data";
                 }
             catch (std::exception& e)
@@ -899,7 +885,7 @@ bool Gnss_Sdr_Supl_Client::read_gal_almanac_from_gsa(const std::string& file_nam
                 }
             catch (const std::exception& e)
                 {
-                    std::cerr << e.what() << std::endl;
+                    std::cerr << e.what() << '\n';
                 }
         }
     if (this->gal_almanac_map.empty())
@@ -910,16 +896,16 @@ bool Gnss_Sdr_Supl_Client::read_gal_almanac_from_gsa(const std::string& file_nam
 }
 
 
-bool Gnss_Sdr_Supl_Client::save_gal_almanac_xml(const std::string& file_name, std::map<int, Galileo_Almanac> gal_almanac_map)
+bool Gnss_Sdr_Supl_Client::save_gal_almanac_xml(const std::string& file_name, std::map<int, Galileo_Almanac> galileo_almanac_map_to_save)
 {
-    if (gal_almanac_map.empty() == false)
+    if (galileo_almanac_map_to_save.empty() == false)
         {
             std::ofstream ofs;
             try
                 {
                     ofs.open(file_name.c_str(), std::ofstream::trunc | std::ofstream::out);
                     boost::archive::xml_oarchive xml(ofs);
-                    xml << boost::serialization::make_nvp("GNSS-SDR_gal_almanac_map", gal_almanac_map);
+                    xml << boost::serialization::make_nvp("GNSS-SDR_gal_almanac_map", galileo_almanac_map_to_save);
                     LOG(INFO) << "Saved Galileo almanac data";
                 }
             catch (std::exception& e)

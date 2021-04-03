@@ -5,31 +5,18 @@
  * \author Antonio Ramos, 2017. antonio.ramos(at)cttc.es
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
+#include "gnss_sdr_make_unique.h"
 #include <armadillo>
 #include <gnuradio/fft/fft.h>
 #include <chrono>
@@ -49,8 +36,11 @@ TEST(FFTSpeedTest, ArmadilloVSGNURadioExecutionTime)
         for (unsigned int fft_size
              : fft_sizes) {
             d_fft_size = fft_size;
-            gr::fft::fft_complex* d_gr_fft;
-            d_gr_fft = new gr::fft::fft_complex(d_fft_size, true);
+#if GNURADIO_FFT_USES_TEMPLATES
+            auto d_gr_fft = std::make_unique<gr::fft::fft_complex_fwd>(d_fft_size);
+#else
+            auto d_gr_fft = std::make_unique<gr::fft::fft_complex>(d_fft_size, true);
+#endif
             arma::arma_rng::set_seed_random();
             arma::cx_fvec d_arma_fft = arma::cx_fvec(d_fft_size).randn() + gr_complex(0.0, 1.0) * arma::cx_fvec(d_fft_size).randn();
             arma::cx_fvec d_arma_fft_result(d_fft_size);
@@ -64,8 +54,7 @@ TEST(FFTSpeedTest, ArmadilloVSGNURadioExecutionTime)
             end = std::chrono::system_clock::now();
             elapsed_seconds = end - start;
             d_execution_time = elapsed_seconds.count() / static_cast<double>(FLAGS_fft_speed_iterations_test);
-            std::cout << "GNU Radio FFT execution time for length = " << d_fft_size << " : " << d_execution_time * 1e6 << " [us]" << std::endl;
-            delete d_gr_fft;
+            std::cout << "GNU Radio FFT execution time for length = " << d_fft_size << " : " << d_execution_time * 1e6 << " [us]\n";
 
             start = std::chrono::system_clock::now();
             for (int k = 0; k < FLAGS_fft_speed_iterations_test; k++)
@@ -75,6 +64,6 @@ TEST(FFTSpeedTest, ArmadilloVSGNURadioExecutionTime)
             end = std::chrono::system_clock::now();
             elapsed_seconds = end - start;
             d_execution_time = elapsed_seconds.count() / static_cast<double>(FLAGS_fft_speed_iterations_test);
-            std::cout << "Armadillo FFT execution time for length = " << d_fft_size << " : " << d_execution_time * 1e6 << " [us]" << std::endl;
+            std::cout << "Armadillo FFT execution time for length = " << d_fft_size << " : " << d_execution_time * 1e6 << " [us]\n";
         });
 }

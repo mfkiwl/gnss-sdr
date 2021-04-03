@@ -1,19 +1,8 @@
-# Copyright (C) 2011-2019 (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: 2011-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 #
 # Provides the following imported target:
@@ -27,28 +16,50 @@ if(NOT COMMAND feature_summary)
     include(FeatureSummary)
 endif()
 
-set(PKG_CONFIG_USE_CMAKE_PREFIX_PATH TRUE)
-include(FindPkgConfig)
+if(NOT PKG_CONFIG_FOUND)
+    include(FindPkgConfig)
+endif()
+
 pkg_check_modules(PC_VOLK volk QUIET)
+
+if(NOT VOLK_ROOT)
+    set(VOLK_ROOT_USER_PROVIDED /usr)
+else()
+    set(VOLK_ROOT_USER_PROVIDED ${VOLK_ROOT})
+endif()
+if(DEFINED ENV{VOLK_ROOT})
+    set(VOLK_ROOT_USER_PROVIDED
+        ${VOLK_ROOT_USER_PROVIDED}
+        $ENV{VOLK_ROOT}
+    )
+endif()
+if(DEFINED ENV{VOLK_DIR})
+    set(VOLK_ROOT_USER_PROVIDED
+        ${VOLK_ROOT_USER_PROVIDED}
+        $ENV{VOLK_DIR}
+    )
+endif()
+set(VOLK_ROOT_USER_PROVIDED
+    ${VOLK_ROOT_USER_PROVIDED}
+    ${CMAKE_INSTALL_PREFIX}
+)
 
 find_path(VOLK_INCLUDE_DIRS
     NAMES volk/volk.h
-    HINTS $ENV{VOLK_DIR}/include
-          ${PC_VOLK_INCLUDEDIR}
-    PATHS /usr/local/include
+    HINTS ${PC_VOLK_INCLUDEDIR}
+    PATHS ${VOLK_ROOT_USER_PROVIDED}/include
           /usr/include
-          ${CMAKE_INSTALL_PREFIX}/include
-          ${VOLK_ROOT}/include
-          $ENV{VOLK_ROOT}/include
+          /usr/local/include
+          /opt/local/include
 )
 
 find_library(VOLK_LIBRARIES
     NAMES volk
-    HINTS $ENV{VOLK_DIR}/lib
-          ${PC_VOLK_LIBDIR}
-    PATHS /usr/local/lib
-          /usr/local/lib64
+    HINTS ${PC_VOLK_LIBDIR}
+    PATHS ${VOLK_ROOT_USER_PROVIDED}/lib
+          ${VOLK_ROOT_USER_PROVIDED}/lib64
           /usr/lib
+          /usr/lib64
           /usr/lib/x86_64-linux-gnu
           /usr/lib/i386-linux-gnu
           /usr/lib/arm-linux-gnueabihf
@@ -64,7 +75,6 @@ find_library(VOLK_LIBRARIES
           /usr/lib/hppa-linux-gnu
           /usr/lib/s390x-linux-gnu
           /usr/lib/i386-gnu
-          /usr/lib/hppa-linux-gnu
           /usr/lib/x86_64-kfreebsd-gnu
           /usr/lib/i386-kfreebsd-gnu
           /usr/lib/m68k-linux-gnu
@@ -72,12 +82,10 @@ find_library(VOLK_LIBRARIES
           /usr/lib/sparc64-linux-gnu
           /usr/lib/x86_64-linux-gnux32
           /usr/lib/alpha-linux-gnu
-          /usr/lib64
-          ${CMAKE_INSTALL_PREFIX}/lib
-          ${VOLK_ROOT}/lib
-          $ENV{VOLK_ROOT}/lib
-          ${VOLK_ROOT}/lib64
-          $ENV{VOLK_ROOT}/lib64
+          /usr/lib/riscv64-linux-gnu
+          /usr/local/lib
+          /usr/local/lib64
+          /opt/local/lib
 )
 
 include(FindPackageHandleStandardArgs)
@@ -93,6 +101,7 @@ if(NOT VOLK_VERSION)
     list(GET VOLK_LIBRARIES 0 FIRST_DIR)
     get_filename_component(VOLK_LIB_DIR ${FIRST_DIR} DIRECTORY)
     if(EXISTS ${VOLK_LIB_DIR}/cmake/volk/VolkConfigVersion.cmake)
+        set(PACKAGE_FIND_VERSION_MAJOR 0)
         include(${VOLK_LIB_DIR}/cmake/volk/VolkConfigVersion.cmake)
     endif()
     if(PACKAGE_VERSION)
@@ -102,7 +111,7 @@ if(NOT VOLK_VERSION)
 endif()
 
 set_package_properties(VOLK PROPERTIES
-    URL "http://libvolk.org"
+    URL "https://www.libvolk.org"
 )
 
 if(VOLK_FOUND AND VOLK_VERSION)
@@ -117,12 +126,22 @@ endif()
 
 mark_as_advanced(VOLK_LIBRARIES VOLK_INCLUDE_DIRS VOLK_VERSION)
 
+if(NOT ORC_FOUND)
+    find_package(ORC QUIET)
+endif()
+if(ORC_LIBRARIES_STATIC)
+    set(VOLK_LINK_LIBRARIES ${VOLK_LIBRARIES} ${ORC_LIBRARIES_STATIC})
+    set(VOLK_INCLUDE_DIRS ${VOLK_INCLUDE_DIRS} ${ORC_INCLUDE_DIRS})
+else()
+    set(VOLK_LINK_LIBRARIES ${VOLK_LIBRARIES})
+endif()
+
 if(VOLK_FOUND AND NOT TARGET Volk::volk)
     add_library(Volk::volk SHARED IMPORTED)
     set_target_properties(Volk::volk PROPERTIES
         IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
         IMPORTED_LOCATION "${VOLK_LIBRARIES}"
         INTERFACE_INCLUDE_DIRECTORIES "${VOLK_INCLUDE_DIRS}"
-        INTERFACE_LINK_LIBRARIES "${VOLK_LIBRARIES}"
+        INTERFACE_LINK_LIBRARIES "${VOLK_LINK_LIBRARIES}"
     )
 endif()

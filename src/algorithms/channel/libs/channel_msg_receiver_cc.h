@@ -3,29 +3,15 @@
  * \brief GNU Radio block that receives asynchronous channel messages from acquisition and tracking blocks
  * \author Javier Arribas, 2016. jarribas(at)cttc.es
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #ifndef GNSS_SDR_CHANNEL_MSG_RECEIVER_CC_H
@@ -36,9 +22,15 @@
 #include <pmt/pmt.h>
 #include <memory>
 
+/** \addtogroup Channel
+ * \{ */
+/** \addtogroup Channel_libs
+ * \{ */
+
+
 class channel_msg_receiver_cc;
 
-using channel_msg_receiver_cc_sptr = boost::shared_ptr<channel_msg_receiver_cc>;
+using channel_msg_receiver_cc_sptr = gnss_shared_ptr<channel_msg_receiver_cc>;
 
 channel_msg_receiver_cc_sptr channel_msg_receiver_make_cc(std::shared_ptr<ChannelFsm> channel_fsm, bool repeat);
 
@@ -53,9 +45,12 @@ public:
 private:
     friend channel_msg_receiver_cc_sptr channel_msg_receiver_make_cc(std::shared_ptr<ChannelFsm> channel_fsm, bool repeat);
     channel_msg_receiver_cc(std::shared_ptr<ChannelFsm> channel_fsm, bool repeat);
+    void msg_handler_channel_events(const pmt::pmt_t& msg);
     std::shared_ptr<ChannelFsm> d_channel_fsm;
     bool d_repeat;  // todo: change FSM to include repeat value
-    void msg_handler_events(pmt::pmt_t msg);
 };
 
-#endif
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_CHANNEL_MSG_RECEIVER_CC_H

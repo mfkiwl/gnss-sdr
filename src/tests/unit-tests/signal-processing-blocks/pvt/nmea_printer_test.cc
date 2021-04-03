@@ -3,29 +3,15 @@
  * \brief Implements Unit Tests for the Nmea_Printer class.
  * \author Carles Fernandez-Prades, 2017. cfernandez(at)cttc.es
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
@@ -35,6 +21,7 @@
 #include <fstream>
 #include <string>
 
+// clang-format off
 #if HAS_STD_FILESYSTEM
 #include <system_error>
 namespace errorlib = std;
@@ -53,6 +40,7 @@ namespace fs = std::filesystem;
 namespace fs = boost::filesystem;
 namespace errorlib = boost::system;
 #endif
+// clang-format on
 
 class NmeaPrinterTest : public ::testing::Test
 {
@@ -174,7 +162,7 @@ void NmeaPrinterTest::conf()
 TEST_F(NmeaPrinterTest, PrintLine)
 {
     std::string filename("nmea_test.nmea");
-    std::shared_ptr<Rtklib_Solver> pvt_solution = std::make_shared<Rtklib_Solver>(12, "filename", false, false, rtk);
+    std::shared_ptr<Rtklib_Solver> pvt_solution = std::make_shared<Rtklib_Solver>(rtk, 12, "filename", false, false);
 
     boost::posix_time::ptime pt(boost::gregorian::date(1994, boost::date_time::Nov, 19),
         boost::posix_time::hours(22) + boost::posix_time::minutes(54) + boost::posix_time::seconds(46));
@@ -183,8 +171,8 @@ TEST_F(NmeaPrinterTest, PrintLine)
     gtime.time = tim;
     gtime.sec = 0.0;
 
-    pvt_solution->pvt_sol.rr[0] = -2282104.0;  //49.27416667;
-    pvt_solution->pvt_sol.rr[1] = -3489369.0;  //-123.18533333;
+    pvt_solution->pvt_sol.rr[0] = -2282104.0;  // 49.27416667;
+    pvt_solution->pvt_sol.rr[1] = -3489369.0;  // -123.18533333;
     pvt_solution->pvt_sol.rr[2] = 4810507.0;   // 0
     pvt_solution->pvt_sol.rr[3] = 0.0;
     pvt_solution->pvt_sol.rr[4] = 0.0;
@@ -195,7 +183,7 @@ TEST_F(NmeaPrinterTest, PrintLine)
     bool flag_nmea_output_file = true;
     ASSERT_NO_THROW({
         std::shared_ptr<Nmea_Printer> nmea_printer = std::make_shared<Nmea_Printer>(filename, flag_nmea_output_file, false, "");
-        nmea_printer->Print_Nmea_Line(pvt_solution, false);
+        nmea_printer->Print_Nmea_Line(pvt_solution.get(), false);
     }) << "Failure printing NMEA messages.";
 
     std::ifstream test_file(filename);

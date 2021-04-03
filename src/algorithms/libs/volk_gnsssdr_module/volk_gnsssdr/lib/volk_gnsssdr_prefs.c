@@ -1,21 +1,13 @@
-/* Copyright (C) 2010-2019 (see AUTHORS file for a list of contributors)
- *
+/*
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2019 (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +21,7 @@
 #include <volk_gnsssdr/volk_gnsssdr_prefs.h>
 
 
-void volk_gnsssdr_get_config_path(char *path)
+void volk_gnsssdr_get_config_path(char *path, bool read)
 {
     if (!path) return;
     const char *suffix = "/.volk_gnsssdr/volk_gnsssdr_config";
@@ -42,7 +34,10 @@ void volk_gnsssdr_get_config_path(char *path)
         {
             strncpy(path, home, 512);
             strcat(path, suffix2);
-            return;
+            if (!read || (access(path, F_OK) != -1))
+                {
+                    return;
+                }
         }
 
     // check for user-local config file
@@ -51,7 +46,7 @@ void volk_gnsssdr_get_config_path(char *path)
         {
             strncpy(path, home, 512);
             strcat(path, suffix);
-            if (access(path, F_OK) != -1)
+            if (!read || (access(path, F_OK) != -1))
                 {
                     return;
                 }
@@ -63,7 +58,7 @@ void volk_gnsssdr_get_config_path(char *path)
         {
             strncpy(path, home, 512);
             strcat(path, suffix);
-            if (access(path, F_OK) != -1)
+            if (!read || (access(path, F_OK) != -1))
                 {
                     return;
                 }
@@ -99,7 +94,7 @@ size_t volk_gnsssdr_load_preferences(volk_gnsssdr_arch_pref_t **prefs_res)
     volk_gnsssdr_arch_pref_t *prefs = NULL;
 
     // get the config path
-    volk_gnsssdr_get_config_path(path);
+    volk_gnsssdr_get_config_path(path, true);
     if (!path[0]) return n_arch_prefs;  //no prefs found
     config_file = fopen(path, "r");
     if (!config_file) return n_arch_prefs;  //no prefs found
@@ -107,7 +102,13 @@ size_t volk_gnsssdr_load_preferences(volk_gnsssdr_arch_pref_t **prefs_res)
     // reset the file pointer and write the prefs into volk_gnsssdr_arch_prefs
     while (fgets(line, sizeof(line), config_file) != NULL)
         {
-            prefs = (volk_gnsssdr_arch_pref_t *)realloc(prefs, (n_arch_prefs + 1) * sizeof(*prefs));
+            void *new_prefs = realloc(prefs, (n_arch_prefs + 1) * sizeof(*prefs));
+            if (!new_prefs)
+                {
+                    printf("volk_gnsssdr_load_preferences: bad malloc\n");
+                    break;
+                }
+            prefs = (volk_gnsssdr_arch_pref_t *)new_prefs;
             volk_gnsssdr_arch_pref_t *p = prefs + n_arch_prefs;
             if (sscanf(line, "%s %s %s", p->name, p->impl_a, p->impl_u) == 3 && !strncmp(p->name, "volk_gnsssdr_", 5))
                 {

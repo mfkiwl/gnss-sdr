@@ -1,8 +1,12 @@
 /*!
  * \file cnav_msg.h
+ * \brief Utilities for CNAV message manipulation of the libswiftnav library
  * \author Valeri Atamaniouk <valeri@swift-nav.com>
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
+ * This file is part of GNSS-SDR.
+ *
  * This file was originally borrowed from libswiftnav
  * <https://github.com/swift-nav/libswiftnav>,
  * a portable C library implementing GNSS related functions and algorithms,
@@ -11,27 +15,13 @@
  * Copyright (C) 2016 Swift Navigation Inc.
  * Contact: Valeri Atamaniouk <valeri@swift-nav.com>
  *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
+ * SPDX-License-Identifier: LGPL-3.0-only
  *
- * This file is part of GNSS-SDR.
- *
- * This file is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation, version 3.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Lesser Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 
-#ifndef GNSS_SDR_CNAV_MSG_H_
-#define GNSS_SDR_CNAV_MSG_H_
+#ifndef GNSS_SDR_CNAV_MSG_H
+#define GNSS_SDR_CNAV_MSG_H
 
 #include "fec.h"
 #include "swift_common.h"
@@ -40,10 +30,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-/** \addtogroup GPS_L2
+/** \addtogroup Telemetry_Decoder
  * \{ */
-/** \addtogroup gps_cnav_decoder
+/** \addtogroup Telemetry_Decoder_libswiftcnav
  * \{ */
+
 
 /** Size of the Viterbi decoder history. */
 #define GPS_L2_V27_HISTORY_LENGTH_BITS 64
@@ -116,5 +107,4 @@ bool cnav_msg_decoder_add_symbol(cnav_msg_decoder_t *dec,
 
 /** \} */
 /** \} */
-
 #endif /* GNSS_SDR_CNAV_MSG_H_ */

@@ -3,7 +3,10 @@
  * \author Phil Karn, KA9Q
  * \brief K=7 r=1/2 Viterbi decoder in portable C
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
+ * This file is part of GNSS-SDR.
+ *
  * This file was originally borrowed from libswiftnav
  * <https://github.com/swift-nav/libswiftnav>,
  * a portable C library implementing GNSS related functions and algorithms,
@@ -11,22 +14,8 @@
  *
  * Copyright (C) 2004, Phil Karn, KA9Q
  *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
+ * SPDX-License-Identifier: LGPL-3.0-only
  *
- * This file is part of GNSS-SDR.
- *
- * This file is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation, version 3.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Lesser Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 
@@ -95,7 +84,10 @@ void v27_init(v27_t *v, v27_decision_t *decisions, unsigned int decisions_count,
 /* C-language butterfly */
 #define BFLY(i)                                                     \
     {                                                               \
-        unsigned int metric, m0, m1, decision;                      \
+        unsigned int metric;                                        \
+        unsigned int m0;                                            \
+        unsigned int m1;                                            \
+        unsigned int decision;                                      \
         metric = (v->poly->c0[i] ^ sym0) + (v->poly->c1[i] ^ sym1); \
         m0 = v->old_metrics[i] + metric;                            \
         m1 = v->old_metrics[(i) + 32] + (510 - metric);             \
@@ -118,9 +110,9 @@ void v27_init(v27_t *v, v27_decision_t *decisions, unsigned int decisions_count,
  */
 void v27_update(v27_t *v, const unsigned char *syms, int nbits)
 {
-    unsigned char sym0, sym1;
+    unsigned char sym0;
+    unsigned char sym1;
     unsigned int *tmp;
-    int normalize = 0;
 
     while (nbits--)
         {
@@ -181,8 +173,6 @@ void v27_update(v27_t *v, const unsigned char *syms, int nbits)
                         {
                             v->new_metrics[i] -= minmetric;
                         }
-
-                    normalize += minmetric;
                 }
 
             /* Advance decision index */

@@ -4,37 +4,23 @@
  * \author Carles Fernandez-Prades, 2014. cfernandez(at)cttc.es
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "GPS_L1_CA.h"
-#include "gnss_signal_processing.h"
+#include "gnss_signal_replica.h"
 #include <armadillo>
-#include <gsl/gsl>
 #include <chrono>
 #include <complex>
+
 
 DEFINE_int32(size_carrier_test, 100000, "Size of the arrays used for complex carrier testing");
 
@@ -46,7 +32,7 @@ TEST(ComplexCarrierTest, StandardComplexImplementation)
     auto* output = new std::complex<float>[FLAGS_size_carrier_test];
     const double _f = 2000.0;
     const double _fs = 2000000.0;
-    const auto phase_step = static_cast<double>((GPS_TWO_PI * _f) / _fs);
+    const auto phase_step = static_cast<double>((TWO_PI * _f) / _fs);
     double phase = 0.0;
 
     std::chrono::time_point<std::chrono::system_clock> start, end;
@@ -62,7 +48,7 @@ TEST(ComplexCarrierTest, StandardComplexImplementation)
     std::chrono::duration<double> elapsed_seconds = end - start;
     std::cout << "A " << FLAGS_size_carrier_test
               << "-length complex carrier in standard C++ (dynamic allocation) generated in " << elapsed_seconds.count() * 1e6
-              << " microseconds" << std::endl;
+              << " microseconds\n";
 
     std::complex<float> expected(1, 0);
     std::vector<std::complex<float>> mag(FLAGS_size_carrier_test);
@@ -86,7 +72,7 @@ TEST(ComplexCarrierTest, C11ComplexImplementation)
     std::vector<std::complex<float>> output(FLAGS_size_carrier_test);
     const double _f = 2000.0;
     const double _fs = 2000000.0;
-    const auto phase_step = static_cast<double>((GPS_TWO_PI * _f) / _fs);
+    const auto phase_step = static_cast<double>((TWO_PI * _f) / _fs);
     double phase = 0.0;
 
     std::chrono::time_point<std::chrono::system_clock> start, end;
@@ -101,7 +87,7 @@ TEST(ComplexCarrierTest, C11ComplexImplementation)
     std::chrono::duration<double> elapsed_seconds = end - start;
     std::cout << "A " << FLAGS_size_carrier_test
               << "-length complex carrier in standard C++ (declaration) generated in " << elapsed_seconds.count() * 1e6
-              << " microseconds" << std::endl;
+              << " microseconds\n";
     ASSERT_LE(0, elapsed_seconds.count() * 1e6);
     std::complex<float> expected(1, 0);
     std::vector<std::complex<float>> mag(FLAGS_size_carrier_test);
@@ -115,19 +101,20 @@ TEST(ComplexCarrierTest, C11ComplexImplementation)
 
 TEST(ComplexCarrierTest, OwnComplexImplementation)
 {
-    auto* output = new std::complex<float>[FLAGS_size_carrier_test];
+    std::vector<std::complex<float>> output(FLAGS_size_carrier_test);
+
     double _f = 2000.0;
     double _fs = 2000000.0;
     std::chrono::time_point<std::chrono::system_clock> start, end;
     start = std::chrono::system_clock::now();
 
-    complex_exp_gen(gsl::span<std::complex<float>>(output, static_cast<unsigned int>(FLAGS_size_carrier_test)), _f, _fs);
+    complex_exp_gen(output, _f, _fs);
 
     end = std::chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds = end - start;
     std::cout << "A " << FLAGS_size_carrier_test
               << "-length complex carrier using fixed point generated in " << elapsed_seconds.count() * 1e6
-              << " microseconds" << std::endl;
+              << " microseconds\n";
 
     std::complex<float> expected(1, 0);
     std::vector<std::complex<float>> mag(FLAGS_size_carrier_test);
@@ -135,7 +122,7 @@ TEST(ComplexCarrierTest, OwnComplexImplementation)
         {
             mag[i] = output[i] * std::conj(output[i]);
         }
-    delete[] output;
+
     for (int i = 0; i < FLAGS_size_carrier_test; i++)
         {
             ASSERT_NEAR(std::norm(expected), std::norm(mag[i]), 0.0001);

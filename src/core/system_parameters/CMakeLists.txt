@@ -1,20 +1,8 @@
-# Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
-#
+# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 
 set(SYSTEM_PARAMETERS_SOURCES
@@ -22,31 +10,18 @@ set(SYSTEM_PARAMETERS_SOURCES
     gnss_signal.cc
     gps_navigation_message.cc
     gps_ephemeris.cc
-    gps_iono.cc
-    gps_almanac.cc
-    gps_utc_model.cc
-    gps_acq_assist.cc
-    agnss_ref_time.cc
-    agnss_ref_location.cc
     galileo_utc_model.cc
     galileo_ephemeris.cc
-    galileo_almanac.cc
     galileo_almanac_helper.cc
-    galileo_iono.cc
-    galileo_navigation_message.cc
+    galileo_cnav_message.cc
+    galileo_fnav_message.cc
+    galileo_inav_message.cc
     beidou_dnav_navigation_message.cc
     beidou_dnav_ephemeris.cc
-    beidou_dnav_iono.cc
-    beidou_dnav_almanac.cc
-    beidou_dnav_utc_model.cc
     sbas_ephemeris.cc
-    galileo_fnav_message.cc
     gps_cnav_ephemeris.cc
     gps_cnav_navigation_message.cc
-    gps_cnav_iono.cc
-    gps_cnav_utc_model.cc
     glonass_gnav_ephemeris.cc
-    glonass_gnav_almanac.cc
     glonass_gnav_utc_model.cc
     glonass_gnav_navigation_message.cc
 )
@@ -66,10 +41,15 @@ set(SYSTEM_PARAMETERS_HEADERS
     galileo_ephemeris.h
     galileo_almanac.h
     galileo_almanac_helper.h
+    Galileo_CNAV.h
+    Galileo_FNAV.h
+    Galileo_INAV.h
     galileo_iono.h
-    galileo_navigation_message.h
-    sbas_ephemeris.h
+    galileo_cnav_message.h
     galileo_fnav_message.h
+    galileo_has_data.h
+    galileo_inav_message.h
+    sbas_ephemeris.h
     gps_cnav_ephemeris.h
     gps_cnav_navigation_message.h
     gps_cnav_iono.h
@@ -86,6 +66,8 @@ set(SYSTEM_PARAMETERS_HEADERS
     display.h
     Galileo_E1.h
     Galileo_E5a.h
+    Galileo_E5b.h
+    Galileo_E6.h
     GLONASS_L1_L2_CA.h
     gnss_frequencies.h
     gnss_obs_codes.h
@@ -103,20 +85,29 @@ set(SYSTEM_PARAMETERS_HEADERS
 list(SORT SYSTEM_PARAMETERS_HEADERS)
 list(SORT SYSTEM_PARAMETERS_SOURCES)
 
-source_group(Headers FILES ${SYSTEM_PARAMETERS_HEADERS})
-
-add_library(core_system_parameters
-    ${SYSTEM_PARAMETERS_SOURCES}
-    ${SYSTEM_PARAMETERS_HEADERS}
-)
+if(USE_CMAKE_TARGET_SOURCES)
+    add_library(core_system_parameters STATIC)
+    target_sources(core_system_parameters
+        PRIVATE
+            ${SYSTEM_PARAMETERS_SOURCES}
+        PUBLIC
+            ${SYSTEM_PARAMETERS_HEADERS}
+    )
+else()
+    source_group(Headers FILES ${SYSTEM_PARAMETERS_HEADERS})
+    add_library(core_system_parameters
+        ${SYSTEM_PARAMETERS_SOURCES}
+        ${SYSTEM_PARAMETERS_HEADERS}
+    )
+endif()
 
 target_link_libraries(core_system_parameters
     PUBLIC
         Boost::date_time
         Boost::serialization
-        Glog::glog
     PRIVATE
         Gflags::gflags
+        Glog::glog
 )
 
 if(ENABLE_CLANG_TIDY)

@@ -1,45 +1,40 @@
 /*!
- * \file channel_msg_receiver_cc.h
- * \brief GNU Radio block that receives asynchronous channel messages from acquisition and tracking blocks
+ * \file channel_status_msg_receiver.h
+ * \brief GNU Radio block that receives asynchronous channel messages from
+ * acquisition and tracking blocks
  * \author Javier Arribas, 2019. jarribas(at)cttc.es
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #ifndef GNSS_SDR_CHANNEL_STATUS_MSG_RECEIVER_CC_H
 #define GNSS_SDR_CHANNEL_STATUS_MSG_RECEIVER_CC_H
 
+#include "gnss_block_interface.h"
 #include "gnss_synchro.h"
 #include "monitor_pvt.h"
 #include <gnuradio/block.h>
 #include <pmt/pmt.h>
+#include <map>
 #include <memory>
+
+/** \addtogroup Core
+ * \{ */
+/** \addtogroup Core_Receiver_Library
+ * \{ */
+
 
 class channel_status_msg_receiver;
 
-using channel_status_msg_receiver_sptr = boost::shared_ptr<channel_status_msg_receiver>;
+using channel_status_msg_receiver_sptr = gnss_shared_ptr<channel_status_msg_receiver>;
 
 channel_status_msg_receiver_sptr channel_status_msg_receiver_make();
 
@@ -64,9 +59,12 @@ public:
 private:
     friend channel_status_msg_receiver_sptr channel_status_msg_receiver_make();
     channel_status_msg_receiver();
-    std::map<int, std::shared_ptr<Gnss_Synchro>> d_channel_status_map;
+    void msg_handler_channel_status(const pmt::pmt_t& msg);
     Monitor_Pvt d_pvt_status{};
-    void msg_handler_events(const pmt::pmt_t& msg);
+    std::map<int, std::shared_ptr<Gnss_Synchro>> d_channel_status_map;
 };
 
-#endif
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_CHANNEL_STATUS_MSG_RECEIVER_CC_H

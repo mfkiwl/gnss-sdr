@@ -5,46 +5,39 @@
  *        gr_complex input and gr_complex output
  * \author Luis Esteve, 2011. luis(at)epsilon-formacion.com
  *
- * This block takes in a signal stream and performs direct
- * resampling.
- * The theory behind this block can be found in Chapter 7.5 of
- * the following book.
+ * This block takes in a signal stream and performs direct resampling.
+ * The theory behind this block can be found in Chapter 7.5 of the following
+ * book:
+ * R. Lyons, Undestanding Digital Signal Processing, 3rd ed., Pearson Education,
+ * 2010.
  *
+ * -----------------------------------------------------------------------------
  *
- * -------------------------------------------------------------------------
- *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #ifndef GNSS_SDR_DIRECT_RESAMPLER_CONDITIONER_CC_H
 #define GNSS_SDR_DIRECT_RESAMPLER_CONDITIONER_CC_H
 
+#include "gnss_block_interface.h"
 #include <gnuradio/block.h>
-#include <volk/volk.h>
+#include <cstdint>
+
+/** \addtogroup Resampler
+ * \{ */
+/** \addtogroup Resampler_gnuradio_blocks resampler_gr_blocks
+ * \{ */
+
 
 class direct_resampler_conditioner_cc;
 
-using direct_resampler_conditioner_cc_sptr = boost::shared_ptr<direct_resampler_conditioner_cc>;
+using direct_resampler_conditioner_cc_sptr = gnss_shared_ptr<direct_resampler_conditioner_cc>;
 
 direct_resampler_conditioner_cc_sptr direct_resampler_make_conditioner_cc(
     double sample_freq_in,
@@ -91,4 +84,7 @@ private:
     uint32_t d_phase_step;
 };
 
-#endif /* GNSS_SDR_DIRECT_RESAMPLER_CONDITIONER_CC_H */
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_DIRECT_RESAMPLER_CONDITIONER_CC_H

@@ -4,37 +4,29 @@
  * Coded Modulation Library by Matthew C. Valenti
  * \author Daniel Fehr 2013. daniel.co(at)bluewin.ch
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_VITERBI_DECODER_H_
-#define GNSS_SDR_VITERBI_DECODER_H_
+#ifndef GNSS_SDR_VITERBI_DECODER_H
+#define GNSS_SDR_VITERBI_DECODER_H
 
 #include <cstddef>  // for size_t
 #include <deque>
 #include <vector>
+
+/** \addtogroup Telemetry_Decoder
+ * \{ */
+/** \addtogroup Telemetry_Decoder_libs telemetry_decoder_libs
+ * \{ */
+
 
 /*!
  * \brief Class that implements a Viterbi decoder
@@ -69,46 +61,21 @@ private:
         Prev& operator=(const Prev& other);
         ~Prev();
 
-        int get_anchestor_state_of_current_state(int current_state);
-        int get_bit_of_current_state(int current_state);
-        float get_metric_of_current_state(int current_state);
-        int get_t();
+        int get_anchestor_state_of_current_state(int current_state) const;
+        int get_bit_of_current_state(int current_state) const;
+        float get_metric_of_current_state(int current_state) const;
+        int get_t() const;
         void set_current_state_as_ancestor_of_next_state(int next_state, int current_state);
         void set_decoded_bit_for_next_state(int next_state, int bit);
         void set_survivor_branch_metric_of_next_state(int next_state, float metric);
 
     private:
+        std::vector<float> v_metric;
+        std::vector<int> state;
+        std::vector<int> v_bit;
         int t;
-        int* state;
-        int* bit;
-        float* metric;
-        int* refcount;
+        int refcount;
     };
-
-    // code properties
-    int d_KK;
-    int d_nn;
-
-    // derived code properties
-    int d_mm;
-    int d_states;
-    int d_number_symbols;
-
-    // trellis definition
-    std::vector<int> d_out0;
-    std::vector<int> d_state0;
-    std::vector<int> d_out1;
-    std::vector<int> d_state1;
-
-    // trellis state
-    std::vector<float> d_pm_t;
-    std::deque<Prev> d_trellis_paths;
-    std::vector<float> d_metric_c;  /* Set of all possible branch metrics */
-    std::vector<float> d_rec_array; /* Received values for one trellis section */
-    bool d_trellis_state_is_initialised;
-
-    // measures
-    float d_indicator_metric;
 
     // operations on the trellis (change decoder state)
     void init_trellis_state();
@@ -123,6 +90,34 @@ private:
     void nsc_transit(int output_p[], int trans_p[], int input, const int g[], int KK, int nn);
     int nsc_enc_bit(int state_out_p[], int input, int state_in, const int g[], int KK, int nn);
     int parity_counter(int symbol, int length);
+
+    // trellis state
+    std::deque<Prev> d_trellis_paths;
+    std::vector<float> d_pm_t;
+    std::vector<float> d_metric_c;  /* Set of all possible branch metrics */
+    std::vector<float> d_rec_array; /* Received values for one trellis section */
+
+    // trellis definition
+    std::vector<int> d_out0;
+    std::vector<int> d_state0;
+    std::vector<int> d_out1;
+    std::vector<int> d_state1;
+
+    // measures
+    float d_indicator_metric;
+
+    // code properties
+    int d_KK;
+    int d_nn;
+
+    // derived code properties
+    int d_mm;
+    int d_states;
+    int d_number_symbols;
+    bool d_trellis_state_is_initialised;
 };
 
-#endif /* GNSS_SDR_VITERBI_DECODER_H_ */
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_VITERBI_DECODER_H

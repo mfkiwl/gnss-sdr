@@ -3,53 +3,38 @@
  * \brief Adapts an 8-bits sample stream (IF) to a short int stream (IF)
  * \author Carles Fernandez Prades, cfernandez(at)cttc.es
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "byte_to_short.h"
 #include "configuration_interface.h"
 #include <glog/logging.h>
-#include <cstdint>
 #include <utility>
 
 
-ByteToShort::ByteToShort(ConfigurationInterface* configuration, std::string role,
-    unsigned int in_streams, unsigned int out_streams) : config_(configuration), role_(std::move(role)), in_streams_(in_streams), out_streams_(out_streams)
+ByteToShort::ByteToShort(const ConfigurationInterface* configuration, std::string role,
+    unsigned int in_streams, unsigned int out_streams) : role_(std::move(role)), in_streams_(in_streams), out_streams_(out_streams)
 {
-    std::string default_input_item_type = "byte";
-    std::string default_output_item_type = "short";
-    std::string default_dump_filename = "../data/input_filter.dat";
+    const std::string default_input_item_type("byte");
+    const std::string default_output_item_type("short");
+    const std::string default_dump_filename("../data/input_filter.dat");
 
     DLOG(INFO) << "role " << role_;
 
-    input_item_type_ = config_->property(role_ + ".input_item_type", default_input_item_type);
+    input_item_type_ = configuration->property(role_ + ".input_item_type", default_input_item_type);
 
-    dump_ = config_->property(role_ + ".dump", false);
-    dump_filename_ = config_->property(role_ + ".dump_filename", default_dump_filename);
+    dump_ = configuration->property(role_ + ".dump", false);
+    dump_filename_ = configuration->property(role_ + ".dump_filename", default_dump_filename);
 
-    size_t item_size = sizeof(int16_t);
+    const size_t item_size = sizeof(int16_t);
 
     gr_char_to_short_ = gr::blocks::char_to_short::make();
 

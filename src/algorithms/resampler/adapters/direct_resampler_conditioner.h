@@ -4,38 +4,30 @@
  * to a SignalConditionerInterface
  * \author Carlos Aviles, 2010. carlos.avilesr(at)googlemail.com
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
-#ifndef GNSS_SDR_DIRECT_RESAMPLER_CONDITIONER_H_
-#define GNSS_SDR_DIRECT_RESAMPLER_CONDITIONER_H_
+#ifndef GNSS_SDR_DIRECT_RESAMPLER_CONDITIONER_H
+#define GNSS_SDR_DIRECT_RESAMPLER_CONDITIONER_H
 
 #include "gnss_block_interface.h"
 #include <gnuradio/hier_block2.h>
 #include <string>
+
+/** \addtogroup Resampler
+ * \{ */
+/** \addtogroup Resampler_adapters
+ * \{ */
+
 
 class ConfigurationInterface;
 
@@ -46,7 +38,7 @@ class ConfigurationInterface;
 class DirectResamplerConditioner : public GNSSBlockInterface
 {
 public:
-    DirectResamplerConditioner(ConfigurationInterface* configuration,
+    DirectResamplerConditioner(const ConfigurationInterface* configuration,
         const std::string& role, unsigned int in_stream,
         unsigned int out_stream);
 
@@ -74,17 +66,20 @@ public:
     gr::basic_block_sptr get_right_block() override;
 
 private:
+    gr::block_sptr resampler_;
+    gr::block_sptr file_sink_;
     std::string role_;
-    unsigned int in_stream_;
-    unsigned int out_stream_;
     std::string item_type_;
-    size_t item_size_;
-    bool dump_;
     std::string dump_filename_;
     double sample_freq_in_;
     double sample_freq_out_;
-    gr::block_sptr resampler_;
-    gr::block_sptr file_sink_;
+    size_t item_size_;
+    unsigned int in_stream_;
+    unsigned int out_stream_;
+    bool dump_;
 };
 
-#endif /*GNSS_SDR_DIRECT_RESAMPLER_CONDITIONER_H_*/
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_DIRECT_RESAMPLER_CONDITIONER_H

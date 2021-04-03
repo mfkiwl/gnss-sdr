@@ -4,34 +4,21 @@
  * \author Anthony Arnold, 2015. anthony.arnold(at)uqconnect.edu.au
  *
  * This module contains logic taken from gr-omsosdr
- * <http://git.osmocom.org/gr-osmosdr>
- * -------------------------------------------------------------------------
+ * <https://git.osmocom.org/gr-osmosdr>
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "rtl_tcp_signal_source_c.h"
 #include "rtl_tcp_commands.h"
+#include <boost/bind/bind.hpp>
 #include <boost/thread/thread.hpp>
 #include <glog/logging.h>
 #include <map>
@@ -48,12 +35,12 @@ enum
     RTL_TCP_PAYLOAD_SIZE = 1024 * 4   //  4 KB
 };
 
-rtl_tcp_signal_source_c_sptr
-rtl_tcp_make_signal_source_c(const std::string &address,
+rtl_tcp_signal_source_c_sptr rtl_tcp_make_signal_source_c(
+    const std::string &address,
     int16_t port,
     bool flip_iq)
 {
-    return gnuradio::get_initial_sptr(new rtl_tcp_signal_source_c(address,
+    return rtl_tcp_signal_source_c_sptr(new rtl_tcp_signal_source_c(address,
         port,
         flip_iq));
 }
@@ -65,11 +52,11 @@ rtl_tcp_signal_source_c::rtl_tcp_signal_source_c(const std::string &address,
     : gr::sync_block("rtl_tcp_signal_source_c",
           gr::io_signature::make(0, 0, 0),
           gr::io_signature::make(1, 1, sizeof(gr_complex))),
+      buffer_(RTL_TCP_BUFFER_SIZE),
       socket_(io_context_),
       data_(RTL_TCP_PAYLOAD_SIZE),
-      flip_iq_(flip_iq),
-      buffer_(RTL_TCP_BUFFER_SIZE),
-      unread_(0)
+      unread_(0),
+      flip_iq_(flip_iq)
 {
     boost::system::error_code ec;
 
@@ -83,7 +70,7 @@ rtl_tcp_signal_source_c::rtl_tcp_signal_source_c(const std::string &address,
     ip::address addr = ip::address::from_string(address, ec);
     if (ec)
         {
-            std::cout << address << " is not an IP address" << std::endl;
+            std::cout << address << " is not an IP address\n";
             LOG(ERROR) << address << " is not an IP address";
             return;
         }
@@ -91,20 +78,20 @@ rtl_tcp_signal_source_c::rtl_tcp_signal_source_c(const std::string &address,
     socket_.open(ep.protocol(), ec);
     if (ec)
         {
-            std::cout << "Failed to open socket." << std::endl;
+            std::cout << "Failed to open socket.\n";
             LOG(ERROR) << "Failed to open socket.";
         }
 
     socket_.set_option(boost::asio::socket_base::reuse_address(true), ec);
     if (ec)
         {
-            std::cout << "Failed to set reuse address option: " << ec << std::endl;
+            std::cout << "Failed to set reuse address option: " << ec << '\n';
             LOG(WARNING) << "Failed to set reuse address option";
         }
     socket_.set_option(boost::asio::socket_base::linger(true, 0), ec);
     if (ec)
         {
-            std::cout << "Failed to set linger option: " << ec << std::endl;
+            std::cout << "Failed to set linger option: " << ec << '\n';
             LOG(WARNING) << "Failed to set linger option";
         }
 
@@ -114,19 +101,19 @@ rtl_tcp_signal_source_c::rtl_tcp_signal_source_c(const std::string &address,
     if (ec)
         {
             std::cout << "Failed to connect to " << addr << ":" << port
-                      << "(" << ec << ")" << std::endl;
+                      << "(" << ec << ")\n";
             LOG(ERROR) << "Failed to connect to " << addr << ":" << port
                        << "(" << ec << ")";
             return;
         }
-    std::cout << "Connected to " << addr << ":" << port << std::endl;
+    std::cout << "Connected to " << addr << ":" << port << '\n';
     LOG(INFO) << "Connected to " << addr << ":" << port;
 
     // 4. Set nodelay
     socket_.set_option(tcp::no_delay(true), ec);
     if (ec)
         {
-            std::cout << "Failed to set no delay option." << std::endl;
+            std::cout << "Failed to set no delay option.\n";
             LOG(WARNING) << "Failed to set no delay option";
         }
 
@@ -134,20 +121,30 @@ rtl_tcp_signal_source_c::rtl_tcp_signal_source_c(const std::string &address,
     ec = info_.read(socket_);
     if (ec)
         {
-            std::cout << "Failed to read dongle info." << std::endl;
+            std::cout << "Failed to read dongle info.\n";
             LOG(WARNING) << "Failed to read dongle info";
         }
     else if (info_.is_valid())
         {
-            std::cout << "Found " << info_.get_type_name() << " tuner." << std::endl;
+            std::cout << "Found " << info_.get_type_name() << " tuner.\n";
             LOG(INFO) << "Found " << info_.get_type_name() << " tuner.";
         }
 
-    // 6. Start reading
+// 6. Start reading
+#if USE_BOOST_BIND_PLACEHOLDERS
     boost::asio::async_read(socket_, boost::asio::buffer(data_),
-        boost::bind(&rtl_tcp_signal_source_c::handle_read,
-            this, _1, _2));
-    boost::thread(boost::bind(&b_io_context::run, &io_context_));
+        boost::bind(&rtl_tcp_signal_source_c::handle_read, this, boost::placeholders::_1, boost::placeholders::_2));  // NOLINT(modernize-avoid-bind)
+#else
+    boost::asio::async_read(socket_, boost::asio::buffer(data_),
+        boost::bind(&rtl_tcp_signal_source_c::handle_read, this, _1, _2));  // NOLINT(modernize-avoid-bind)
+#endif
+
+    boost::thread(
+#if HAS_GENERIC_LAMBDA
+        [ObjectPtr = &io_context_] { ObjectPtr->run(); });
+#else
+        boost::bind(&b_io_context::run, &io_context_));
+#endif
 }
 
 
@@ -166,7 +163,7 @@ void rtl_tcp_signal_source_c::set_frequency(int frequency)
         rtl_tcp_command(RTL_TCP_SET_FREQUENCY, frequency, socket_);
     if (ec)
         {
-            std::cout << "Failed to set frequency" << std::endl;
+            std::cout << "Failed to set frequency\n";
             LOG(WARNING) << "Failed to set frequency";
         }
 }
@@ -178,7 +175,7 @@ void rtl_tcp_signal_source_c::set_sample_rate(int sample_rate)
         rtl_tcp_command(RTL_TCP_SET_SAMPLE_RATE, sample_rate, socket_);
     if (ec)
         {
-            std::cout << "Failed to set sample rate" << std::endl;
+            std::cout << "Failed to set sample rate\n";
             LOG(WARNING) << "Failed to set sample rate";
         }
 }
@@ -190,13 +187,13 @@ void rtl_tcp_signal_source_c::set_agc_mode(bool agc)
         rtl_tcp_command(RTL_TCP_SET_GAIN_MODE, !agc, socket_);
     if (ec)
         {
-            std::cout << "Failed to set gain mode" << std::endl;
+            std::cout << "Failed to set gain mode\n";
             LOG(WARNING) << "Failed to set gain mode";
         }
     ec = rtl_tcp_command(RTL_TCP_SET_AGC_MODE, agc, socket_);
     if (ec)
         {
-            std::cout << "Failed to set gain mode" << std::endl;
+            std::cout << "Failed to set gain mode\n";
             LOG(WARNING) << "Failed to set gain mode";
         }
 }
@@ -208,7 +205,7 @@ void rtl_tcp_signal_source_c::set_gain(int gain)
     boost::system::error_code ec = rtl_tcp_command(RTL_TCP_SET_GAIN, clipped, socket_);
     if (ec)
         {
-            std::cout << "Failed to set gain" << std::endl;
+            std::cout << "Failed to set gain\n";
             LOG(WARNING) << "Failed to set gain";
         }
 }
@@ -235,20 +232,20 @@ void rtl_tcp_signal_source_c::set_if_gain(int gain)
         {3, 15, 3}};
 
     std::map<int, double> gains;
-    for (int i = 0; i < static_cast<int>(ranges.size()); i++)
+    for (size_t i = 0; i < ranges.size(); i++)
         {
             gains[i + 1] = ranges[i].start;
         }
 
-    for (int i = ranges.size() - 1; i >= 0; i--)
+    for (size_t i = ranges.size() - 1; i > 0; i--)
         {
             const range &r = ranges[i];
             double error = gain;
-
-            for (double g = r.start; g < r.stop; g += r.step)
+            double g = r.start;
+            while (g < r.stop)
                 {
                     double sum = 0;
-                    for (int j = 0; j < static_cast<int>(gains.size()); j++)
+                    for (size_t j = 0; j < gains.size(); j++)
                         {
                             if (i == j)
                                 {
@@ -265,16 +262,17 @@ void rtl_tcp_signal_source_c::set_if_gain(int gain)
                             error = err;
                             gains[i + 1] = g;
                         }
+                    g += r.step;
                 }
         }
-    for (unsigned stage = 1; stage <= gains.size(); stage++)
+    for (size_t stage = 1; stage <= gains.size(); stage++)
         {
             int stage_gain = static_cast<int>(gains[stage] * 10);
-            unsigned param = (stage << 16) | (stage_gain & 0xffff);
+            size_t param = (stage << 16) | (stage_gain & 0xffff);
             boost::system::error_code ec = rtl_tcp_command(RTL_TCP_SET_IF_GAIN, param, socket_);
             if (ec)
                 {
-                    std::cout << "Failed to set if gain" << std::endl;
+                    std::cout << "Failed to set if gain\n";
                     LOG(WARNING) << "Failed to set if gain";
                 }
         }
@@ -286,7 +284,7 @@ void rtl_tcp_signal_source_c::handle_read(const boost::system::error_code &ec,
 {
     if (ec)
         {
-            std::cout << "Error during read: " << ec << std::endl;
+            std::cout << "Error during read: " << ec << '\n';
             LOG(WARNING) << "Error during read: " << ec;
             boost::mutex::scoped_lock lock(mutex_);
             io_context_.stop();
@@ -298,8 +296,7 @@ void rtl_tcp_signal_source_c::handle_read(const boost::system::error_code &ec,
                 // Unpack read data
                 boost::mutex::scoped_lock lock(mutex_);
                 not_full_.wait(lock,
-                    boost::bind(&rtl_tcp_signal_source_c::not_full,
-                        this));
+                    boost::bind(&rtl_tcp_signal_source_c::not_full, this));  // NOLINT(modernize-avoid-bind)
 
                 for (size_t i = 0; i < bytes_transferred; i++)
                     {
@@ -309,8 +306,7 @@ void rtl_tcp_signal_source_c::handle_read(const boost::system::error_code &ec,
                                 // wait until there's space for more
                                 not_empty_.notify_one();  // needed?
                                 not_full_.wait(lock,
-                                    boost::bind(&rtl_tcp_signal_source_c::not_full,
-                                        this));
+                                    boost::bind(&rtl_tcp_signal_source_c::not_full, this));  // NOLINT(modernize-avoid-bind)
                             }
 
                         buffer_.push_front(lookup_[data_[i]]);
@@ -319,11 +315,16 @@ void rtl_tcp_signal_source_c::handle_read(const boost::system::error_code &ec,
             }
             // let woker know that more data is available
             not_empty_.notify_one();
-            // Read some more
+// Read some more
+#if USE_BOOST_BIND_PLACEHOLDERS
             boost::asio::async_read(socket_,
                 boost::asio::buffer(data_),
-                boost::bind(&rtl_tcp_signal_source_c::handle_read,
-                    this, _1, _2));
+                boost::bind(&rtl_tcp_signal_source_c::handle_read, this, boost::placeholders::_1, boost::placeholders::_2));  // NOLINT(modernize-avoid-bind)
+#else
+            boost::asio::async_read(socket_,
+                boost::asio::buffer(data_),
+                boost::bind(&rtl_tcp_signal_source_c::handle_read, this, _1, _2));  // NOLINT(modernize-avoid-bind)
+#endif
         }
 }
 
@@ -341,8 +342,8 @@ int rtl_tcp_signal_source_c::work(int noutput_items,
 
     {
         boost::mutex::scoped_lock lock(mutex_);
-        not_empty_.wait(lock, boost::bind(&rtl_tcp_signal_source_c::not_empty,
-                                  this));
+        not_empty_.wait(lock,
+            boost::bind(&rtl_tcp_signal_source_c::not_empty, this));  // NOLINT(modernize-avoid-bind)
 
         for (; i < noutput_items && unread_ > 1; i++)
             {

@@ -5,29 +5,15 @@
  * \author Carles Fernandez-Prades, 2016. cfernandez(at)cttc.es
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "concurrent_map.h"
@@ -53,6 +39,12 @@
 #include <sys/types.h>
 #include <thread>
 
+#if GFLAGS_OLD_NAMESPACE
+namespace gflags
+{
+using namespace google;
+}
+#endif
 
 DEFINE_int32(fs_in, 4000000, "Sampling rate, in Samples/s");
 DEFINE_int32(max_measurement_duration, 90, "Maximum time waiting for a position fix, in seconds");
@@ -293,7 +285,6 @@ void receive_msg()
                         }
                 }
         }
-    return;
 }
 
 
@@ -363,53 +354,53 @@ void TtffTest::print_TTFF_report(const std::vector<double> &ttff_v, const std::s
 
     std::stringstream stm;
 
-    stm << "---------------------------" << std::endl;
-    stm << " Time-To-First-Fix Report" << std::endl;
-    stm << "---------------------------" << std::endl;
+    stm << "---------------------------\n";
+    stm << " Time-To-First-Fix Report\n";
+    stm << "---------------------------\n";
     stm << "Initial receiver status: ";
     if (read_ephemeris)
         {
-            stm << "Hot start." << std::endl;
+            stm << "Hot start.\n";
         }
     else
         {
-            stm << "Cold start." << std::endl;
+            stm << "Cold start.\n";
         }
     stm << "A-GNSS: ";
     if (agnss && read_ephemeris)
         {
-            stm << "Enabled." << std::endl;
+            stm << "Enabled.\n";
         }
     else
         {
-            stm << "Disabled." << std::endl;
+            stm << "Disabled.\n";
         }
     stm << "Valid measurements (" << ttff.size() << "/" << FLAGS_num_measurements << "): ";
     for (double ttff_ : ttff)
         {
             stm << ttff_ << " ";
         }
-    stm << std::endl;
-    stm << "TTFF mean: " << mean << " [s]" << std::endl;
+    stm << '\n';
+    stm << "TTFF mean: " << mean << " [s]\n";
     if (!ttff.empty())
         {
-            stm << "TTFF max: " << *max_ttff << " [s]" << std::endl;
-            stm << "TTFF min: " << *min_ttff << " [s]" << std::endl;
+            stm << "TTFF max: " << *max_ttff << " [s]\n";
+            stm << "TTFF min: " << *min_ttff << " [s]\n";
         }
-    stm << "TTFF stdev: " << stdev << " [s]" << std::endl;
-    stm << "Operating System: " << std::string(HOST_SYSTEM) << std::endl;
+    stm << "TTFF stdev: " << stdev << " [s]\n";
+    stm << "Operating System: " << std::string(HOST_SYSTEM) << '\n';
     stm << "Navigation mode: "
-        << "3D" << std::endl;
+        << "3D\n";
 
     if (source != "UHD_Signal_Source")
         {
-            stm << "Source: File" << std::endl;
+            stm << "Source: File\n";
         }
     else
         {
-            stm << "Source: Live" << std::endl;
+            stm << "Source: Live\n";
         }
-    stm << "---------------------------" << std::endl;
+    stm << "---------------------------\n";
 
     std::cout << stm.rdbuf();
     if (ttff_report_file.is_open())
@@ -449,8 +440,9 @@ TEST_F(TtffTest /*unused*/, ColdStart /*unused*/)
                 }
 
             // record startup time
-            std::cout << "Starting measurement " << num_measurements + 1 << " / " << FLAGS_num_measurements << std::endl;
-            std::chrono::time_point<std::chrono::system_clock> start, end;
+            std::cout << "Starting measurement " << num_measurements + 1 << " / " << FLAGS_num_measurements << '\n';
+            std::chrono::time_point<std::chrono::system_clock> start;
+            std::chrono::time_point<std::chrono::system_clock> end;
             start = std::chrono::system_clock::now();
             // start receiver
             try
@@ -475,7 +467,7 @@ TEST_F(TtffTest /*unused*/, ColdStart /*unused*/)
             EXPECT_FALSE(flowgraph->running());
 
             num_measurements = num_measurements + 1;
-            std::cout << "Just finished measurement " << num_measurements << ", which took " << ttff << " seconds." << std::endl;
+            std::cout << "Just finished measurement " << num_measurements << ", which took " << ttff << " seconds.\n";
             if (n < FLAGS_num_measurements - 1)
                 {
                     std::random_device r;
@@ -483,9 +475,9 @@ TEST_F(TtffTest /*unused*/, ColdStart /*unused*/)
                     std::uniform_real_distribution<float> uniform_dist(0, 1);
                     float random_variable_0_1 = uniform_dist(e1);
                     int random_delay_s = static_cast<int>(random_variable_0_1 * 25.0);
-                    std::cout << "Waiting a random amount of time (from 5 to 30 s) to start a new measurement... " << std::endl;
-                    std::cout << "This time will wait " << random_delay_s + 5 << " s." << std::endl
-                              << std::endl;
+                    std::cout << "Waiting a random amount of time (from 5 to 30 s) to start a new measurement... \n";
+                    std::cout << "This time will wait " << random_delay_s + 5 << " s.\n"
+                              << '\n';
                     std::this_thread::sleep_until(std::chrono::system_clock::now() + std::chrono::seconds(5) + std::chrono::seconds(random_delay_s));
                 }
         }
@@ -499,7 +491,7 @@ TEST_F(TtffTest /*unused*/, ColdStart /*unused*/)
         {
             print_TTFF_report(TTFF_v, config2);
         }
-    std::this_thread::sleep_until(std::chrono::system_clock::now() + std::chrono::seconds(5));  //let the USRP some time to rest before the next test
+    std::this_thread::sleep_until(std::chrono::system_clock::now() + std::chrono::seconds(5));  // let the USRP some time to rest before the next test
 }
 
 
@@ -532,8 +524,9 @@ TEST_F(TtffTest /*unused*/, HotStart /*unused*/)
                     control_thread = std::make_shared<ControlThread>(config2);
                 }
             // record startup time
-            std::cout << "Starting measurement " << num_measurements + 1 << " / " << FLAGS_num_measurements << std::endl;
-            std::chrono::time_point<std::chrono::system_clock> start, end;
+            std::cout << "Starting measurement " << num_measurements + 1 << " / " << FLAGS_num_measurements << '\n';
+            std::chrono::time_point<std::chrono::system_clock> start;
+            std::chrono::time_point<std::chrono::system_clock> end;
             start = std::chrono::system_clock::now();
 
             // start receiver
@@ -559,7 +552,7 @@ TEST_F(TtffTest /*unused*/, HotStart /*unused*/)
             EXPECT_FALSE(flowgraph->running());
 
             num_measurements = num_measurements + 1;
-            std::cout << "Just finished measurement " << num_measurements << ", which took " << ttff << " seconds." << std::endl;
+            std::cout << "Just finished measurement " << num_measurements << ", which took " << ttff << " seconds.\n";
             if (n < FLAGS_num_measurements - 1)
                 {
                     std::random_device r;
@@ -567,9 +560,9 @@ TEST_F(TtffTest /*unused*/, HotStart /*unused*/)
                     std::uniform_real_distribution<float> uniform_dist(0, 1);
                     float random_variable_0_1 = uniform_dist(e1);
                     int random_delay_s = static_cast<int>(random_variable_0_1 * 25.0);
-                    std::cout << "Waiting a random amount of time (from 5 to 30 s) to start new measurement... " << std::endl;
-                    std::cout << "This time will wait " << random_delay_s + 5 << " s." << std::endl
-                              << std::endl;
+                    std::cout << "Waiting a random amount of time (from 5 to 30 s) to start new measurement... \n";
+                    std::cout << "This time will wait " << random_delay_s + 5 << " s.\n"
+                              << '\n';
                     std::this_thread::sleep_until(std::chrono::system_clock::now() + std::chrono::seconds(5) + std::chrono::seconds(random_delay_s));
                 }
         }
@@ -588,7 +581,7 @@ TEST_F(TtffTest /*unused*/, HotStart /*unused*/)
 
 int main(int argc, char **argv)
 {
-    std::cout << "Running Time-To-First-Fix test..." << std::endl;
+    std::cout << "Running Time-To-First-Fix test...\n";
     int res = 0;
     TTFF_v.clear();
     try
@@ -599,7 +592,7 @@ int main(int argc, char **argv)
         {
         }  // catch the "testing::internal::<unnamed>::ClassUniqueToAlwaysTrue" from gtest
 
-    google::ParseCommandLineFlags(&argc, &argv, true);
+    gflags::ParseCommandLineFlags(&argc, &argv, true);
     google::InitGoogleLogging(argv[0]);
 
     // Start queue thread
@@ -622,7 +615,7 @@ int main(int argc, char **argv)
     int msgflg = IPC_CREAT | 0666;
     if ((sysv_msqid = msgget(sysv_msg_key, msgflg)) == -1)
         {
-            std::cout << "GNSS-SDR can not create message queues!" << std::endl;
+            std::cout << "GNSS-SDR can not create message queues!\n";
             return 1;
         }
     ttff_msgbuf msg;
@@ -634,6 +627,6 @@ int main(int argc, char **argv)
     receive_msg_thread.join();
     msgctl(sysv_msqid, IPC_RMID, nullptr);
 
-    google::ShutDownCommandLineFlags();
+    gflags::ShutDownCommandLineFlags();
     return res;
 }

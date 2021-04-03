@@ -1,20 +1,8 @@
-# Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
-#
+# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 
 set(RTKLIB_LIB_SOURCES
@@ -61,17 +49,29 @@ set(RTKLIB_LIB_HEADERS
 list(SORT RTKLIB_LIB_HEADERS)
 list(SORT RTKLIB_LIB_SOURCES)
 
-source_group(Headers FILES ${RTKLIB_LIB_HEADERS})
-
-add_library(algorithms_libs_rtklib ${RTKLIB_LIB_SOURCES} ${RTKLIB_LIB_HEADERS})
+if(USE_CMAKE_TARGET_SOURCES)
+    add_library(algorithms_libs_rtklib STATIC)
+    target_sources(algorithms_libs_rtklib
+        PRIVATE
+            ${RTKLIB_LIB_SOURCES}
+        PUBLIC
+            ${RTKLIB_LIB_HEADERS}
+    )
+else()
+    source_group(Headers FILES ${RTKLIB_LIB_HEADERS})
+    add_library(algorithms_libs_rtklib
+        ${RTKLIB_LIB_SOURCES}
+        ${RTKLIB_LIB_HEADERS}
+    )
+endif()
 
 target_link_libraries(algorithms_libs_rtklib
     PRIVATE
         core_system_parameters
         Gflags::gflags
         Glog::glog
-        ${LAPACK_LIBRARIES}
-        ${BLAS_LIBRARIES}
+        LAPACK::LAPACK
+        BLAS::BLAS
 )
 
 set_property(TARGET algorithms_libs_rtklib

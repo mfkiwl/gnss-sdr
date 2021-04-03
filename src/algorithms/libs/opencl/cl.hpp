@@ -1,24 +1,7 @@
 /*******************************************************************************
  * Copyright (c) 2008-2015 The Khronos Group Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and/or associated documentation files (the
- * "Materials"), to deal in the Materials without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish,
- * distribute, sublicense, and/or sell copies of the Materials, and to
- * permit persons to whom the Materials are furnished to do so, subject to
- * the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Materials.
- *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
- * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
- * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
- * MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
+ * SPDX-License-Identifier: MIT
  ******************************************************************************/
 
 /*! \file
@@ -40,7 +23,7 @@
  *
  *         cl
  *         cl_ext_device_fission
- *				#define USE_CL_DEVICE_FISSION
+ *                #define USE_CL_DEVICE_FISSION
  */
 
 /*! \mainpage
@@ -61,7 +44,7 @@
  * For detail documentation on the bindings see:
  *
  * The OpenCL C++ Wrapper API 1.2 (revision 09)
- *  http://www.khronos.org/registry/cl/specs/opencl-cplusplus-1.2.pdf
+ *  https://www.khronos.org/registry/OpenCL/specs/opencl-cplusplus-1.2.pdf
  *
  * \section example Example
  *
@@ -133,7 +116,7 @@
  *           << "("
  *           << err.err()
  *           << ")"
- *           << std::endl;
+ *           << '\n';
  *     }
  *
  *    return EXIT_SUCCESS;
@@ -5722,7 +5705,7 @@ inline VECTOR_CLASS<char*> cl::Program::getInfo<CL_PROGRAM_BINARIES>(cl_int* err
 {
     VECTOR_CLASS< ::size_t> sizes = getInfo<CL_PROGRAM_BINARY_SIZES>();
     VECTOR_CLASS<char*> binaries;
-    for (unsigned long & size : sizes)
+    for (unsigned long& size : sizes)
         {
             char* ptr = nullptr;
             if (size != 0)
@@ -7809,7 +7792,7 @@ public:
     }
 };
 
-//------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------
 
 
 template <
@@ -12904,7 +12887,7 @@ struct functionImplementation_<T0,
 
 }  // namespace detail
 
-//----------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------
 
 template <
     typename T0, typename T1 = detail::NullType, typename T2 = detail::NullType,
@@ -12975,7 +12958,7 @@ public:
 };
 
 
-//----------------------------------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------------------
 
 #undef __ERR_STR
 #if !defined(__CL_USER_OVERRIDE_ERROR_STRINGS)

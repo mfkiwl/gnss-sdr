@@ -19,40 +19,20 @@
  * Neither the executive binaries nor the shared libraries are required by, used
  * or included in GNSS-SDR.
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  * Copyright (C) 2007-2013, T. Takasu
  * Copyright (C) 2017, Javier Arribas
  * Copyright (C) 2017, Carles Fernandez
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *----------------------------------------------------------------------------*/
+ * -----------------------------------------------------------------------------
+ */
 
 
-#ifndef GNSS_SDR_RTKLIB_EPHEMERIS_H_
-#define GNSS_SDR_RTKLIB_EPHEMERIS_H_
+#ifndef GNSS_SDR_RTKLIB_EPHEMERIS_H
+#define GNSS_SDR_RTKLIB_EPHEMERIS_H
 
 #include "rtklib.h"
 
@@ -77,7 +57,7 @@ geph_t *selgeph(gtime_t time, int sat, int iode, const nav_t *nav);
 seph_t *selseph(gtime_t time, int sat, const nav_t *nav);
 int ephclk(gtime_t time, gtime_t teph, int sat, const nav_t *nav,
     double *dts);
-//satellite position and clock by broadcast ephemeris
+// satellite position and clock by broadcast ephemeris
 int ephpos(gtime_t time, gtime_t teph, int sat, const nav_t *nav,
     int iode, double *rs, double *dts, double *var, int *svh);
 int satpos_sbas(gtime_t time, gtime_t teph, int sat, const nav_t *nav,
@@ -92,4 +72,4 @@ void satposs(gtime_t teph, const obsd_t *obs, int n, const nav_t *nav,
     int ephopt, double *rs, double *dts, double *var, int *svh);
 
 
-#endif /* GNSS_SDR_RTKLIB_EPHEMERIS_H_ */
+#endif  // GNSS_SDR_RTKLIB_EPHEMERIS_H

@@ -1,47 +1,66 @@
-# Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
-#
+# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 
 add_subdirectory(libswiftcnav)
 
 set(TELEMETRY_DECODER_LIB_SOURCES
+    tlm_conf.cc
+    tlm_utils.cc
     viterbi_decoder.cc
 )
 
 set(TELEMETRY_DECODER_LIB_HEADERS
+    tlm_conf.h
     viterbi_decoder.h
     convolutional.h
+    tlm_utils.h
 )
 
 list(SORT TELEMETRY_DECODER_LIB_HEADERS)
 list(SORT TELEMETRY_DECODER_LIB_SOURCES)
 
-source_group(Headers FILES ${TELEMETRY_DECODER_LIB_HEADERS})
-
-add_library(telemetry_decoder_libs
-    ${TELEMETRY_DECODER_LIB_SOURCES}
-    ${TELEMETRY_DECODER_LIB_HEADERS}
-)
+if(USE_CMAKE_TARGET_SOURCES)
+    add_library(telemetry_decoder_libs STATIC)
+    target_sources(telemetry_decoder_libs
+        PRIVATE
+            ${TELEMETRY_DECODER_LIB_SOURCES}
+        PUBLIC
+            ${TELEMETRY_DECODER_LIB_HEADERS}
+    )
+else()
+    source_group(Headers FILES ${TELEMETRY_DECODER_LIB_HEADERS})
+    add_library(telemetry_decoder_libs
+        ${TELEMETRY_DECODER_LIB_SOURCES}
+        ${TELEMETRY_DECODER_LIB_HEADERS}
+    )
+endif()
 
 target_link_libraries(telemetry_decoder_libs
+    PUBLIC
+        Volkgnsssdr::volkgnsssdr
     PRIVATE
         Gflags::gflags
         Glog::glog
+        Matio::matio
+)
+
+if(FILESYSTEM_FOUND)
+    target_compile_definitions(telemetry_decoder_libs PRIVATE -DHAS_STD_FILESYSTEM=1)
+    if(find_experimental)
+        target_compile_definitions(telemetry_decoder_libs PRIVATE -DHAS_STD_FILESYSTEM_EXPERIMENTAL=1)
+    endif()
+    target_link_libraries(telemetry_decoder_libs PRIVATE std::filesystem)
+else()
+    target_link_libraries(telemetry_decoder_libs PRIVATE Boost::filesystem Boost::system)
+endif()
+
+target_include_directories(telemetry_decoder_libs
+    PUBLIC
+        ${CMAKE_SOURCE_DIR}/src/core/interfaces
 )
 
 if(ENABLE_CLANG_TIDY)

@@ -17,29 +17,15 @@
  *          <li> Gerald LaMountain, 2018. gerald(at)ece.neu.edu
  *          <li> Jordi Vila-Valls 2018. jvila(at)cttc.es
  *          </ul>
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "bayesian_estimation.h"
@@ -124,7 +110,7 @@ void Bayesian_estimator::update_sequential(const arma::vec& data)
     arma::vec mu_posterior = (kappa_prior * mu_prior + K * y_mean) / (kappa_prior + K);
     int kappa_posterior = kappa_prior + K;
     int nu_posterior = nu_prior + K;
-    arma::mat Psi_posterior = Psi_prior + Psi_N + (kappa_prior * K) / (kappa_prior + K) * (y_mean - mu_prior) * ((y_mean - mu_prior).t());
+    arma::mat Psi_posterior = Psi_prior + Psi_N + (static_cast<float>(kappa_prior) * static_cast<float>(K)) / (static_cast<float>(kappa_prior) + static_cast<float>(K)) * (y_mean - mu_prior) * ((y_mean - mu_prior).t());
 
     mu_est = mu_posterior;
     if ((nu_posterior - ny - 1) > 0)
@@ -163,7 +149,7 @@ void Bayesian_estimator::update_sequential(const arma::vec& data, const arma::ve
     arma::vec mu_posterior = (kappa_prior_0 * mu_prior_0 + K * y_mean) / (kappa_prior_0 + K);
     int kappa_posterior = kappa_prior_0 + K;
     int nu_posterior = nu_prior_0 + K;
-    arma::mat Psi_posterior = Psi_prior_0 + Psi_N + (kappa_prior_0 * K) / (kappa_prior_0 + K) * (y_mean - mu_prior_0) * ((y_mean - mu_prior_0).t());
+    arma::mat Psi_posterior = Psi_prior_0 + Psi_N + (Psi_prior_0 * static_cast<double>(K)) / (static_cast<double>(kappa_prior_0) + static_cast<double>(K)) * (y_mean - mu_prior_0) * ((y_mean - mu_prior_0).t());
 
     mu_est = mu_posterior;
     if ((nu_posterior - ny - 1) > 0)

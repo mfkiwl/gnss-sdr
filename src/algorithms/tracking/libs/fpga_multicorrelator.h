@@ -2,47 +2,37 @@
  * \file fpga_multicorrelator.h
  * \brief FPGA vector correlator class
  * \authors <ul>
- * 			<li> Marc Majoral, 2019. mmajoral(at)cttc.cat
+ *          <li> Marc Majoral, 2019. mmajoral(at)cttc.cat
  *          <li> Javier Arribas, 2019. jarribas(at)cttc.es
  *          </ul>
  *
  * Class that controls and executes a highly optimized vector correlator
  * class in the FPGA
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_FPGA_MULTICORRELATOR_8SC_H_
-#define GNSS_SDR_FPGA_MULTICORRELATOR_8SC_H_
+#ifndef GNSS_SDR_FPGA_MULTICORRELATOR_H
+#define GNSS_SDR_FPGA_MULTICORRELATOR_H
 
 #include <gnuradio/block.h>
+#include <volk_gnsssdr/volk_gnsssdr_alloc.h>
 #include <cstdint>
+#include <string>
 
-// floating point math constants related to the parameters that are written in the FPGA
-#define PHASE_CARR_MAX_DIV_PI 683565275.5764316  // 2^(31)/pi
-#define TWO_PI 6.283185307179586
+/** \addtogroup Tracking
+ * \{ */
+/** \addtogroup Tracking_libs
+ * \{ */
+
 
 /*!
  * \brief Class that implements carrier wipe-off and correlators.
@@ -51,10 +41,14 @@ class Fpga_Multicorrelator_8sc
 {
 public:
     /*!
-	 * \brief Constructor
-	 */
-    Fpga_Multicorrelator_8sc(int32_t n_correlators, std::string device_name,
-        uint32_t device_base, int32_t *ca_codes, int32_t *data_codes, uint32_t code_length_chips, bool track_pilot, uint32_t code_samples_per_chip);
+     * \brief Constructor
+     */
+    Fpga_Multicorrelator_8sc(int32_t n_correlators,
+        int32_t *ca_codes,
+        int32_t *data_codes,
+        uint32_t code_length_chips,
+        bool track_pilot,
+        uint32_t code_samples_per_chip);
 
     /*!
      * \brief Destructor
@@ -81,9 +75,11 @@ public:
      * \brief Perform a multicorrelation
      */
     void Carrier_wipeoff_multicorrelator_resampler(
-        float rem_carrier_phase_in_rad, float phase_step_rad,
+        float rem_carrier_phase_in_rad,
+        float phase_step_rad,
         float carrier_phase_rate_step_rad,
-        float rem_code_phase_chips, float code_phase_step_chips,
+        float rem_code_phase_chips,
+        float code_phase_step_chips,
         float code_phase_rate_step_chips,
         int32_t signal_length_samples);
 
@@ -93,9 +89,9 @@ public:
     bool free();
 
     /*!
-     * \brief Set channel number and open the FPGA device driver
+     * \brief Open the FPGA device driver
      */
-    void set_channel(uint32_t channel);
+    void open_channel(std::string device_io_name, uint32_t channel);
 
     /*!
      * \brief Set the initial sample number where the tracking process begins
@@ -110,12 +106,12 @@ public:
     /*!
      * \brief Start the tracking process in the FPGA
      */
-    void lock_channel(void);
+    void lock_channel();
 
     /*!
      * \brief finish the tracking process in the FPGA
      */
-    void unlock_channel(void);
+    void unlock_channel();
 
     /*!
      * \brief Set the secondary code length in the FPGA. This is only used when extended coherent integration
@@ -153,10 +149,8 @@ public:
      */
     void disable_secondary_codes();
 
-
 private:
     // FPGA register addresses
-
     // write addresses
     static const uint32_t code_phase_step_chips_num_reg_addr = 0;
     static const uint32_t initial_index_reg_base_addr = 1;
@@ -193,15 +187,40 @@ private:
     static const uint32_t enable_secondary_code = 2;            // bit 1 of drop_samples_reg_addr
     static const uint32_t init_secondary_code_addresses = 4;    // bit 2 of drop_samples_reg_addr
     static const uint32_t page_size = 0x10000;
-    static const uint32_t max_length_deviceio_name = 50;
-    static const uint32_t max_code_resampler_counter = 1 << 20;  // 2^(number of bits of precision of the code resampler)
+    static const uint32_t max_code_resampler_counter = 1 << 31;  // 2^(number of bits of precision of the code resampler)
     static const uint32_t local_code_fpga_clear_address_counter = 0x10000000;
     static const uint32_t test_register_track_writeval = 0x55AA;
 
+    // private functions
+    uint32_t fpga_acquisition_test_register(uint32_t writeval);
+    void fpga_configure_tracking_gps_local_code(int32_t PRN);
+    void fpga_compute_code_shift_parameters();
+    void fpga_configure_code_parameters_in_fpga();
+    void fpga_compute_signal_parameters_in_fpga();
+    void fpga_configure_signal_parameters_in_fpga();
+    void fpga_launch_multicorrelator_fpga();
+    void read_tracking_gps_results();
+    void close_device(void);
+    void write_secondary_code(uint32_t secondary_code_length, std::string *secondary_code_string, uint32_t reg_addr);
+
+    volk_gnsssdr::vector<uint32_t> d_initial_index;
+    volk_gnsssdr::vector<uint32_t> d_initial_interp_counter;
+
+    uint64_t d_initial_sample_counter;
+
     gr_complex *d_corr_out;
     gr_complex *d_Prompt_Data;
+
     float *d_shifts_chips;
     float *d_prompt_data_shift;
+
+    float d_rem_code_phase_chips;
+    float d_code_phase_step_chips;
+    float d_code_phase_rate_step_chips;
+    float d_rem_carrier_phase_in_rad;
+    float d_phase_step_rad;
+    float d_carrier_phase_rate_step_rad;
+
     uint32_t d_code_length_chips;
     uint32_t d_code_length_samples;
     uint32_t d_n_correlators;  // number of correlators
@@ -211,30 +230,14 @@ private:
     volatile uint32_t *d_map_base;  // driver memory map
 
     // configuration data received from the interface
-    uint32_t d_channel;  // channel number
     uint32_t d_correlator_length_samples;
-    float d_rem_code_phase_chips;
-    float d_code_phase_step_chips;
-    float d_code_phase_rate_step_chips;
-    float d_rem_carrier_phase_in_rad;
-    float d_phase_step_rad;
-    float d_carrier_phase_rate_step_rad;
     uint32_t d_code_samples_per_chip;
-    bool d_track_pilot;
 
-    // configuration data computed in the format that the FPGA expects
-    uint32_t *d_initial_index;
-    uint32_t *d_initial_interp_counter;
     uint32_t d_code_phase_step_chips_num;
     uint32_t d_code_phase_rate_step_chips_num;
     int32_t d_rem_carr_phase_rad_int;
     int32_t d_phase_step_rad_int;
     int32_t d_carrier_phase_rate_step_rad_int;
-    uint64_t d_initial_sample_counter;
-
-    // driver
-    std::string d_device_name;
-    uint32_t d_device_base;
 
     // PRN codes
     int32_t *d_ca_codes;
@@ -243,19 +246,12 @@ private:
     // secondary code configuration
     uint32_t d_secondary_code_0_length;
     uint32_t d_secondary_code_1_length;
-    bool d_secondary_code_enabled;
 
-    // private functions
-    uint32_t fpga_acquisition_test_register(uint32_t writeval);
-    void fpga_configure_tracking_gps_local_code(int32_t PRN);
-    void fpga_compute_code_shift_parameters(void);
-    void fpga_configure_code_parameters_in_fpga(void);
-    void fpga_compute_signal_parameters_in_fpga(void);
-    void fpga_configure_signal_parameters_in_fpga(void);
-    void fpga_launch_multicorrelator_fpga(void);
-    void read_tracking_gps_results(void);
-    void close_device(void);
-    void write_secondary_code(uint32_t secondary_code_length, std::string *secondary_code_string, uint32_t reg_addr);
+    bool d_track_pilot;
+    bool d_secondary_code_enabled;
 };
 
-#endif /* GNSS_SDR_FPGA_MULTICORRELATOR_H_ */
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_FPGA_MULTICORRELATOR_H

@@ -4,29 +4,15 @@
  * \author Javier Arribas jarribas (at) cttc.es
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "array_signal_conditioner.h"
@@ -36,21 +22,15 @@
 
 
 // Constructor
-ArraySignalConditioner::ArraySignalConditioner(ConfigurationInterface *configuration,
-    std::shared_ptr<GNSSBlockInterface> data_type_adapt,
+ArraySignalConditioner::ArraySignalConditioner(std::shared_ptr<GNSSBlockInterface> data_type_adapt,
     std::shared_ptr<GNSSBlockInterface> in_filt,
     std::shared_ptr<GNSSBlockInterface> res,
-    std::string role,
-    std::string implementation) : data_type_adapt_(std::move(data_type_adapt)),
-                                  in_filt_(std::move(in_filt)),
-                                  res_(std::move(res)),
-                                  role_(std::move(role)),
-                                  implementation_(std::move(implementation))
+    std::string role) : data_type_adapt_(std::move(data_type_adapt)),
+                        in_filt_(std::move(in_filt)),
+                        res_(std::move(res)),
+                        role_(std::move(role))
 {
     connected_ = false;
-    if (configuration)
-        {
-        };
 }
 
 
@@ -62,12 +42,12 @@ void ArraySignalConditioner::connect(gr::top_block_sptr top_block)
             LOG(WARNING) << "Array Signal conditioner already connected internally";
             return;
         }
-    //data_type_adapt_->connect(top_block);
+    // data_type_adapt_->connect(top_block);
     in_filt_->connect(top_block);
     res_->connect(top_block);
 
-    //top_block->connect(data_type_adapt_->get_right_block(), 0, in_filt_->get_left_block(), 0);
-    //DLOG(INFO) << "data_type_adapter -> input_filter";
+    // top_block->connect(data_type_adapt_->get_right_block(), 0, in_filt_->get_left_block(), 0);
+    // DLOG(INFO) << "data_type_adapter -> input_filter";
 
     top_block->connect(in_filt_->get_right_block(), 0,
         res_->get_left_block(), 0);
@@ -86,12 +66,12 @@ void ArraySignalConditioner::disconnect(gr::top_block_sptr top_block)
             return;
         }
 
-    //top_block->disconnect(data_type_adapt_->get_right_block(), 0,
+    // top_block->disconnect(data_type_adapt_->get_right_block(), 0,
     //                      in_filt_->get_left_block(), 0);
     top_block->disconnect(in_filt_->get_right_block(), 0,
         res_->get_left_block(), 0);
 
-    //data_type_adapt_->disconnect(top_block);
+    // data_type_adapt_->disconnect(top_block);
     in_filt_->disconnect(top_block);
     res_->disconnect(top_block);
 
@@ -101,7 +81,7 @@ void ArraySignalConditioner::disconnect(gr::top_block_sptr top_block)
 
 gr::basic_block_sptr ArraySignalConditioner::get_left_block()
 {
-    //return data_type_adapt_->get_left_block();
+    // return data_type_adapt_->get_left_block();
     return in_filt_->get_left_block();
 }
 

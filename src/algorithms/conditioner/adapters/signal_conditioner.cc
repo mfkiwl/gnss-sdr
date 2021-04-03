@@ -4,53 +4,32 @@
  * \author Luis Esteve, 2012. luis(at)epsilon-formacion.com
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "signal_conditioner.h"
-#include "configuration_interface.h"
 #include <glog/logging.h>
 #include <utility>
 
 
 // Constructor
-SignalConditioner::SignalConditioner(ConfigurationInterface *configuration,
-    std::shared_ptr<GNSSBlockInterface> data_type_adapt,
+SignalConditioner::SignalConditioner(std::shared_ptr<GNSSBlockInterface> data_type_adapt,
     std::shared_ptr<GNSSBlockInterface> in_filt,
     std::shared_ptr<GNSSBlockInterface> res,
-    std::string role,
-    std::string implementation) : data_type_adapt_(std::move(data_type_adapt)),
-                                  in_filt_(std::move(in_filt)),
-                                  res_(std::move(res)),
-                                  role_(std::move(role)),
-                                  implementation_(std::move(implementation))
+    std::string role) : data_type_adapt_(std::move(data_type_adapt)),
+                        in_filt_(std::move(in_filt)),
+                        res_(std::move(res)),
+                        role_(std::move(role))
 {
     connected_ = false;
-    if (configuration)
-        {
-        };
 }
 
 

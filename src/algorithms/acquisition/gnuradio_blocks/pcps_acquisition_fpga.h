@@ -12,71 +12,59 @@
  *          <li> Javier Arribas, 2019. jarribas(at)cttc.es
  *          </ul>
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_PCPS_ACQUISITION_FPGA_H_
-#define GNSS_SDR_PCPS_ACQUISITION_FPGA_H_
+#ifndef GNSS_SDR_PCPS_ACQUISITION_FPGA_H
+#define GNSS_SDR_PCPS_ACQUISITION_FPGA_H
 
 
 #include "channel_fsm.h"
 #include "fpga_acquisition.h"
-#include <boost/shared_ptr.hpp>
 #include <glog/logging.h>
 #include <cstdint>  // for uint32_t
 #include <memory>   // for shared_ptr
 #include <string>   // for string
+
+/** \addtogroup Acquisition
+ * \{ */
+/** \addtogroup Acq_gnuradio_blocks
+ * \{ */
+
 
 class Gnss_Synchro;
 
 typedef struct
 {
     /* pcps acquisition configuration */
-    uint32_t sampled_ms;
-    uint32_t doppler_max;
-    int64_t fs_in;
-    int32_t samples_per_ms;
-    int32_t samples_per_code;
-    int32_t code_length;
-    uint32_t select_queue_Fpga;
     std::string device_name;
+    int64_t fs_in;
+    float doppler_step2;
     uint32_t* all_fft_codes;  // pointer to memory that contains all the code ffts
-    //float downsampling_factor;
+    uint32_t doppler_max;
+    uint32_t select_queue_Fpga;
     uint32_t downsampling_factor;
     uint32_t total_block_exp;
     uint32_t excludelimit;
-    bool make_2_steps;
     uint32_t num_doppler_bins_step2;
-    float doppler_step2;
-    bool repeat_satellite;
     uint32_t max_num_acqs;
+    int32_t samples_per_code;
+    int32_t code_length;
+    bool make_2_steps;
+    bool repeat_satellite;
 } pcpsconf_fpga_t;
 
 class pcps_acquisition_fpga;
 
-using pcps_acquisition_fpga_sptr = boost::shared_ptr<pcps_acquisition_fpga>;
+using pcps_acquisition_fpga_sptr = std::shared_ptr<pcps_acquisition_fpga>;
 
 pcps_acquisition_fpga_sptr pcps_make_acquisition_fpga(pcpsconf_fpga_t conf_);
 
@@ -170,7 +158,7 @@ public:
     inline void set_doppler_max(uint32_t doppler_max)
     {
         d_doppler_max = doppler_max;
-        acquisition_fpga->set_doppler_max(doppler_max);
+        d_acquisition_fpga->set_doppler_max(doppler_max);
     }
 
     /*!
@@ -180,7 +168,7 @@ public:
     inline void set_doppler_step(uint32_t doppler_step)
     {
         d_doppler_step = doppler_step;
-        acquisition_fpga->set_doppler_step(doppler_step);
+        d_acquisition_fpga->set_doppler_step(doppler_step);
     }
 
     /*!
@@ -199,17 +187,39 @@ public:
     /*!
      * \brief This function triggers a HW reset of the FPGA PL.
      */
-    void reset_acquisition(void);
+    void reset_acquisition();
 
 private:
     friend pcps_acquisition_fpga_sptr pcps_make_acquisition_fpga(pcpsconf_fpga_t conf_);
-    pcps_acquisition_fpga(pcpsconf_fpga_t conf_);
-    bool d_active;
-    bool d_make_2_steps;
+    explicit pcps_acquisition_fpga(pcpsconf_fpga_t conf_);
+
+    void send_negative_acquisition();
+    void send_positive_acquisition();
+    void acquisition_core(uint32_t num_doppler_bins, uint32_t doppler_step, int32_t doppler_min);
+    float first_vs_second_peak_statistic(uint32_t& indext, int32_t& doppler, uint32_t num_doppler_bins, int32_t doppler_max, int32_t doppler_step);
+
+    std::shared_ptr<Fpga_Acquisition> d_acquisition_fpga;
+    std::weak_ptr<ChannelFsm> d_channel_fsm;
+
+    pcpsconf_fpga_t d_acq_parameters;
+
+    Gnss_Synchro* d_gnss_synchro;
+
+    uint64_t d_sample_counter;
+
+    float d_threshold;
+    float d_mag;
+    float d_input_power;
+    float d_test_statistics;
+    float d_doppler_step2;
+    float d_doppler_center_step_two;
+
+    int32_t d_doppler_center;
+    int32_t d_state;
+
     uint32_t d_doppler_index;
     uint32_t d_channel;
     uint32_t d_doppler_step;
-    int32_t d_doppler_center;
     uint32_t d_doppler_max;
     uint32_t d_fft_size;
     uint32_t d_num_doppler_bins;
@@ -218,22 +228,12 @@ private:
     uint32_t d_total_block_exp;
     uint32_t d_num_doppler_bins_step2;
     uint32_t d_max_num_acqs;
-    int32_t d_state;
-    uint64_t d_sample_counter;
-    float d_threshold;
-    float d_mag;
-    float d_input_power;
-    float d_test_statistics;
-    float d_doppler_step2;
-    float d_doppler_center_step_two;
-    pcpsconf_fpga_t acq_parameters;
-    Gnss_Synchro* d_gnss_synchro;
-    std::shared_ptr<Fpga_Acquisition> acquisition_fpga;
-    std::weak_ptr<ChannelFsm> d_channel_fsm;
-    void send_negative_acquisition();
-    void send_positive_acquisition();
-    void acquisition_core(uint32_t num_doppler_bins, uint32_t doppler_step, int32_t doppler_min);
-    float first_vs_second_peak_statistic(uint32_t& indext, int32_t& doppler, uint32_t num_doppler_bins, int32_t doppler_max, int32_t doppler_step);
+
+    bool d_active;
+    bool d_make_2_steps;
 };
 
-#endif /* GNSS_SDR_PCPS_ACQUISITION_FPGA_H_*/
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_PCPS_ACQUISITION_FPGA_H

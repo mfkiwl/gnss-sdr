@@ -3,29 +3,15 @@
  * \brief Class that contains all the configuration parameters for a PVT block
  * \author Carles Fernandez, 2018. cfernandez(at)cttc.es
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "pvt_conf.h"
@@ -43,6 +29,7 @@ Pvt_Conf::Pvt_Conf()
     max_obs_block_rx_clock_offset_ms = 40;
     rinex_version = 0;
     rinexobs_rate_ms = 0;
+    rinex_name = "-";
 
     dump = false;
     dump_mat = true;
@@ -72,9 +59,10 @@ Pvt_Conf::Pvt_Conf()
     xml_output_path = std::string(".");
     rtcm_output_file_path = std::string(".");
 
+    enable_rx_clock_correction = true;
     monitor_enabled = false;
     protobuf_enabled = true;
     udp_port = 0;
-
+    pre_2009_file = false;
     show_local_time_zone = false;
 }

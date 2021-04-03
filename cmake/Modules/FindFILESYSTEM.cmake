@@ -1,22 +1,12 @@
-# Copyright (C) 2019 (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: 2011-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
-# Original Source: https://github.com/vector-of-bool/CMakeCM
-# Modified by C. Fernandez-Prades.
+# Original code from https://github.com/vector-of-bool/CMakeCM and modified
+# by C. Fernandez. The original code is distributed under the OSI-approved
+# BSD 3-Clause License. See https://cmake.org/licensing for details.
 
 #[=======================================================================[.rst:
 
@@ -125,7 +115,9 @@ include(CheckCXXSourceCompiles)
 
 cmake_push_check_state()
 
-set(CMAKE_REQUIRED_QUIET ${FILESYSTEM_FIND_QUIETLY})
+if(FILESYSTEM_FIND_QUIETLY)
+    set(CMAKE_REQUIRED_QUIET ${FILESYSTEM_FIND_QUIETLY})
+endif()
 
 # All of our tests require C++17 or later
 set(OLD_CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})
@@ -135,6 +127,12 @@ if((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") AND (CMAKE_CXX_COMPILER_VERSION VERSIO
 endif()
 if((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8.99"))
     set(CMAKE_REQUIRED_FLAGS "-std=c++17")
+endif()
+if((CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang") AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11"))
+    set(CMAKE_REQUIRED_FLAGS "-std=c++17")
+endif()
+if(MSVC AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "18"))
+    set(CMAKE_REQUIRED_FLAGS "/std:c++17")
 endif()
 
 # Normalize and check the component list we were given
@@ -254,6 +252,9 @@ endif()
 cmake_pop_check_state()
 
 set(FILESYSTEM_FOUND ${_found} CACHE BOOL "TRUE if we can compile and link a program using std::filesystem" FORCE)
+
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(FILESYSTEM DEFAULT_MSG FILESYSTEM_FOUND)
 
 if(FILESYSTEM_FIND_REQUIRED AND NOT FILESYSTEM_FOUND)
     message(FATAL_ERROR "Cannot compile a simple program using std::filesystem")

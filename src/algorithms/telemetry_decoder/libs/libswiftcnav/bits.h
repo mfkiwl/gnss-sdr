@@ -1,8 +1,12 @@
 /*!
  * \file bits.h
+ * \brief Utilities for bit manipulation of the libswiftnav library
  * \author Fergus Noble <fergus@swift-nav.com>
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
+ * This file is part of GNSS-SDR.
+ *
  * This file was originally borrowed from libswiftnav
  * <https://github.com/swift-nav/libswiftnav>,
  * a portable C library implementing GNSS related functions and algorithms,
@@ -11,28 +15,21 @@
  * Copyright (C) 2013, 2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
+ * SPDX-License-Identifier: LGPL-3.0-only
  *
- * This file is part of GNSS-SDR.
- *
- * This file is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation, version 3.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Lesser Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef GNSS_SDR_BITS_H_
-#define GNSS_SDR_BITS_H_
+#ifndef GNSS_SDR_BITS_H
+#define GNSS_SDR_BITS_H
 
 #include "swift_common.h"
+
+/** \addtogroup Telemetry_Decoder
+ * \{ */
+/** \addtogroup Telemetry_Decoder_libswiftcnav telemetry_decoder_libswiftcnav
+ * Utilities for CNAV message decoding by Swift Navigation Inc.
+ * \{ */
+
 
 uint8_t parity(uint32_t x);
 uint32_t getbitu(const uint8_t *buff, uint32_t pos, uint8_t len);
@@ -47,4 +44,7 @@ uint8_t count_bits_u32(uint32_t v, uint8_t bv);
 uint8_t count_bits_u16(uint16_t v, uint8_t bv);
 uint8_t count_bits_u8(uint8_t v, uint8_t bv);
 
+
+/** \} */
+/** \} */
 #endif /* GNSS_SDR_BITS_H_ */

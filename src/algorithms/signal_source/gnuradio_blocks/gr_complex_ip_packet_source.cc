@@ -4,29 +4,16 @@
  * \brief Receives ip frames containing samples in UDP frame encapsulation
  * using a high performance packet capture library (libpcap)
  * \author Javier Arribas jarribas (at) cttc.es
- * -------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
+ * -----------------------------------------------------------------------------
  *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
@@ -35,6 +22,10 @@
 #include <array>
 #include <cstdint>
 #include <utility>
+#if HAS_GENERIC_LAMBDA
+#else
+#include <boost/bind/bind.hpp>
+#endif
 
 const int FIFO_SIZE = 1472000;
 
@@ -125,12 +116,17 @@ Gr_Complex_Ip_Packet_Source::Gr_Complex_Ip_Packet_Source(std::string src_device,
             d_wire_sample_type = 2;
             d_bytes_per_sample = d_n_baseband_channels;
         }
+    else if (wire_sample_type == "cfloat")
+        {
+            d_wire_sample_type = 3;
+            d_bytes_per_sample = d_n_baseband_channels * 8;
+        }
     else
         {
             std::cout << "Unknown wire sample type\n";
             exit(0);
         }
-    std::cout << "d_wire_sample_type:" << d_wire_sample_type << std::endl;
+    std::cout << "d_wire_sample_type:" << d_wire_sample_type << '\n';
     d_src_device = std::move(src_device);
     d_udp_port = udp_port;
     d_udp_payload_size = udp_packet_size;
@@ -159,7 +155,12 @@ bool Gr_Complex_Ip_Packet_Source::start()
     if (open() == true)
         {
             // start pcap capture thread
-            d_pcap_thread = new boost::thread(boost::bind(&Gr_Complex_Ip_Packet_Source::my_pcap_loop_thread, this, descr));
+            d_pcap_thread = new boost::thread(
+#if HAS_GENERIC_LAMBDA
+                [this] { my_pcap_loop_thread(descr); });
+#else
+                boost::bind(&Gr_Complex_Ip_Packet_Source::my_pcap_loop_thread, this, descr));
+#endif
             return true;
         }
     return false;
@@ -188,15 +189,15 @@ bool Gr_Complex_Ip_Packet_Source::open()
     descr = pcap_open_live(d_src_device.c_str(), 1500, 1, 1000, errbuf.data());
     if (descr == nullptr)
         {
-            std::cout << "Error opening Ethernet device " << d_src_device << std::endl;
-            std::cout << "Fatal Error in pcap_open_live(): " << std::string(errbuf.data()) << std::endl;
+            std::cout << "Error opening Ethernet device " << d_src_device << '\n';
+            std::cout << "Fatal Error in pcap_open_live(): " << std::string(errbuf.data()) << '\n';
             return false;
         }
     // bind UDP port to avoid automatic reply with ICMP port unreachable packets from kernel
     d_sock_raw = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (d_sock_raw == -1)
         {
-            std::cout << "Error opening UDP socket" << std::endl;
+            std::cout << "Error opening UDP socket\n";
             return false;
         }
 
@@ -210,7 +211,7 @@ bool Gr_Complex_Ip_Packet_Source::open()
     // bind socket to port
     if (bind(d_sock_raw, reinterpret_cast<struct sockaddr *>(&si_me), sizeof(si_me)) == -1)
         {
-            std::cout << "Error opening UDP socket" << std::endl;
+            std::cout << "Error opening UDP socket\n";
             return false;
         }
     return true;
@@ -257,10 +258,10 @@ void Gr_Complex_Ip_Packet_Source::pcap_callback(__attribute__((unused)) u_char *
             uh = reinterpret_cast<const gr_udp_header *>(reinterpret_cast<const u_char *>(ih) + ip_len);
 
             // convert from network byte order to host byte order
-            //u_short sport;
+            // u_short sport;
             u_short dport;
             dport = ntohs(uh->dport);
-            //sport = ntohs(uh->sport);
+            // sport = ntohs(uh->sport);
             if (dport == d_udp_port)
                 {
                     // print ip addresses and udp ports
@@ -275,7 +276,7 @@ void Gr_Complex_Ip_Packet_Source::pcap_callback(__attribute__((unused)) u_char *
                     //                   ih->daddr.byte3,
                     //                   ih->daddr.byte4,
                     //                   dport);
-                    //            std::cout<<"uh->len:"<<ntohs(uh->len)<<std::endl;
+                    //            std::cout<<"uh->len:"<<ntohs(uh->len)<< '\n';
 
                     int payload_length_bytes = ntohs(uh->len) - 8;  // total udp packet length minus the header length
                     // read the payload bytes and insert them into the shared circular buffer
@@ -319,18 +320,17 @@ void Gr_Complex_Ip_Packet_Source::my_pcap_loop_thread(pcap_t *pcap_handle)
 }
 
 
-void Gr_Complex_Ip_Packet_Source::demux_samples(gr_vector_void_star output_items, int num_samples_readed)
+void Gr_Complex_Ip_Packet_Source::demux_samples(const gr_vector_void_star &output_items, int num_samples_readed)
 {
-    int8_t real;
-    int8_t imag;
-    uint8_t tmp_char2;
     for (int n = 0; n < num_samples_readed; n++)
         {
             switch (d_wire_sample_type)
                 {
                 case 1:  // interleaved byte samples
-                    for (auto &output_item : output_items)
+                    for (const auto &output_item : output_items)
                         {
+                            int8_t real;
+                            int8_t imag;
                             real = fifo_buff[fifo_read_ptr++];
                             imag = fifo_buff[fifo_read_ptr++];
                             if (d_IQ_swap)
@@ -344,8 +344,11 @@ void Gr_Complex_Ip_Packet_Source::demux_samples(gr_vector_void_star output_items
                         }
                     break;
                 case 2:  // 4-bit samples
-                    for (auto &output_item : output_items)
+                    for (const auto &output_item : output_items)
                         {
+                            int8_t real;
+                            int8_t imag;
+                            uint8_t tmp_char2;
                             tmp_char2 = fifo_buff[fifo_read_ptr] & 0x0F;
                             if (tmp_char2 >= 8)
                                 {
@@ -372,6 +375,25 @@ void Gr_Complex_Ip_Packet_Source::demux_samples(gr_vector_void_star output_items
                             else
                                 {
                                     static_cast<gr_complex *>(output_item)[n] = gr_complex(real, imag);
+                                }
+                        }
+                    break;
+                case 3:  // interleaved float samples
+                    for (const auto &output_item : output_items)
+                        {
+                            float real;
+                            float imag;
+                            memcpy(&real, &fifo_buff[fifo_read_ptr], sizeof(real));
+                            fifo_read_ptr += 4;  // Four bytes in float
+                            memcpy(&imag, &fifo_buff[fifo_read_ptr], sizeof(imag));
+                            fifo_read_ptr += 4;  // Four bytes in float
+                            if (d_IQ_swap)
+                                {
+                                    static_cast<gr_complex *>(output_item)[n] = gr_complex(real, imag);
+                                }
+                            else
+                                {
+                                    static_cast<gr_complex *>(output_item)[n] = gr_complex(imag, real);
                                 }
                         }
                     break;
@@ -408,17 +430,8 @@ int Gr_Complex_Ip_Packet_Source::work(int noutput_items,
     switch (d_wire_sample_type)
         {
         case 1:  // complex byte samples
-            bytes_requested = noutput_items * d_bytes_per_sample;
-            if (bytes_requested < fifo_items)
-                {
-                    num_samples_readed = noutput_items;  // read all
-                }
-            else
-                {
-                    num_samples_readed = fifo_items / d_bytes_per_sample;  // read what we have
-                }
-            break;
         case 2:  // complex 4 bits samples
+        case 3:  // complex float samples
             bytes_requested = noutput_items * d_bytes_per_sample;
             if (bytes_requested < fifo_items)
                 {

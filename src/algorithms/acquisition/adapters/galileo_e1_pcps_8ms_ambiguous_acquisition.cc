@@ -4,43 +4,36 @@
  * AcquisitionInterface for Galileo E1 Signals
  * \author Marc Molina, 2013. marc.molina.pena(at)gmail.com
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "galileo_e1_pcps_8ms_ambiguous_acquisition.h"
 #include "Galileo_E1.h"
 #include "configuration_interface.h"
-#include "galileo_e1_signal_processing.h"
+#include "galileo_e1_signal_replica.h"
 #include "gnss_sdr_flags.h"
 #include <boost/math/distributions/exponential.hpp>
 #include <glog/logging.h>
 #include <algorithm>
 
+#if HAS_STD_SPAN
+#include <span>
+namespace own = std;
+#else
+#include <gsl/gsl>
+namespace own = gsl;
+#endif
 
 GalileoE1Pcps8msAmbiguousAcquisition::GalileoE1Pcps8msAmbiguousAcquisition(
-    ConfigurationInterface* configuration,
+    const ConfigurationInterface* configuration,
     const std::string& role,
     unsigned int in_streams,
     unsigned int out_streams) : role_(role),
@@ -48,8 +41,8 @@ GalileoE1Pcps8msAmbiguousAcquisition::GalileoE1Pcps8msAmbiguousAcquisition(
                                 out_streams_(out_streams)
 {
     configuration_ = configuration;
-    std::string default_item_type = "gr_complex";
-    std::string default_dump_filename = "../data/acquisition.dat";
+    const std::string default_item_type("gr_complex");
+    const std::string default_dump_filename("../data/acquisition.dat");
 
     DLOG(INFO) << "role " << role;
 
@@ -79,22 +72,24 @@ GalileoE1Pcps8msAmbiguousAcquisition::GalileoE1Pcps8msAmbiguousAcquisition(
     dump_filename_ = configuration_->property(role + ".dump_filename",
         default_dump_filename);
 
-    //--- Find number of samples per spreading code (4 ms)  -----------------
-    code_length_ = round(
-        fs_in_ / (GALILEO_E1_CODE_CHIP_RATE_HZ / GALILEO_E1_B_CODE_LENGTH_CHIPS));
+    // -- Find number of samples per spreading code (4 ms)  -----------------
+    code_length_ = static_cast<unsigned int>(round(
+        fs_in_ / (GALILEO_E1_CODE_CHIP_RATE_CPS / GALILEO_E1_B_CODE_LENGTH_CHIPS)));
 
     vector_length_ = code_length_ * static_cast<int>(sampled_ms_ / 4);
 
-    int samples_per_ms = code_length_ / 4;
+    auto samples_per_ms = static_cast<int>(code_length_) / 4;
 
     code_ = std::vector<std::complex<float>>(vector_length_);
+
+    bool enable_monitor_output = configuration->property("AcquisitionMonitor.enable_monitor", false);
 
     if (item_type_ == "gr_complex")
         {
             item_size_ = sizeof(gr_complex);
             acquisition_cc_ = galileo_pcps_8ms_make_acquisition_cc(sampled_ms_, max_dwells_,
                 doppler_max_, fs_in_, samples_per_ms, code_length_,
-                dump_, dump_filename_);
+                dump_, dump_filename_, enable_monitor_output);
             stream_to_vector_ = gr::blocks::stream_to_vector::make(item_size_, vector_length_);
             DLOG(INFO) << "stream_to_vector("
                        << stream_to_vector_->unique_id() << ")";
@@ -125,16 +120,17 @@ GalileoE1Pcps8msAmbiguousAcquisition::GalileoE1Pcps8msAmbiguousAcquisition(
 
 void GalileoE1Pcps8msAmbiguousAcquisition::stop_acquisition()
 {
+    acquisition_cc_->set_active(false);
 }
 
 
 void GalileoE1Pcps8msAmbiguousAcquisition::set_threshold(float threshold)
 {
-    float pfa = configuration_->property(role_ + std::to_string(channel_) + ".pfa", 0.0);
+    float pfa = configuration_->property(role_ + std::to_string(channel_) + ".pfa", static_cast<float>(0.0));
 
     if (pfa == 0.0)
         {
-            pfa = configuration_->property(role_ + ".pfa", 0.0);
+            pfa = configuration_->property(role_ + ".pfa", static_cast<float>(0.0));
         }
 
     if (pfa == 0.0)
@@ -219,7 +215,7 @@ void GalileoE1Pcps8msAmbiguousAcquisition::set_local_code()
             galileo_e1_code_gen_complex_sampled(code, Signal_,
                 cboc, gnss_synchro_->PRN, fs_in_, 0, false);
 
-            gsl::span<gr_complex> code_span(code_.data(), vector_length_);
+            own::span<gr_complex> code_span(code_.data(), vector_length_);
             for (unsigned int i = 0; i < sampled_ms_ / 4; i++)
                 {
                     std::copy_n(code.data(), code_length_, code_span.subspan(i * code_length_, code_length_).data());
@@ -239,10 +235,10 @@ void GalileoE1Pcps8msAmbiguousAcquisition::reset()
 }
 
 
-float GalileoE1Pcps8msAmbiguousAcquisition::calculate_threshold(float pfa)
+float GalileoE1Pcps8msAmbiguousAcquisition::calculate_threshold(float pfa) const
 {
     unsigned int frequency_bins = 0;
-    for (int doppler = static_cast<int>(-doppler_max_); doppler <= static_cast<int>(doppler_max_); doppler += doppler_step_)
+    for (int doppler = static_cast<int>(-doppler_max_); doppler <= static_cast<int>(doppler_max_); doppler += static_cast<int>(doppler_step_))
         {
             frequency_bins++;
         }
@@ -252,7 +248,7 @@ float GalileoE1Pcps8msAmbiguousAcquisition::calculate_threshold(float pfa)
     unsigned int ncells = vector_length_ * frequency_bins;
     double exponent = 1 / static_cast<double>(ncells);
     double val = pow(1.0 - pfa, exponent);
-    auto lambda = double(vector_length_);
+    auto lambda = static_cast<double>(vector_length_);
     boost::math::exponential_distribution<double> mydist(lambda);
     auto threshold = static_cast<float>(quantile(mydist, val));
 

@@ -2,39 +2,25 @@
  * \file fmcomms2_signal_source.h
  * \brief Interface to use SDR hardware based in FMCOMMS2 driver from analog
  * devices, for example FMCOMMS4 and ADALM-PLUTO (PlutoSdr)
- * \author Rodrigo Muñoz, 2017. rmunozl(at)inacap.cl
+ * \author Rodrigo Muñoz, 2017. rmunozl(at)inacap.cl, rodrigo.munoz(at)proteinlab.cl
+ *
  *
  * This class represent a fmcomms2 signal source. It use the gr_iio block
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_FMCOMMS2_SIGNAL_SOURCE_H_
-#define GNSS_SDR_FMCOMMS2_SIGNAL_SOURCE_H_
+#ifndef GNSS_SDR_FMCOMMS2_SIGNAL_SOURCE_H
+#define GNSS_SDR_FMCOMMS2_SIGNAL_SOURCE_H
 
 #include "gnss_block_interface.h"
-#include <boost/shared_ptr.hpp>
 #include <gnuradio/blocks/file_sink.h>
 #if GRIIO_INCLUDE_HAS_GNURADIO
 #include <gnuradio/iio/fmcomms2_source.h>
@@ -43,18 +29,26 @@
 #endif
 #include "concurrent_queue.h"
 #include <pmt/pmt.h>
+#include <cstdint>
 #include <string>
+
+
+/** \addtogroup Signal_Source
+ * \{ */
+/** \addtogroup Signal_Source_adapters
+ * \{ */
+
 
 class ConfigurationInterface;
 
 class Fmcomms2SignalSource : public GNSSBlockInterface
 {
 public:
-    Fmcomms2SignalSource(ConfigurationInterface* configuration,
+    Fmcomms2SignalSource(const ConfigurationInterface* configuration,
         const std::string& role, unsigned int in_stream,
-        unsigned int out_stream, std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue);
+        unsigned int out_stream, Concurrent_Queue<pmt::pmt_t>* queue);
 
-    virtual ~Fmcomms2SignalSource();
+    ~Fmcomms2SignalSource();
 
     inline std::string role() override
     {
@@ -80,50 +74,59 @@ public:
     gr::basic_block_sptr get_right_block() override;
 
 private:
+    gr::iio::fmcomms2_source_f32c::sptr fmcomms2_source_f32c_;
+    gnss_shared_ptr<gr::block> valve_;
+    gr::blocks::file_sink::sptr file_sink_;
+
     std::string role_;
+    std::string item_type_;
+    std::string dump_filename_;
 
     // Front-end settings
-    std::string uri_;     //device direction
-    unsigned long freq_;  //frequency of local oscilator
-    unsigned long sample_rate_;
-    unsigned long bandwidth_;
-    unsigned long buffer_size_;  //reception buffer
+    std::string uri_;  // device direction
+    std::string gain_mode_rx1_;
+    std::string gain_mode_rx2_;
+    std::string rf_port_select_;
+    std::string filter_file_;
+    std::string filter_source_;
+    std::string filter_filename_;
+
+    int64_t samples_;
+    size_t item_size_;
+
+    unsigned int in_stream_;
+    unsigned int out_stream_;
+
+    double rf_gain_rx1_;
+    double rf_gain_rx2_;
+    uint64_t freq_;  // frequency of local oscilator
+    uint64_t sample_rate_;
+    uint64_t bandwidth_;
+    uint64_t buffer_size_;  // reception buffer
+    float Fpass_;
+    float Fstop_;
+    int RF_channels_;
+
+    // DDS configuration for LO generation for external mixer
+    double scale_dds_dbfs_;
+    double phase_dds_deg_;
+    double tx_attenuation_db_;
+    uint64_t freq_rf_tx_hz_;
+    uint64_t freq_dds_tx_hz_;
+    uint64_t tx_bandwidth_;
+    bool enable_dds_lo_;
+
     bool rx1_en_;
     bool rx2_en_;
     bool quadrature_;
     bool rf_dc_;
     bool bb_dc_;
-    int RF_channels_;
-    std::string gain_mode_rx1_;
-    std::string gain_mode_rx2_;
-    double rf_gain_rx1_;
-    double rf_gain_rx2_;
-    std::string rf_port_select_;
-    std::string filter_file_;
     bool filter_auto_;
-
-    //DDS configuration for LO generation for external mixer
-    bool enable_dds_lo_;
-    unsigned long freq_rf_tx_hz_;
-    unsigned long freq_dds_tx_hz_;
-    double scale_dds_dbfs_;
-    double phase_dds_deg_;
-    double tx_attenuation_db_;
-
-    unsigned int in_stream_;
-    unsigned int out_stream_;
-
-    std::string item_type_;
-    size_t item_size_;
-    long samples_;
+    bool rf_shutdown_;
     bool dump_;
-    std::string dump_filename_;
-
-    gr::iio::fmcomms2_source_f32c::sptr fmcomms2_source_f32c_;
-
-    boost::shared_ptr<gr::block> valve_;
-    gr::blocks::file_sink::sptr file_sink_;
-    std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue_;
 };
 
-#endif /*GNSS_SDR_FMCOMMS2_SIGNAL_SOURCE_H_*/
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_FMCOMMS2_SIGNAL_SOURCE_H

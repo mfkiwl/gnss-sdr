@@ -8,38 +8,53 @@
  * instantiated directly if all inherited pure virtual methods have been
  * implemented by that class or a parent class.
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
-#ifndef GNSS_SDR_GNSS_BLOCK_INTERFACE_H_
-#define GNSS_SDR_GNSS_BLOCK_INTERFACE_H_
+#ifndef GNSS_SDR_GNSS_BLOCK_INTERFACE_H
+#define GNSS_SDR_GNSS_BLOCK_INTERFACE_H
 
 #include <gnuradio/top_block.h>
 #include <cassert>
 #include <string>
+#include <utility>  // for std::forward
+
+/** \addtogroup Core
+ * \{ */
+/** \addtogroup GNSS_Block_Interfaces
+ * \{ */
+
+// clang-format off
+#if GNURADIO_USES_STD_POINTERS
+#include <memory>
+template <typename T>
+using gnss_shared_ptr = std::shared_ptr<T>;
+template <typename C, typename... Args>
+gnss_shared_ptr<C> gnss_make_shared(Args &&... args)
+{
+    return std::make_shared<C>(std::forward<Args>(args)...);
+}
+#else
+#include <boost/make_shared.hpp>
+#include <boost/shared_ptr.hpp>
+template <typename T>
+using gnss_shared_ptr = boost::shared_ptr<T>;
+template <typename C, typename... Args>
+gnss_shared_ptr<C> gnss_make_shared(Args &&... args)
+{
+    return boost::make_shared<C>(std::forward<Args>(args)...);
+}
+#endif
+// clang-format on
 
 
 /*!
@@ -79,6 +94,14 @@ public:
             };           // avoid unused param warning
         return nullptr;  // added to support raw array access (non pure virtual to allow left unimplemented)= 0;
     }
+
+    /*!
+     * \brief Start the flow of samples if needed.
+     */
+    virtual void start(){};
 };
 
-#endif /*GNSS_SDR_GNSS_BLOCK_INTERFACE_H_*/
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_GNSS_BLOCK_INTERFACE_H

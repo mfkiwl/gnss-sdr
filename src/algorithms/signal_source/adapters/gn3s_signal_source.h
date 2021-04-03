@@ -3,41 +3,34 @@
  * \brief GN3S USB dongle GPS RF front-end signal sampler driver
  * \author Javier Arribas, jarribas(at)cttc.es
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
-#ifndef GNSS_SDR_GN3S_SIGNAL_SOURCE_H_
-#define GNSS_SDR_GN3S_SIGNAL_SOURCE_H_
+#ifndef GNSS_SDR_GN3S_SIGNAL_SOURCE_H
+#define GNSS_SDR_GN3S_SIGNAL_SOURCE_H
 
 #include "concurrent_queue.h"
 #include "gnss_block_interface.h"
 #include <gnuradio/blocks/file_sink.h>
 #include <gnuradio/hier_block2.h>
 #include <pmt/pmt.h>
+#include <cstdint>
+#include <memory>
 #include <string>
+
+/** \addtogroup Signal_Source
+ * \{ */
+/** \addtogroup Signal_Source_adapters
+ * \{ */
 
 
 class ConfigurationInterface;
@@ -48,9 +41,9 @@ class ConfigurationInterface;
 class Gn3sSignalSource : public GNSSBlockInterface
 {
 public:
-    Gn3sSignalSource(ConfigurationInterface* configuration,
+    Gn3sSignalSource(const ConfigurationInterface* configuration,
         std::string role, unsigned int in_stream,
-        unsigned int out_stream, std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue);
+        unsigned int out_stream, Concurrent_Queue<pmt::pmt_t>* queue);
 
     ~Gn3sSignalSource() = default;
 
@@ -78,17 +71,19 @@ public:
     gr::basic_block_sptr get_right_block() override;
 
 private:
-    std::string role_;
-    unsigned int in_stream_;
-    unsigned int out_stream_;
-    std::string item_type_;
-    size_t item_size_;
-    long samples_;
-    bool dump_;
-    std::string dump_filename_;
     gr::block_sptr gn3s_source_;
     gr::blocks::file_sink::sptr file_sink_;
-    std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue_;
+    std::string role_;
+    std::string item_type_;
+    std::string dump_filename_;
+    size_t item_size_;
+    int64_t samples_;
+    unsigned int in_stream_;
+    unsigned int out_stream_;
+    bool dump_;
 };
 
-#endif /*GNSS_SDR_GN3S_SIGNAL_SOURCE_H_*/
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_GN3S_SIGNAL_SOURCE_H

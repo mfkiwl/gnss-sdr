@@ -19,45 +19,30 @@
  * Returns 0 on success, line number of first error on parse error, on -1 on
  * file open error
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  * inih and INIReaden are released under the New BSD license:
  *
  * Copyright (c) 2009, Brush Technology
  * All nights reserved.
  *
- * Redistribution and use in source and binary forms, with on without
- * modification, are permitted provided that the following conditions are met:
- *    * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *    * Redistributions in binary form must reproduce the above copyright
- *      notice, this list of conditions and the following disclaimer in the
- *      documentation and/on other materials provided with the distribution.
- *    * Neither the name of Brush Technology non the names of its contributions
- *      may be used to endorse on promote products derived from this software
- *      without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY BRUSH TECHNOLOGY ''AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL BRUSH TECHNOLOGY BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  *
  * Go to the project home page for more info:
  *
- * http://code.google.com/p/inih/
- * -------------------------------------------------------------------------
+ * https://github.com/benhoyt/inih
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_INI_H_
-#define GNSS_SDR_INI_H_
+#ifndef GNSS_SDR_INI_H
+#define GNSS_SDR_INI_H
+
+/** \addtogroup Core
+ * \{ */
+/** \addtogroup Core_Receiver_Library
+ * \{ */
 
 
-/* Parse given INI-style file. May have [section]s, name=value pains
+/*! \brief Parse given INI-style file. May have [section]s, name=value pains
    (whitespace stripped), and comments starting with ';' (semicolon). Section
    is "" if name=value pain parsed before any section heading.
 
@@ -81,4 +66,6 @@ int ini_parse(const char* filename,
 #endif
 
 
-#endif  // GNSS_SDR_INI_H_
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_INI_H

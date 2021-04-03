@@ -3,36 +3,27 @@
  * \brief  Interface of an Assisted GNSS REFERENCE TIME storage
  * \author Javier Arribas, 2013. jarribas(at)cttc.es
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
-#ifndef GNSS_SDR_AGNSS_REF_TIME_H_
-#define GNSS_SDR_AGNSS_REF_TIME_H_
+#ifndef GNSS_SDR_AGNSS_REF_TIME_H
+#define GNSS_SDR_AGNSS_REF_TIME_H
 
 #include <boost/serialization/nvp.hpp>
+
+/** \addtogroup Core
+ * \{ */
+/** \addtogroup System_Parameters
+ * \{ */
 
 
 /*!
@@ -42,15 +33,16 @@
 class Agnss_Ref_Time
 {
 public:
-    bool valid;
-    double d_TOW;
-    double d_Week;
-    double d_tv_sec;
-    double d_tv_usec;
     /*!
      * Default constructor
      */
-    Agnss_Ref_Time();
+    Agnss_Ref_Time() = default;
+
+    double d_TOW{};
+    double d_Week{};
+    double d_tv_sec{};
+    double d_tv_usec{};
+    bool valid{};
 
     template <class Archive>
 
@@ -63,12 +55,15 @@ public:
         if (version)
             {
             };
-        archive& make_nvp("valid", valid);
         archive& make_nvp("d_TOW", d_TOW);
         archive& make_nvp("d_Week", d_Week);
         archive& make_nvp("d_tv_sec", d_tv_sec);
         archive& make_nvp("d_tv_usec", d_tv_usec);
+        archive& make_nvp("valid", valid);
     }
 };
 
-#endif
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_AGNSS_REF_TIME_H

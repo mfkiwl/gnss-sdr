@@ -5,29 +5,15 @@
  * \author Luis Esteve, 2012. luis(at)epsilon-formacion.com
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2012-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
@@ -102,7 +88,7 @@ void GalileoE1DllPllVemlTrackingInternalTest::init()
 TEST_F(GalileoE1DllPllVemlTrackingInternalTest, Instantiate)
 {
     init();
-    auto tracking = factory->GetBlock(config, "Tracking_1B", "Galileo_E1_DLL_PLL_VEML_Tracking", 1, 1);
+    auto tracking = factory->GetBlock(config.get(), "Tracking_1B", 1, 1);
     EXPECT_STREQ("Galileo_E1_DLL_PLL_VEML_Tracking", tracking->implementation().c_str());
 }
 
@@ -111,14 +97,15 @@ TEST_F(GalileoE1DllPllVemlTrackingInternalTest, ConnectAndRun)
 {
     int fs_in = 8000000;
     int nsamples = 40000000;
-    std::chrono::time_point<std::chrono::system_clock> start, end;
+    std::chrono::time_point<std::chrono::system_clock> start;
+    std::chrono::time_point<std::chrono::system_clock> end;
     std::chrono::duration<double> elapsed_seconds(0);
     init();
     queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
     top_block = gr::make_top_block("Tracking test");
 
     // Example using smart pointers and the block factory
-    std::shared_ptr<GNSSBlockInterface> trk_ = factory->GetBlock(config, "Tracking_1B", "Galileo_E1_DLL_PLL_VEML_Tracking", 1, 1);
+    std::shared_ptr<GNSSBlockInterface> trk_ = factory->GetBlock(config.get(), "Tracking_1B", 1, 1);
     std::shared_ptr<GalileoE1DllPllVemlTracking> tracking = std::dynamic_pointer_cast<GalileoE1DllPllVemlTracking>(trk_);
 
     ASSERT_NO_THROW({
@@ -132,7 +119,7 @@ TEST_F(GalileoE1DllPllVemlTrackingInternalTest, ConnectAndRun)
     ASSERT_NO_THROW({
         tracking->connect(top_block);
         gr::analog::sig_source_c::sptr source = gr::analog::sig_source_c::make(fs_in, gr::analog::GR_SIN_WAVE, 1000, 1, gr_complex(0));
-        boost::shared_ptr<gr::block> valve = gnss_sdr_make_valve(sizeof(gr_complex), nsamples, queue);
+        auto valve = gnss_sdr_make_valve(sizeof(gr_complex), nsamples, queue.get());
         gr::blocks::null_sink::sptr sink = gr::blocks::null_sink::make(sizeof(Gnss_Synchro));
         top_block->connect(source, 0, valve, 0);
         top_block->connect(valve, 0, tracking->get_left_block(), 0);
@@ -143,18 +130,19 @@ TEST_F(GalileoE1DllPllVemlTrackingInternalTest, ConnectAndRun)
 
     EXPECT_NO_THROW({
         start = std::chrono::system_clock::now();
-        top_block->run();  //Start threads and wait
+        top_block->run();  // Start threads and wait
         end = std::chrono::system_clock::now();
         elapsed_seconds = end - start;
     }) << "Failure running the top_block.";
 
-    std::cout << "Processed " << nsamples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds" << std::endl;
+    std::cout << "Processed " << nsamples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds\n";
 }
 
 
 TEST_F(GalileoE1DllPllVemlTrackingInternalTest, ValidationOfResults)
 {
-    std::chrono::time_point<std::chrono::system_clock> start, end;
+    std::chrono::time_point<std::chrono::system_clock> start;
+    std::chrono::time_point<std::chrono::system_clock> end;
     std::chrono::duration<double> elapsed_seconds(0);
     // int num_samples = 40000000; // 4 Msps
     // unsigned int skiphead_sps = 24000000; // 4 Msps
@@ -165,7 +153,7 @@ TEST_F(GalileoE1DllPllVemlTrackingInternalTest, ValidationOfResults)
     top_block = gr::make_top_block("Tracking test");
 
     // Example using smart pointers and the block factory
-    std::shared_ptr<GNSSBlockInterface> trk_ = factory->GetBlock(config, "Tracking_1B", "Galileo_E1_DLL_PLL_VEML_Tracking", 1, 1);
+    std::shared_ptr<GNSSBlockInterface> trk_ = factory->GetBlock(config.get(), "Tracking_1B", 1, 1);
     std::shared_ptr<TrackingInterface> tracking = std::dynamic_pointer_cast<TrackingInterface>(trk_);
 
     // gnss_synchro.Acq_delay_samples = 1753; // 4 Msps
@@ -192,7 +180,7 @@ TEST_F(GalileoE1DllPllVemlTrackingInternalTest, ValidationOfResults)
         const char* file_name = file.c_str();
         gr::blocks::file_source::sptr file_source = gr::blocks::file_source::make(sizeof(gr_complex), file_name, false);
         gr::blocks::skiphead::sptr skip_head = gr::blocks::skiphead::make(sizeof(gr_complex), skiphead_sps);
-        boost::shared_ptr<gr::block> valve = gnss_sdr_make_valve(sizeof(gr_complex), num_samples, queue);
+        auto valve = gnss_sdr_make_valve(sizeof(gr_complex), num_samples, queue.get());
         gr::blocks::null_sink::sptr sink = gr::blocks::null_sink::make(sizeof(Gnss_Synchro));
         top_block->connect(file_source, 0, skip_head, 0);
         top_block->connect(skip_head, 0, valve, 0);
@@ -209,5 +197,5 @@ TEST_F(GalileoE1DllPllVemlTrackingInternalTest, ValidationOfResults)
         elapsed_seconds = end - start;
     }) << "Failure running the top_block.";
 
-    std::cout << "Tracked " << num_samples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds" << std::endl;
+    std::cout << "Tracked " << num_samples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds\n";
 }

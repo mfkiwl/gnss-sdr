@@ -3,32 +3,19 @@
  * \brief Implements Unit Test for the Rtcm_Printer class.
  * \author Carles Fernandez-Prades, 2013. cfernandez(at)cttc.es
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
+#include "gnss_sdr_make_unique.h"
 #include "rtcm_printer.h"
 #include <string>
 
@@ -42,7 +29,7 @@ TEST(RtcmPrinterTest, Instantiate)
     bool rtcm_file_output_enabled = false;
     unsigned short rtcm_tcp_port = 2101;
     unsigned short rtcm_station_id = 1234;
-    std::unique_ptr<Rtcm_Printer> RTCM_printer(new Rtcm_Printer(filename, rtcm_file_output_enabled, flag_rtcm_server, flag_rtcm_tty_port, rtcm_tcp_port, rtcm_station_id, rtcm_dump_devname));
+    auto RTCM_printer = std::make_unique<Rtcm_Printer>(filename, rtcm_file_output_enabled, flag_rtcm_server, flag_rtcm_tty_port, rtcm_tcp_port, rtcm_station_id, rtcm_dump_devname);
 }
 
 
@@ -56,7 +43,7 @@ TEST(RtcmPrinterTest, Run)
     unsigned short rtcm_tcp_port = 2101;
     unsigned short rtcm_station_id = 1234;
 
-    std::unique_ptr<Rtcm_Printer> RTCM_printer(new Rtcm_Printer(filename, rtcm_file_output_enabled, flag_rtcm_server, flag_rtcm_tty_port, rtcm_tcp_port, rtcm_station_id, rtcm_dump_devname));
+    auto RTCM_printer = std::make_unique<Rtcm_Printer>(filename, rtcm_file_output_enabled, flag_rtcm_server, flag_rtcm_tty_port, rtcm_tcp_port, rtcm_station_id, rtcm_dump_devname);
 
     std::string reference_msg = "D300133ED7D30202980EDEEF34B4BD62AC0941986F33360B98";
 

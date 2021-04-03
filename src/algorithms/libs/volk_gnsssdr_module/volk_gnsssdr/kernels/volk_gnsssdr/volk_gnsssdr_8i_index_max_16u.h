@@ -7,29 +7,15 @@
  *
  * VOLK_GNSSSDR kernel that returns the index of the maximum value of a group of 8 bits (char) scalars
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 /*!
@@ -121,7 +107,7 @@ static inline void volk_gnsssdr_8i_index_max_16u_u_avx2(unsigned int* target, co
         }
 }
 
-#endif /*LV_HAVE_AVX2*/
+#endif /* LV_HAVE_AVX2 */
 
 
 #ifdef LV_HAVE_AVX
@@ -156,7 +142,7 @@ static inline void volk_gnsssdr_8i_index_max_16u_u_avx(unsigned int* target, con
                     compareResultslo = _mm_cmpgt_epi8(maxValues, lo);
                     compareResultshi = _mm_cmpgt_epi8(maxValues, hi);
 
-                    //compareResults = _mm256_set_m128i(compareResultshi , compareResultslo); //not defined in some versions of immintrin.h
+                    // compareResults = _mm256_set_m128i(compareResultshi , compareResultslo); //not defined in some versions of immintrin.h
                     compareResults = _mm256_insertf128_si256(_mm256_castsi128_si256(compareResultslo), (compareResultshi), 1);
 
                     if (!_mm256_testc_si256(compareResults, ones))
@@ -437,7 +423,7 @@ static inline void volk_gnsssdr_8i_index_max_16u_a_avx(unsigned int* target, con
                     compareResultslo = _mm_cmpgt_epi8(maxValues, lo);
                     compareResultshi = _mm_cmpgt_epi8(maxValues, hi);
 
-                    //compareResults = _mm256_set_m128i(compareResultshi , compareResultslo); //not defined in some versions of immintrin.h
+                    // compareResults = _mm256_set_m128i(compareResultshi , compareResultslo); //not defined in some versions of immintrin.h
                     compareResults = _mm256_insertf128_si256(_mm256_castsi128_si256(compareResultslo), (compareResultshi), 1);
 
                     if (!_mm256_testc_si256(compareResults, ones))

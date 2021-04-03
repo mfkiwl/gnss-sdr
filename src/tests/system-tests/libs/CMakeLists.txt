@@ -1,20 +1,8 @@
-# Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
-#
+# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 
 set(SYSTEM_TESTING_LIB_SOURCES
@@ -25,19 +13,28 @@ set(SYSTEM_TESTING_LIB_SOURCES
 file(GLOB SYSTEM_TESTING_LIB_HEADERS "*.h")
 list(SORT SYSTEM_TESTING_LIB_HEADERS)
 
-add_library(system_testing_lib
-    ${SYSTEM_TESTING_LIB_SOURCES}
-    ${SYSTEM_TESTING_LIB_HEADERS}
-)
-
-source_group(Headers FILES ${SYSTEM_TESTING_LIB_HEADERS})
+if(USE_CMAKE_TARGET_SOURCES)
+    add_library(system_testing_lib STATIC)
+    target_sources(system_testing_lib
+        PRIVATE
+            ${SYSTEM_TESTING_LIB_SOURCES}
+        PUBLIC
+            ${SYSTEM_TESTING_LIB_HEADERS}
+    )
+else()
+    source_group(Headers FILES ${SYSTEM_TESTING_LIB_HEADERS})
+    add_library(system_testing_lib
+        ${SYSTEM_TESTING_LIB_SOURCES}
+        ${SYSTEM_TESTING_LIB_HEADERS}
+    )
+endif()
 
 target_link_libraries(system_testing_lib
     PUBLIC
         Armadillo::armadillo
         Gflags::gflags
     PRIVATE
-        Boost::boost
+        Boost::headers
         Matio::matio
 )
 

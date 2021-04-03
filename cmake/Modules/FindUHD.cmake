@@ -1,23 +1,12 @@
-# Copyright (C) 2011-2019 (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: 2011-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 #
 # Provides the following imported target:
-# Iio::iio
+# Uhd::uhd
 #
 
 ########################################################################
@@ -27,26 +16,52 @@ if(NOT COMMAND feature_summary)
     include(FeatureSummary)
 endif()
 
-set(PKG_CONFIG_USE_CMAKE_PREFIX_PATH TRUE)
-include(FindPkgConfig)
+if(NOT PKG_CONFIG_FOUND)
+    include(FindPkgConfig)
+endif()
+
 pkg_check_modules(PC_UHD uhd)
+
+if(NOT UHD_ROOT)
+    set(UHD_ROOT_USER_PROVIDED /usr/local)
+else()
+    set(UHD_ROOT_USER_PROVIDED ${UHD_ROOT})
+endif()
+if(GNURADIO_INSTALL_PREFIX)
+    set(UHD_ROOT_USER_PROVIDED
+        ${UHD_ROOT_USER_PROVIDED}
+        ${GNURADIO_INSTALL_PREFIX}
+    )
+endif()
+if(DEFINED ENV{UHD_ROOT})
+    set(UHD_ROOT_USER_PROVIDED
+        ${UHD_ROOT_USER_PROVIDED}
+        $ENV{UHD_ROOT}
+    )
+endif()
+if(DEFINED ENV{UHD_DIR})
+    set(UHD_ROOT_USER_PROVIDED
+        ${UHD_ROOT_USER_PROVIDED}
+        $ENV{UHD_DIR}
+    )
+endif()
 
 find_path(UHD_INCLUDE_DIRS
     NAMES uhd/config.hpp
-    HINTS $ENV{UHD_DIR}/include
-          ${PC_UHD_INCLUDEDIR}
-    PATHS /usr/local/include
+    HINTS ${PC_UHD_INCLUDEDIR}
+    PATHS ${UHD_ROOT_USER_PROVIDED}/include
           /usr/include
-          ${GNURADIO_INSTALL_PREFIX}/include
-          ${UHD_ROOT}/include
-          $ENV{UHD_ROOT}/include
+          /usr/local/include
+          /opt/local/include
 )
 
 find_library(UHD_LIBRARIES
     NAMES uhd
-    HINTS $ENV{UHD_DIR}/lib
-          ${PC_UHD_LIBDIR}
-    PATHS /usr/local/lib
+    HINTS ${PC_UHD_LIBDIR}
+    PATHS ${UHD_ROOT_USER_PROVIDED}/lib
+          ${UHD_ROOT_USER_PROVIDED}/lib64
+          /usr/lib
+          /usr/lib64
           /usr/lib/x86_64-linux-gnu
           /usr/lib/i386-linux-gnu
           /usr/lib/arm-linux-gnueabihf
@@ -70,13 +85,10 @@ find_library(UHD_LIBRARIES
           /usr/lib/sparc64-linux-gnu
           /usr/lib/x86_64-linux-gnux32
           /usr/lib/alpha-linux-gnu
-          /usr/lib64
-          /usr/lib
-          ${GNURADIO_INSTALL_PREFIX}/lib
-          ${UHD_ROOT}/lib
-          $ENV{UHD_ROOT}/lib
-          ${UHD_ROOT}/lib64
-          $ENV{UHD_ROOT}/lib64
+          /usr/lib/riscv64-linux-gnu
+          /usr/local/lib
+          /usr/local/lib64
+          /opt/local/lib
 )
 
 include(FindPackageHandleStandardArgs)
@@ -100,7 +112,7 @@ if(NOT PC_UHD_VERSION)
 endif()
 
 set_package_properties(UHD PROPERTIES
-    URL "https://www.ettus.com/sdr-software/detail/usrp-hardware-driver"
+    URL "https://www.ettus.com/sdr-software/uhd-usrp-hardware-driver/"
 )
 
 if(UHD_FOUND AND UHD_VERSION)

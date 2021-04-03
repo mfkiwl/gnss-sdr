@@ -6,33 +6,19 @@
  *          <li> Javier Arribas, 2013. jarribas(at)cttc.es
  *          </ul> *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_GPS_L1_CA_PCPS_ACQUISITION_FINE_DOPPLER_H_
-#define GNSS_SDR_GPS_L1_CA_PCPS_ACQUISITION_FINE_DOPPLER_H_
+#ifndef GNSS_SDR_GPS_L1_CA_PCPS_ACQUISITION_FINE_DOPPLER_H
+#define GNSS_SDR_GPS_L1_CA_PCPS_ACQUISITION_FINE_DOPPLER_H
 
 #include "channel_fsm.h"
 #include "gnss_synchro.h"
@@ -40,6 +26,14 @@
 #include <memory>
 #include <string>
 #include <vector>
+
+/** \addtogroup Acquisition
+ * \{ */
+/** \addtogroup Acq_adapters
+ * \{ */
+
+
+using pcps_acquisition_fine_doppler_cc_sptr = gnss_shared_ptr<pcps_acquisition_fine_doppler_cc>;
 
 class ConfigurationInterface;
 
@@ -50,7 +44,7 @@ class ConfigurationInterface;
 class GpsL1CaPcpsAcquisitionFineDoppler : public AcquisitionInterface
 {
 public:
-    GpsL1CaPcpsAcquisitionFineDoppler(ConfigurationInterface* configuration,
+    GpsL1CaPcpsAcquisitionFineDoppler(const ConfigurationInterface* configuration,
         const std::string& role,
         unsigned int in_streams,
         unsigned int out_streams);
@@ -75,10 +69,10 @@ public:
         return item_size_;
     }
 
-    void connect(boost::shared_ptr<gr::top_block> top_block) override;
-    void disconnect(boost::shared_ptr<gr::top_block> top_block) override;
-    boost::shared_ptr<gr::basic_block> get_left_block() override;
-    boost::shared_ptr<gr::basic_block> get_right_block() override;
+    void connect(gnss_shared_ptr<gr::top_block> top_block) override;
+    void disconnect(gnss_shared_ptr<gr::top_block> top_block) override;
+    gnss_shared_ptr<gr::basic_block> get_left_block() override;
+    gnss_shared_ptr<gr::basic_block> get_right_block() override;
 
     /*!
      * \brief Set acquisition/tracking common Gnss_Synchro object pointer
@@ -151,24 +145,27 @@ public:
 
 private:
     pcps_acquisition_fine_doppler_cc_sptr acquisition_cc_;
-    size_t item_size_;
-    std::string item_type_;
-    unsigned int vector_length_;
-    unsigned int channel_;
     std::weak_ptr<ChannelFsm> channel_fsm_;
+    std::vector<std::complex<float>> code_;
+    std::string item_type_;
+    std::string dump_filename_;
+    std::string role_;
+    Gnss_Synchro* gnss_synchro_;
+    int64_t fs_in_;
+    size_t item_size_;
     float threshold_;
     int doppler_max_;
+    int max_dwells_;
+    unsigned int vector_length_;
+    unsigned int channel_;
     unsigned int doppler_step_;
     unsigned int sampled_ms_;
-    int max_dwells_;
-    int64_t fs_in_;
-    bool dump_;
-    std::string dump_filename_;
-    std::vector<std::complex<float>> code_;
-    Gnss_Synchro* gnss_synchro_;
-    std::string role_;
     unsigned int in_streams_;
     unsigned int out_streams_;
+    bool dump_;
 };
 
-#endif /* GNSS_SDR_GPS_L1_CA_PCPS_ACQUISITION_FINE_DOPPLER_H_ */
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_GPS_L1_CA_PCPS_ACQUISITION_FINE_DOPPLER_H

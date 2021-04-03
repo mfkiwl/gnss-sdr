@@ -1,20 +1,9 @@
-# Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
-#
+# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
+
 
 set(TELEMETRY_DECODER_GR_BLOCKS_SOURCES
     gps_l1_ca_telemetry_decoder_gs.cc
@@ -43,12 +32,21 @@ set(TELEMETRY_DECODER_GR_BLOCKS_HEADERS
 list(SORT TELEMETRY_DECODER_GR_BLOCKS_HEADERS)
 list(SORT TELEMETRY_DECODER_GR_BLOCKS_SOURCES)
 
-source_group(Headers FILES ${TELEMETRY_DECODER_GR_BLOCKS_HEADERS})
-
-add_library(telemetry_decoder_gr_blocks
-    ${TELEMETRY_DECODER_GR_BLOCKS_SOURCES}
-    ${TELEMETRY_DECODER_GR_BLOCKS_HEADERS}
-)
+if(USE_CMAKE_TARGET_SOURCES)
+    add_library(telemetry_decoder_gr_blocks STATIC)
+    target_sources(telemetry_decoder_gr_blocks
+        PRIVATE
+            ${TELEMETRY_DECODER_GR_BLOCKS_SOURCES}
+        PUBLIC
+            ${TELEMETRY_DECODER_GR_BLOCKS_HEADERS}
+    )
+else()
+    source_group(Headers FILES ${TELEMETRY_DECODER_GR_BLOCKS_HEADERS})
+    add_library(telemetry_decoder_gr_blocks
+        ${TELEMETRY_DECODER_GR_BLOCKS_SOURCES}
+        ${TELEMETRY_DECODER_GR_BLOCKS_HEADERS}
+    )
+endif()
 
 target_link_libraries(telemetry_decoder_gr_blocks
     PUBLIC
@@ -56,11 +54,43 @@ target_link_libraries(telemetry_decoder_gr_blocks
         telemetry_decoder_libs
         core_system_parameters
         Gnuradio::runtime
-        Boost::boost
+        Boost::headers
     PRIVATE
         Gflags::gflags
         Glog::glog
 )
+
+if(GNURADIO_USES_STD_POINTERS)
+    target_compile_definitions(telemetry_decoder_gr_blocks
+        PUBLIC -DGNURADIO_USES_STD_POINTERS=1
+    )
+endif()
+
+target_include_directories(telemetry_decoder_gr_blocks
+    PUBLIC
+        ${CMAKE_SOURCE_DIR}/src/core/interfaces
+)
+
+if(has_rotl)
+    target_compile_definitions(telemetry_decoder_gr_blocks
+        PRIVATE -DCOMPILER_HAS_ROTL=1
+    )
+endif()
+
+if(USE_GENERIC_LAMBDAS)
+    set(has_generic_lambdas HAS_GENERIC_LAMBDA=1)
+    set(no_has_generic_lambdas HAS_GENERIC_LAMBDA=0)
+    target_compile_definitions(telemetry_decoder_gr_blocks
+        PRIVATE
+            "$<$<COMPILE_FEATURES:cxx_generic_lambdas>:${has_generic_lambdas}>"
+            "$<$<NOT:$<COMPILE_FEATURES:cxx_generic_lambdas>>:${no_has_generic_lambdas}>"
+    )
+else()
+    target_compile_definitions(telemetry_decoder_gr_blocks
+        PRIVATE
+            -DHAS_GENERIC_LAMBDA=0
+    )
+endif()
 
 if(ENABLE_CLANG_TIDY)
     if(CLANG_TIDY_EXE)

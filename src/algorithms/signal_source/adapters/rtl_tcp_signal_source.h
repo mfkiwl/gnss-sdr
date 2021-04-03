@@ -1,32 +1,18 @@
 /*!
  * \file rtl_tcp_signal_source.h
  * \brief Signal source which reads from rtl_tcp.
- * (see http://sdr.osmocom.org/trac/wiki/rtl-sdr for more information)
+ * (see https://osmocom.org/projects/rtl-sdr/wiki for more information)
  * \author Anthony Arnold, 2015. anthony.arnold(at)uqconnect.edu.au
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #ifndef GNSS_SDR_RTL_TCP_SIGNAL_SOURCE_H
@@ -35,7 +21,6 @@
 #include "concurrent_queue.h"
 #include "gnss_block_interface.h"
 #include "rtl_tcp_signal_source_c.h"
-#include <boost/shared_ptr.hpp>
 #include <gnuradio/blocks/deinterleave.h>
 #include <gnuradio/blocks/file_sink.h>
 #include <gnuradio/blocks/float_to_complex.h>
@@ -44,21 +29,27 @@
 #include <string>
 
 
+/** \addtogroup Signal_Source
+ * \{ */
+/** \addtogroup Signal_Source_adapters
+ * \{ */
+
+
 class ConfigurationInterface;
 
 /*!
  * \brief This class reads from rtl_tcp, which streams interleaved
  * I/Q samples over TCP.
- * (see http://sdr.osmocom.org/trac/wiki/rtl-sdr)
+ * (see https://osmocom.org/projects/rtl-sdr/wiki)
  */
 class RtlTcpSignalSource : public GNSSBlockInterface
 {
 public:
-    RtlTcpSignalSource(ConfigurationInterface* configuration,
+    RtlTcpSignalSource(const ConfigurationInterface* configuration,
         const std::string& role,
         unsigned int in_stream,
         unsigned int out_stream,
-        std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue);
+        Concurrent_Queue<pmt::pmt_t>* queue);
 
     ~RtlTcpSignalSource() = default;
 
@@ -87,34 +78,34 @@ public:
 
 private:
     void MakeBlock();
-    std::string role_;
-
-    // rtl_tcp settings
-    std::string address_;
-    int16_t port_;
-    bool AGC_enabled_;
-    double sample_rate_;
-    bool flip_iq_;
-
-    unsigned int in_stream_;
-    unsigned int out_stream_;
-
-    double freq_;
-    double gain_;
-    double if_gain_;
-    double rf_gain_;
-
-    std::string item_type_;
-    size_t item_size_;
-    uint64_t samples_;
-    bool dump_;
-    std::string dump_filename_;
 
     rtl_tcp_signal_source_c_sptr signal_source_;
 
-    boost::shared_ptr<gr::block> valve_;
+    gnss_shared_ptr<gr::block> valve_;
     gr::blocks::file_sink::sptr file_sink_;
-    std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue_;
+
+    std::string role_;
+    std::string item_type_;
+    std::string dump_filename_;
+
+    // rtl_tcp settings
+    std::string address_;
+    size_t item_size_;
+    uint64_t samples_;
+    int sample_rate_;
+    int freq_;
+    int gain_;
+    int if_gain_;
+    double rf_gain_;
+    unsigned int in_stream_;
+    unsigned int out_stream_;
+    int16_t port_;
+    bool AGC_enabled_;
+    bool flip_iq_;
+    bool dump_;
 };
 
-#endif /*GNSS_SDR_RTL_TCP_SIGNAL_SOURCE_H */
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_RTL_TCP_SIGNAL_SOURCE_H

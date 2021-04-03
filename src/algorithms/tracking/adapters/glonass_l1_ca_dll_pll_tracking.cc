@@ -11,29 +11,15 @@
  * A Software-Defined GPS and Galileo Receiver. A Single-Frequency
  * Approach, Birkha user, 2007
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "glonass_l1_ca_dll_pll_tracking.h"
@@ -44,38 +30,30 @@
 
 
 GlonassL1CaDllPllTracking::GlonassL1CaDllPllTracking(
-    ConfigurationInterface* configuration, const std::string& role,
+    const ConfigurationInterface* configuration, const std::string& role,
     unsigned int in_streams, unsigned int out_streams) : role_(role), in_streams_(in_streams), out_streams_(out_streams)
 {
     DLOG(INFO) << "role " << role;
     // ################# CONFIGURATION PARAMETERS ########################
-    int fs_in;
-    int vector_length;
-    bool dump;
-    std::string dump_filename;
-    std::string item_type;
-    std::string default_item_type = "gr_complex";
-    float pll_bw_hz;
-    float dll_bw_hz;
-    float early_late_space_chips;
-    item_type = configuration->property(role + ".item_type", default_item_type);
+    const std::string default_item_type("gr_complex");
+    std::string item_type = configuration->property(role + ".item_type", default_item_type);
     int fs_in_deprecated = configuration->property("GNSS-SDR.internal_fs_hz", 2048000);
-    fs_in = configuration->property("GNSS-SDR.internal_fs_sps", fs_in_deprecated);
-    dump = configuration->property(role + ".dump", false);
-    pll_bw_hz = configuration->property(role + ".pll_bw_hz", 50.0);
+    int fs_in = configuration->property("GNSS-SDR.internal_fs_sps", fs_in_deprecated);
+    bool dump = configuration->property(role + ".dump", false);
+    float pll_bw_hz = configuration->property(role + ".pll_bw_hz", static_cast<float>(50.0));
     if (FLAGS_pll_bw_hz != 0.0)
         {
             pll_bw_hz = static_cast<float>(FLAGS_pll_bw_hz);
         }
-    dll_bw_hz = configuration->property(role + ".dll_bw_hz", 2.0);
+    float dll_bw_hz = configuration->property(role + ".dll_bw_hz", static_cast<float>(2.0));
     if (FLAGS_dll_bw_hz != 0.0)
         {
             dll_bw_hz = static_cast<float>(FLAGS_dll_bw_hz);
         }
-    early_late_space_chips = configuration->property(role + ".early_late_space_chips", 0.5);
-    std::string default_dump_filename = "./track_ch";
-    dump_filename = configuration->property(role + ".dump_filename", default_dump_filename);
-    vector_length = std::round(fs_in / (GLONASS_L1_CA_CODE_RATE_HZ / GLONASS_L1_CA_CODE_LENGTH_CHIPS));
+    float early_late_space_chips = configuration->property(role + ".early_late_space_chips", static_cast<float>(0.5));
+    const std::string default_dump_filename("./track_ch");
+    std::string dump_filename = configuration->property(role + ".dump_filename", default_dump_filename);
+    const auto vector_length = static_cast<int>(std::round(fs_in / (GLONASS_L1_CA_CODE_RATE_CPS / GLONASS_L1_CA_CODE_LENGTH_CHIPS)));
 
     // ################# MAKE TRACKING GNURadio object ###################
     if (item_type == "gr_complex")

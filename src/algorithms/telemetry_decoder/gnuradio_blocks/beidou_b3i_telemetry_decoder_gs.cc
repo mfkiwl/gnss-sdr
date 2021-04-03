@@ -3,29 +3,15 @@
  * \brief Implementation of an adapter of a BEIDOU B31 DNAV data decoder block
  * \author Damian Miralles, 2019. dmiralles2009(at)gmail.com
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "beidou_b3i_telemetry_decoder_gs.h"
@@ -37,10 +23,12 @@
 #include "beidou_dnav_utc_model.h"
 #include "display.h"
 #include "gnss_synchro.h"
+#include "tlm_utils.h"
 #include <glog/logging.h>
 #include <gnuradio/io_signature.h>
 #include <pmt/pmt.h>        // for make_any
 #include <pmt/pmt_sugar.h>  // for mp
+#include <cstddef>          // for size_t
 #include <cstdlib>          // for abs
 #include <exception>        // for exception
 #include <iostream>         // for cout
@@ -50,14 +38,14 @@
 
 beidou_b3i_telemetry_decoder_gs_sptr
 beidou_b3i_make_telemetry_decoder_gs(const Gnss_Satellite &satellite,
-    bool dump)
+    const Tlm_Conf &conf)
 {
-    return beidou_b3i_telemetry_decoder_gs_sptr(new beidou_b3i_telemetry_decoder_gs(satellite, dump));
+    return beidou_b3i_telemetry_decoder_gs_sptr(new beidou_b3i_telemetry_decoder_gs(satellite, conf));
 }
 
 
 beidou_b3i_telemetry_decoder_gs::beidou_b3i_telemetry_decoder_gs(
-    const Gnss_Satellite &satellite, bool dump)
+    const Gnss_Satellite &satellite, const Tlm_Conf &conf)
     : gr::block("beidou_b3i_telemetry_decoder_gs",
           gr::io_signature::make(1, 1, sizeof(Gnss_Synchro)),
           gr::io_signature::make(1, 1, sizeof(Gnss_Synchro)))
@@ -69,7 +57,10 @@ beidou_b3i_telemetry_decoder_gs::beidou_b3i_telemetry_decoder_gs(
     // Control messages to tracking block
     this->message_port_register_out(pmt::mp("telemetry_to_trk"));
     // initialize internal vars
-    d_dump = dump;
+    d_dump_filename = conf.dump_filename;
+    d_dump = conf.dump;
+    d_dump_mat = conf.dump_mat;
+    d_remove_dat = conf.remove_dat;
     d_satellite = Gnss_Satellite(satellite.get_system(), satellite.get_PRN());
     LOG(INFO) << "Initializing BeiDou B3I Telemetry Decoding for satellite " << this->d_satellite;
 
@@ -81,7 +72,7 @@ beidou_b3i_telemetry_decoder_gs::beidou_b3i_telemetry_decoder_gs(
     // Setting samples of preamble code
     for (int32_t i = 0; i < d_symbols_per_preamble; i++)
         {
-            if (BEIDOU_DNAV_PREAMBLE.at(i) == '1')
+            if (BEIDOU_DNAV_PREAMBLE[i] == '1')
                 {
                     d_preamble_samples[i] = 1;
                 }
@@ -114,8 +105,11 @@ beidou_b3i_telemetry_decoder_gs::beidou_b3i_telemetry_decoder_gs(
 
 beidou_b3i_telemetry_decoder_gs::~beidou_b3i_telemetry_decoder_gs()
 {
+    DLOG(INFO) << "BeiDou B3I Telemetry decoder block (channel " << d_channel << ") destructor called.";
+    size_t pos = 0;
     if (d_dump_file.is_open() == true)
         {
+            pos = d_dump_file.tellp();
             try
                 {
                     d_dump_file.close();
@@ -124,6 +118,24 @@ beidou_b3i_telemetry_decoder_gs::~beidou_b3i_telemetry_decoder_gs()
                 {
                     LOG(WARNING) << "Exception in destructor closing the dump file " << ex.what();
                 }
+            if (pos == 0)
+                {
+                    if (!tlm_remove_file(d_dump_filename))
+                        {
+                            LOG(WARNING) << "Error deleting temporary file";
+                        }
+                }
+        }
+    if (d_dump && (pos != 0) && d_dump_mat)
+        {
+            save_tlm_matfile(d_dump_filename);
+            if (d_remove_dat)
+                {
+                    if (!tlm_remove_file(d_dump_filename))
+                        {
+                            LOG(WARNING) << "Error deleting temporary file";
+                        }
+                }
         }
 }
 
@@ -131,8 +143,9 @@ beidou_b3i_telemetry_decoder_gs::~beidou_b3i_telemetry_decoder_gs()
 void beidou_b3i_telemetry_decoder_gs::decode_bch15_11_01(const int32_t *bits,
     std::array<int32_t, 15> &decbits)
 {
-    int32_t bit, err;
-    std::array<int32_t, 4> reg{1, 1, 1, 1};
+    int32_t bit;
+    int32_t err;
+    std::array<int32_t, 4> reg{-1, -1, -1, -1};
     const std::array<int32_t, 15> errind{14, 13, 10, 12, 6, 9, 4, 11, 0, 5, 7, 8, 1, 3, 2};
 
     for (uint32_t i = 0; i < 15; i++)
@@ -150,11 +163,16 @@ void beidou_b3i_telemetry_decoder_gs::decode_bch15_11_01(const int32_t *bits,
             reg[1] *= bit;
         }
 
-    err = errind[reg[0] + reg[1] * 2 + reg[2] * 4 + reg[3] * 8];
+    for (uint32_t i = 0; i < 4; ++i)
+        {
+            reg[i] = (reg[i] + 1) / 2;
+        }
+
+    err = reg[0] + reg[1] * 2 + reg[2] * 4 + reg[3] * 8;
 
     if (err > 0 and err < 16)
         {
-            decbits[err - 1] *= -1;
+            decbits[errind[err - 1]] *= -1;
         }
 }
 
@@ -207,6 +225,7 @@ void beidou_b3i_telemetry_decoder_gs::decode_subframe(float *frame_symbols)
 {
     // 1. Transform from symbols to bits
     std::string data_bits;
+    data_bits.reserve(BEIDOU_DNAV_WORDS_SUBFRAME * BEIDOU_DNAV_WORD_LENGTH_BITS);
     std::array<int32_t, 30> dec_word_bits{};
 
     // Decode each word in subframe
@@ -232,7 +251,7 @@ void beidou_b3i_telemetry_decoder_gs::decode_subframe(float *frame_symbols)
         }
 
     // 3. Check operation executed correctly
-    if (d_nav.flag_crc_test == true)
+    if (d_nav.get_flag_CRC_test() == true)
         {
             DLOG(INFO) << "BeiDou DNAV CRC correct in channel " << d_channel
                        << " from satellite " << d_satellite;
@@ -246,37 +265,37 @@ void beidou_b3i_telemetry_decoder_gs::decode_subframe(float *frame_symbols)
     if (d_nav.have_new_ephemeris() == true)
         {
             // get object for this SV (mandatory)
-            std::shared_ptr<Beidou_Dnav_Ephemeris> tmp_obj =
+            const std::shared_ptr<Beidou_Dnav_Ephemeris> tmp_obj =
                 std::make_shared<Beidou_Dnav_Ephemeris>(d_nav.get_ephemeris());
             this->message_port_pub(pmt::mp("telemetry"), pmt::make_any(tmp_obj));
             LOG(INFO) << "BEIDOU DNAV Ephemeris have been received in channel"
                       << d_channel << " from satellite " << d_satellite;
             std::cout << TEXT_YELLOW << "New BEIDOU B3I DNAV message received in channel " << d_channel
-                      << ": ephemeris from satellite " << d_satellite << TEXT_RESET << std::endl;
+                      << ": ephemeris from satellite " << d_satellite << TEXT_RESET << '\n';
         }
     if (d_nav.have_new_utc_model() == true)
         {
             // get object for this SV (mandatory)
-            std::shared_ptr<Beidou_Dnav_Utc_Model> tmp_obj =
+            const std::shared_ptr<Beidou_Dnav_Utc_Model> tmp_obj =
                 std::make_shared<Beidou_Dnav_Utc_Model>(d_nav.get_utc_model());
             this->message_port_pub(pmt::mp("telemetry"), pmt::make_any(tmp_obj));
-            LOG(INFO) << "BEIDOU DNAV UTC Model have been received in channel"
+            LOG(INFO) << "BEIDOU DNAV UTC Model data have been received in channel"
                       << d_channel << " from satellite " << d_satellite;
             std::cout << TEXT_YELLOW << "New BEIDOU B3I DNAV utc model message received in channel "
                       << d_channel << ": UTC model parameters from satellite "
-                      << d_satellite << TEXT_RESET << std::endl;
+                      << d_satellite << TEXT_RESET << '\n';
         }
     if (d_nav.have_new_iono() == true)
         {
             // get object for this SV (mandatory)
-            std::shared_ptr<Beidou_Dnav_Iono> tmp_obj =
+            const std::shared_ptr<Beidou_Dnav_Iono> tmp_obj =
                 std::make_shared<Beidou_Dnav_Iono>(d_nav.get_iono());
             this->message_port_pub(pmt::mp("telemetry"), pmt::make_any(tmp_obj));
-            LOG(INFO) << "BEIDOU DNAV Iono have been received in channel" << d_channel
+            LOG(INFO) << "BEIDOU DNAV Iono data have been received in channel" << d_channel
                       << " from satellite " << d_satellite;
             std::cout << TEXT_YELLOW << "New BEIDOU B3I DNAV Iono message received in channel "
                       << d_channel << ": Iono model parameters from satellite "
-                      << d_satellite << TEXT_RESET << std::endl;
+                      << d_satellite << TEXT_RESET << '\n';
         }
     if (d_nav.have_new_almanac() == true)
         {
@@ -285,10 +304,10 @@ void beidou_b3i_telemetry_decoder_gs::decode_subframe(float *frame_symbols)
             //            std::make_shared<Beidou_Dnav_Almanac>(d_nav.get_almanac(slot_nbr));
             //            this->message_port_pub(pmt::mp("telemetry"),
             //            pmt::make_any(tmp_obj));
-            LOG(INFO) << "BEIDOU DNAV Almanac have been received in channel"
-                      << d_channel << " from satellite " << d_satellite << std::endl;
+            LOG(INFO) << "BEIDOU DNAV Almanac data have been received in channel"
+                      << d_channel << " from satellite " << d_satellite << '\n';
             std::cout << TEXT_YELLOW << "New BEIDOU B3I DNAV almanac received in channel " << d_channel
-                      << " from satellite " << d_satellite << TEXT_RESET << std::endl;
+                      << " from satellite " << d_satellite << TEXT_RESET << '\n';
         }
 }
 
@@ -304,8 +323,8 @@ void beidou_b3i_telemetry_decoder_gs::set_satellite(
 
     // Update satellite information for DNAV decoder
     sat_prn = d_satellite.get_PRN();
-    d_nav.i_satellite_PRN = sat_prn;
-    d_nav.i_signal_type = 5;  // BDS: data source (0:unknown,1:B1I,2:B1Q,3:B2I,4:B2Q,5:B3I,6:B3Q)
+    d_nav.set_satellite_PRN(sat_prn);
+    d_nav.set_signal_type(5);  // BDS: data source (0:unknown,1:B1I,2:B1Q,3:B2I,4:B2Q,5:B3I,6:B3Q)
 
     // Update tel dec parameters for D2 NAV Messages
     if (sat_prn > 0 and sat_prn < 6)
@@ -317,7 +336,7 @@ void beidou_b3i_telemetry_decoder_gs::set_satellite(
             // Setting samples of preamble code
             for (int32_t i = 0; i < d_symbols_per_preamble; i++)
                 {
-                    if (BEIDOU_DNAV_PREAMBLE.at(i) == '1')
+                    if (BEIDOU_DNAV_PREAMBLE[i] == '1')
                         {
                             d_preamble_samples[i] = 1;
                         }
@@ -341,7 +360,7 @@ void beidou_b3i_telemetry_decoder_gs::set_satellite(
             // Setting samples of preamble code
             for (int32_t i = 0; i < d_symbols_per_preamble; i++)
                 {
-                    if (BEIDOU_DNAV_PREAMBLE.at(i) == '1')
+                    if (BEIDOU_DNAV_PREAMBLE[i] == '1')
                         {
                             d_preamble_samples[i] = 1;
                         }
@@ -368,7 +387,6 @@ void beidou_b3i_telemetry_decoder_gs::set_channel(int32_t channel)
                 {
                     try
                         {
-                            d_dump_filename = "telemetry";
                             d_dump_filename.append(std::to_string(d_channel));
                             d_dump_filename.append(".dat");
                             d_dump_file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
@@ -395,7 +413,6 @@ void beidou_b3i_telemetry_decoder_gs::reset()
     d_sent_tlm_failed_msg = false;
     d_flag_valid_word = false;
     DLOG(INFO) << "Beidou B3I Telemetry decoder reset for satellite " << d_satellite;
-    return;
 }
 
 
@@ -466,21 +483,21 @@ int beidou_b3i_telemetry_decoder_gs::general_work(
                                 {
                                     for (uint32_t i = 0; i < BEIDOU_DNAV_PREAMBLE_PERIOD_SYMBOLS; i++)
                                         {
-                                            d_subframe_symbols[i] = d_symbol_history.at(i);
+                                            d_subframe_symbols[i] = d_symbol_history[i];
                                         }
                                 }
                             else  // 180 deg. inverted carrier phase PLL lock
                                 {
                                     for (uint32_t i = 0; i < BEIDOU_DNAV_PREAMBLE_PERIOD_SYMBOLS; i++)
                                         {
-                                            d_subframe_symbols[i] = -d_symbol_history.at(i);
+                                            d_subframe_symbols[i] = -d_symbol_history[i];
                                         }
                                 }
 
                             // call the decoder
                             decode_subframe(d_subframe_symbols.data());
 
-                            if (d_nav.flag_crc_test == true)
+                            if (d_nav.get_flag_CRC_test() == true)
                                 {
                                     d_CRC_error_counter = 0;
                                     d_flag_preamble = true;               // valid preamble indicator (initialized to false every work())
@@ -526,21 +543,21 @@ int beidou_b3i_telemetry_decoder_gs::general_work(
                         {
                             for (uint32_t i = 0; i < BEIDOU_DNAV_PREAMBLE_PERIOD_SYMBOLS; i++)
                                 {
-                                    d_subframe_symbols[i] = d_symbol_history.at(i);
+                                    d_subframe_symbols[i] = d_symbol_history[i];
                                 }
                         }
                     else  // 180 deg. inverted carrier phase PLL lock
                         {
                             for (uint32_t i = 0; i < BEIDOU_DNAV_PREAMBLE_PERIOD_SYMBOLS; i++)
                                 {
-                                    d_subframe_symbols[i] = -d_symbol_history.at(i);
+                                    d_subframe_symbols[i] = -d_symbol_history[i];
                                 }
                         }
 
                     // call the decoder
                     decode_subframe(d_subframe_symbols.data());
 
-                    if (d_nav.flag_crc_test == true)
+                    if (d_nav.get_flag_CRC_test() == true)
                         {
                             d_CRC_error_counter = 0;
                             d_flag_preamble = true;               // valid preamble indicator (initialized to false every work())
@@ -569,17 +586,17 @@ int beidou_b3i_telemetry_decoder_gs::general_work(
         }
     // UPDATE GNSS SYNCHRO DATA
     // 2. Add the telemetry decoder information
-    if (this->d_flag_preamble == true and d_nav.flag_new_SOW_available == true)
+    if (this->d_flag_preamble == true and d_nav.get_flag_new_SOW_available() == true)
         // update TOW at the preamble instant
         {
             // Reporting sow as gps time of week
-            d_TOW_at_Preamble_ms = static_cast<uint32_t>((d_nav.d_SOW + BEIDOU_DNAV_BDT2GPST_LEAP_SEC_OFFSET) * 1000.0);
+            d_TOW_at_Preamble_ms = static_cast<uint32_t>((d_nav.get_SOW() + BEIDOU_DNAV_BDT2GPST_LEAP_SEC_OFFSET) * 1000.0);
             // check TOW update consistency
-            uint32_t last_d_TOW_at_current_symbol_ms = d_TOW_at_current_symbol_ms;
+            const uint32_t last_d_TOW_at_current_symbol_ms = d_TOW_at_current_symbol_ms;
             // compute new TOW
             d_TOW_at_current_symbol_ms = d_TOW_at_Preamble_ms + d_required_symbols * d_symbol_duration_ms;
             flag_SOW_set = true;
-            d_nav.flag_new_SOW_available = false;
+            d_nav.set_flag_new_SOW_available(false);
 
             if (last_d_TOW_at_current_symbol_ms != 0 and abs(static_cast<int64_t>(d_TOW_at_current_symbol_ms) - int64_t(last_d_TOW_at_current_symbol_ms)) > static_cast<int64_t>(d_symbol_duration_ms))
                 {
@@ -619,12 +636,17 @@ int beidou_b3i_telemetry_decoder_gs::general_work(
                         {
                             double tmp_double;
                             uint64_t tmp_ulong_int;
+                            int32_t tmp_int;
                             tmp_double = static_cast<double>(d_TOW_at_current_symbol_ms) / 1000.0;
                             d_dump_file.write(reinterpret_cast<char *>(&tmp_double), sizeof(double));
                             tmp_ulong_int = current_symbol.Tracking_sample_counter;
                             d_dump_file.write(reinterpret_cast<char *>(&tmp_ulong_int), sizeof(uint64_t));
                             tmp_double = static_cast<double>(d_TOW_at_Preamble_ms) / 1000.0;
                             d_dump_file.write(reinterpret_cast<char *>(&tmp_double), sizeof(double));
+                            tmp_int = (current_symbol.Prompt_I > 0.0 ? 1 : -1);
+                            d_dump_file.write(reinterpret_cast<char *>(&tmp_int), sizeof(int32_t));
+                            tmp_int = static_cast<int32_t>(current_symbol.PRN);
+                            d_dump_file.write(reinterpret_cast<char *>(&tmp_int), sizeof(int32_t));
                         }
                     catch (const std::ifstream::failure &e)
                         {

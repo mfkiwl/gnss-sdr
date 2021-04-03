@@ -5,37 +5,29 @@
  * \author Damian Miralles, 2017. dmiralles2009(at)gmail.com
  * \see <a href="http://russianspacesystems.ru/wp-content/uploads/2016/08/ICD_GLONASS_eng_v5.1.pdf">GLONASS ICD</a>
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
-#ifndef GNSS_SDR_GLONASS_GNAV_UTC_MODEL_H_
-#define GNSS_SDR_GLONASS_GNAV_UTC_MODEL_H_
+#ifndef GNSS_SDR_GLONASS_GNAV_UTC_MODEL_H
+#define GNSS_SDR_GLONASS_GNAV_UTC_MODEL_H
 
 #include <boost/serialization/nvp.hpp>
 #include <cstdint>
+
+/** \addtogroup Core
+ * \{ */
+/** \addtogroup System_Parameters
+ * \{ */
+
 
 /*!
  * \brief This class is a storage for the GLONASS GNAV UTC MODEL data as described in GLONASS ICD (Edition 5.1)
@@ -48,22 +40,22 @@ public:
     /*!
      * Default constructor
      */
-    Glonass_Gnav_Utc_Model();
+    Glonass_Gnav_Utc_Model() = default;
 
-    bool valid;
+    bool valid{};
     // Clock Parameters
-    double d_tau_c;    //!< GLONASS time scale correction to UTC(SU) time. [s]
-    double d_tau_gps;  //!< Correction to GPS time to GLONASS time [day]
-    double d_N_4;      //!< Four year interval number starting from 1996 [4 year interval]
-    double d_N_A;      //!< Calendar day number within the four-year period beginning since the leap year for Almanac data [days]
-    double d_B1;       //!< Coefficient  to  determine DeltaUT1 [s]
-    double d_B2;       //!< Coefficient  to  determine DeltaUT1 [s/msd]
+    double d_tau_c{};    //!< GLONASS time scale correction to UTC(SU) time. [s]
+    double d_tau_gps{};  //!< Correction to GPS time to GLONASS time [day]
+    double d_N_4{};      //!< Four year interval number starting from 1996 [4 year interval]
+    double d_N_A{};      //!< Calendar day number within the four-year period beginning since the leap year for Almanac data [days]
+    double d_B1{};       //!< Coefficient  to  determine DeltaUT1 [s]
+    double d_B2{};       //!< Coefficient  to  determine DeltaUT1 [s/msd]
 
     /*!
      * \brief Computes the Coordinated Universal Time (UTC) and
      * returns it in [s] (GLONASS ICD (Edition 5.1) Section 3.3.3 GLONASS Time)
      */
-    double utc_time(double glonass_time_corrected);
+    double utc_time(double glonass_time_corrected) const;
 
     template <class Archive>
     /*!
@@ -85,4 +77,7 @@ public:
     }
 };
 
-#endif
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_GLONASS_GNAV_UTC_MODEL_H

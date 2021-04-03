@@ -19,43 +19,27 @@
  * Neither the executive binaries nor the shared libraries are required by, used
  * or included in GNSS-SDR.
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  * Copyright (C) 2007-2013, T. Takasu
  * Copyright (C) 2017, Javier Arribas
  * Copyright (C) 2017, Carles Fernandez
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
- *----------------------------------------------------------------------------*/
+ * SPDX-License-Identifier: BSD-2-Clause
+ * -----------------------------------------------------------------------------
+ */
 
-#ifndef GNSS_SDR_RTKLIB_RKTPOS_H_
-#define GNSS_SDR_RTKLIB_RKTPOS_H_
+#ifndef GNSS_SDR_RTKLIB_RKTPOS_H
+#define GNSS_SDR_RTKLIB_RKTPOS_H
 
 #include "rtklib.h"
 #include "rtklib_rtkcmn.h"
+
+/** \addtogroup PVT
+ * \{ */
+/** \addtogroup RTKLIB_Library
+ * \{ */
+
 
 /* constants/macros ----------------------------------------------------------*/
 const double VAR_POS = std::pow(30.0, 2.0);   /* initial variance of receiver pos (m^2) */
@@ -77,18 +61,20 @@ const double TTOL_MOVEB = (1.0 + 2 * DTTOL);
 
 
 /* state variable index */
+// clang-format off
 #define II_RTK(s, opt) (NP_RTK(opt) + (s)-1)                               /* ionos (s:satellite no) */
 #define IT_RTK(r, opt) (NP_RTK(opt) + NI_RTK(opt) + NT_RTK(opt) / 2 * (r)) /* tropos (r:0=rov,1:ref) */
 #define IL_RTK(f, opt) (NP_RTK(opt) + NI_RTK(opt) + NT_RTK(opt) + (f))     /* receiver h/w bias */
 #define IB_RTK(s, f, opt) (NR_RTK(opt) + MAXSAT * (f) + (s)-1)             /* phase bias (s:satno,f:freq) */
+// clang-format on
 
 int rtkopenstat(const char *file, int level);
 
-void rtkclosestat(void);
+void rtkclosestat();
 
 void rtkoutstat(rtk_t *rtk);
 
-void swapsolstat(void);
+void swapsolstat();
 
 void outsolstat(rtk_t *rtk);
 
@@ -191,4 +177,6 @@ void rtkfree(rtk_t *rtk);
 int rtkpos(rtk_t *rtk, const obsd_t *obs, int n, const nav_t *nav);
 
 
-#endif
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_RTKLIB_RKTPOS_H

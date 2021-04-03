@@ -1,41 +1,29 @@
-# Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
-#
+# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 
-set(PVT_ADAPTER_SOURCES
-    rtklib_pvt.cc
-)
-
-set(PVT_ADAPTER_HEADERS
-    rtklib_pvt.h
-)
-
-source_group(Headers FILES ${PVT_ADAPTER_HEADERS})
-
-add_library(pvt_adapters ${PVT_ADAPTER_SOURCES} ${PVT_ADAPTER_HEADERS})
+if(USE_CMAKE_TARGET_SOURCES)
+    add_library(pvt_adapters STATIC)
+    target_sources(pvt_adapters
+        PRIVATE
+            rtklib_pvt.cc
+        PUBLIC
+            rtklib_pvt.h
+    )
+else()
+    source_group(Headers FILES rtklib_pvt.h)
+    add_library(pvt_adapters rtklib_pvt.cc rtklib_pvt.h)
+endif()
 
 target_link_libraries(pvt_adapters
     PUBLIC
         pvt_gr_blocks
-        algorithms_libs_rtklib
-        core_system_parameters
     PRIVATE
         gnss_sdr_flags
+        Glog::glog
         pvt_libs
 )
 
@@ -44,8 +32,11 @@ target_include_directories(pvt_adapters
         ${CMAKE_SOURCE_DIR}/src/core/interfaces
 )
 
-if(Boost_VERSION_STRING VERSION_LESS 1.58.0)
-    target_compile_definitions(pvt_adapters PRIVATE -DOLD_BOOST=1)
+if(USE_OLD_BOOST_MATH_COMMON_FACTOR)
+    target_compile_definitions(pvt_adapters
+        PRIVATE
+            -DUSE_OLD_BOOST_MATH_COMMON_FACTOR=1
+    )
 endif()
 
 if(ENABLE_CLANG_TIDY)

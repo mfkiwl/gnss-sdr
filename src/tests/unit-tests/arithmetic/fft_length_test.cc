@@ -4,31 +4,18 @@
  * \author Carles Fernandez-Prades, 2016. cfernandez(at)cttc.es
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
+#include "gnss_sdr_make_unique.h"
 #include "gnuplot_i.h"
 #include "test_flags.h"
 #include <gnuradio/fft/fft.h>
@@ -83,10 +70,12 @@ TEST(FFTLengthTest, MeasureExecutionTime)
 
     EXPECT_NO_THROW(
         for (it = fft_sizes_v.cbegin(); it != fft_sizes_v.cend(); ++it) {
-            gr::fft::fft_complex* d_fft;
             d_fft_size = *it;
-            d_fft = new gr::fft::fft_complex(d_fft_size, true);
-
+#if GNURADIO_FFT_USES_TEMPLATES
+            auto d_fft = std::make_unique<gr::fft::fft_complex_fwd>(d_fft_size);
+#else
+            auto d_fft = std::make_unique<gr::fft::fft_complex>(d_fft_size, true);
+#endif
             std::generate_n(d_fft->get_inbuf(), d_fft_size, gen);
 
             start = std::chrono::system_clock::now();
@@ -98,8 +87,7 @@ TEST(FFTLengthTest, MeasureExecutionTime)
             std::chrono::duration<double> elapsed_seconds = end - start;
             double exec_time = elapsed_seconds.count() / static_cast<double>(FLAGS_fft_iterations_test);
             execution_times.push_back(exec_time * 1e3);
-            std::cout << "FFT execution time for length=" << d_fft_size << " : " << exec_time << " [s]" << std::endl;
-            delete d_fft;
+            std::cout << "FFT execution time for length=" << d_fft_size << " : " << exec_time << " [s]\n";
 
             if ((d_fft_size & (d_fft_size - 1)) == 0)  // if it is a power of two
                 {
@@ -113,9 +101,9 @@ TEST(FFTLengthTest, MeasureExecutionTime)
             const std::string gnuplot_executable(FLAGS_gnuplot_executable);
             if (gnuplot_executable.empty())
                 {
-                    std::cout << "WARNING: Although the flag plot_fft_length_test has been set to TRUE," << std::endl;
-                    std::cout << "gnuplot has not been found in your system." << std::endl;
-                    std::cout << "Test results will not be plotted." << std::endl;
+                    std::cout << "WARNING: Although the flag plot_fft_length_test has been set to TRUE,\n";
+                    std::cout << "gnuplot has not been found in your system.\n";
+                    std::cout << "Test results will not be plotted.\n";
                 }
             else
                 {
@@ -169,7 +157,7 @@ TEST(FFTLengthTest, MeasureExecutionTime)
                         }
                     catch (const GnuplotException& ge)
                         {
-                            std::cout << ge.what() << std::endl;
+                            std::cout << ge.what() << '\n';
                         }
                 }
         }

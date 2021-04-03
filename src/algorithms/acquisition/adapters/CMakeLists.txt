@@ -1,20 +1,8 @@
-# Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
-#
+# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 
 set(ACQ_ADAPTER_SOURCES
@@ -32,6 +20,8 @@ set(ACQ_ADAPTER_SOURCES
     galileo_e1_pcps_8ms_ambiguous_acquisition.cc
     galileo_e5a_noncoherent_iq_acquisition_caf.cc
     galileo_e5a_pcps_acquisition.cc
+    galileo_e5b_pcps_acquisition.cc
+    galileo_e6_pcps_acquisition.cc
     glonass_l1_ca_pcps_acquisition.cc
     glonass_l2_ca_pcps_acquisition.cc
     beidou_b1i_pcps_acquisition.cc
@@ -53,6 +43,8 @@ set(ACQ_ADAPTER_HEADERS
     galileo_e1_pcps_8ms_ambiguous_acquisition.h
     galileo_e5a_noncoherent_iq_acquisition_caf.h
     galileo_e5a_pcps_acquisition.h
+    galileo_e5b_pcps_acquisition.h
+    galileo_e6_pcps_acquisition.h
     glonass_l1_ca_pcps_acquisition.h
     glonass_l2_ca_pcps_acquisition.h
     beidou_b1i_pcps_acquisition.h
@@ -65,6 +57,7 @@ if(ENABLE_FPGA)
         gps_l2_m_pcps_acquisition_fpga.cc
         galileo_e1_pcps_ambiguous_acquisition_fpga.cc
         galileo_e5a_pcps_acquisition_fpga.cc
+        galileo_e5b_pcps_acquisition_fpga.cc
         gps_l5i_pcps_acquisition_fpga.cc
     )
     set(ACQ_ADAPTER_HEADERS ${ACQ_ADAPTER_HEADERS}
@@ -72,6 +65,7 @@ if(ENABLE_FPGA)
         gps_l2_m_pcps_acquisition_fpga.h
         galileo_e1_pcps_ambiguous_acquisition_fpga.h
         galileo_e5a_pcps_acquisition_fpga.h
+        galileo_e5b_pcps_acquisition_fpga.h
         gps_l5i_pcps_acquisition_fpga.h
     )
 endif()
@@ -89,27 +83,51 @@ endif()
 list(SORT ACQ_ADAPTER_HEADERS)
 list(SORT ACQ_ADAPTER_SOURCES)
 
-source_group(Headers FILES ${ACQ_ADAPTER_HEADERS})
-
-add_library(acquisition_adapters ${ACQ_ADAPTER_SOURCES} ${ACQ_ADAPTER_HEADERS})
+if(USE_CMAKE_TARGET_SOURCES)
+    add_library(acquisition_adapters STATIC)
+    target_sources(acquisition_adapters
+        PRIVATE
+            ${ACQ_ADAPTER_SOURCES}
+        PUBLIC
+            ${ACQ_ADAPTER_HEADERS}
+    )
+else()
+    source_group(Headers FILES ${ACQ_ADAPTER_HEADERS})
+    add_library(acquisition_adapters ${ACQ_ADAPTER_SOURCES} ${ACQ_ADAPTER_HEADERS})
+endif()
 
 target_link_libraries(acquisition_adapters
     PUBLIC
-        algorithms_libs
-        gnss_sdr_flags
         acquisition_gr_blocks
-        acquisition_libs
-        channel_libs
-        core_system_parameters
         Gnuradio::blocks
-        Volk::volk
     PRIVATE
-        Boost::boost
-        Gflags::gflags
+        gnss_sdr_flags
+        Boost::headers
         Glog::glog
-        Gnuradio::fft
-        Volkgnsssdr::volkgnsssdr
 )
+
+if(GNURADIO_USES_STD_POINTERS)
+    target_compile_definitions(acquisition_adapters
+        PUBLIC -DGNURADIO_USES_STD_POINTERS=1
+    )
+endif()
+
+if(has_span)
+    target_compile_definitions(acquisition_adapters
+        PRIVATE -DHAS_STD_SPAN=1
+    )
+endif()
+
+if(ENABLE_FPGA)
+    target_link_libraries(acquisition_adapters
+        PRIVATE
+            algorithms_libs
+            core_libs
+            Gnuradio::fft
+            Volk::volk
+            Volkgnsssdr::volkgnsssdr
+    )
+endif()
 
 target_include_directories(acquisition_adapters
     PUBLIC

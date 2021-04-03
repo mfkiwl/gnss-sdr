@@ -1,39 +1,25 @@
 /*!
  * \file plutosdr_signal_source.h
  * \brief Signal source for PlutoSDR
- * \author Rodrigo Muñoz, 2017, rmunozl(at)inacap.cl
+ * \author Rodrigo Muñoz, 2017, rmunozl(at)inacap.cl, rodrigo.munoz(at)proteinlab.cl
  *
- * -------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
+ * -----------------------------------------------------------------------------
  *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
-#ifndef GNSS_SDR_PLUTOSDR_SIGNAL_SOURCE_H_
-#define GNSS_SDR_PLUTOSDR_SIGNAL_SOURCE_H_
+#ifndef GNSS_SDR_PLUTOSDR_SIGNAL_SOURCE_H
+#define GNSS_SDR_PLUTOSDR_SIGNAL_SOURCE_H
 
 #include "gnss_block_interface.h"
-#include <boost/shared_ptr.hpp>
 #include <gnuradio/blocks/file_sink.h>
 #if GRIIO_INCLUDE_HAS_GNURADIO
 #include <gnuradio/iio/pluto_source.h>
@@ -42,7 +28,14 @@
 #endif
 #include "concurrent_queue.h"
 #include <pmt/pmt.h>
+#include <cstdint>
 #include <string>
+
+
+/** \addtogroup Signal_Source
+ * \{ */
+/** \addtogroup Signal_Source_adapters
+ * \{ */
 
 
 class ConfigurationInterface;
@@ -52,9 +45,9 @@ class ConfigurationInterface;
 class PlutosdrSignalSource : public GNSSBlockInterface
 {
 public:
-    PlutosdrSignalSource(ConfigurationInterface* configuration,
+    PlutosdrSignalSource(const ConfigurationInterface* configuration,
         const std::string& role, unsigned int in_stream,
-        unsigned int out_stream, std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue);
+        unsigned int out_stream, Concurrent_Queue<pmt::pmt_t>* queue);
 
     ~PlutosdrSignalSource() = default;
 
@@ -81,36 +74,41 @@ public:
     gr::basic_block_sptr get_right_block() override;
 
 private:
+    gr::iio::pluto_source::sptr plutosdr_source_;
+
+    gnss_shared_ptr<gr::block> valve_;
+    gr::blocks::file_sink::sptr file_sink_;
+
     std::string role_;
+    std::string dump_filename_;
 
     // Front-end settings
-    std::string uri_;     // device direction
-    unsigned long freq_;  // frequency of local oscilator
-    unsigned long sample_rate_;
-    unsigned long bandwidth_;
-    unsigned long buffer_size_;  // reception buffer
-    bool quadrature_;
-    bool rf_dc_;
-    bool bb_dc_;
+    std::string uri_;  // device direction
     std::string gain_mode_;
-    double rf_gain_;
     std::string filter_file_;
-    bool filter_auto_;
-
+    std::string filter_source_;
+    std::string filter_filename_;
+    std::string item_type_;
+    double rf_gain_;
+    int64_t samples_;
+    uint64_t freq_;  // frequency of local oscilator
+    uint64_t sample_rate_;
+    uint64_t bandwidth_;
+    uint64_t buffer_size_;  // reception buffer
+    size_t item_size_;
+    float Fpass_;
+    float Fstop_;
     unsigned int in_stream_;
     unsigned int out_stream_;
 
-    std::string item_type_;
-    size_t item_size_;
-    long samples_;
+    bool quadrature_;
+    bool rf_dc_;
+    bool bb_dc_;
+    bool filter_auto_;
     bool dump_;
-    std::string dump_filename_;
-
-    gr::iio::pluto_source::sptr plutosdr_source_;
-
-    boost::shared_ptr<gr::block> valve_;
-    gr::blocks::file_sink::sptr file_sink_;
-    std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue_;
 };
 
-#endif /*GNSS_SDR_PLUTOSDR_SIGNAL_SOURCE_H_*/
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_PLUTOSDR_SIGNAL_SOURCE_H

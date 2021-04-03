@@ -1,19 +1,8 @@
-# Copyright (C) 2011-2019 (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: 2011-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 # Find the pugixml XML parsing library.
 #
@@ -31,30 +20,54 @@ if(NOT COMMAND feature_summary)
     include(FeatureSummary)
 endif()
 
-set(PKG_CONFIG_USE_CMAKE_PREFIX_PATH TRUE)
-include(FindPkgConfig)
+if(NOT PKG_CONFIG_FOUND)
+    include(FindPkgConfig)
+endif()
+
 pkg_check_modules(PC_PUGIXML pugixml QUIET)
+
+if(NOT PUGIXML_ROOT)
+    set(PUGIXML_ROOT_USER_DEFINED /usr)
+else()
+    set(PUGIXML_ROOT_USER_DEFINED ${PUGIXML_ROOT})
+endif()
+if(DEFINED ENV{PUGIXML_ROOT})
+    set(PUGIXML_ROOT_USER_DEFINED
+        ${PUGIXML_ROOT_USER_DEFINED}
+        $ENV{PUGIXML_ROOT}
+    )
+endif()
+if(PUGIXML_HOME)
+    set(PUGIXML_ROOT_USER_DEFINED
+        ${PUGIXML_ROOT_USER_DEFINED}
+        ${PUGIXML_HOME}
+    )
+endif()
 
 find_path(PUGIXML_INCLUDE_DIR
     NAMES pugixml.hpp
-    PATHS ${PUGIXML_HOME}/include
+    HINTS ${PC_PUGIXML_INCLUDEDIR}
+    PATHS ${PUGIXML_ROOT_USER_DEFINED}/include
+          ${PUGIXML_ROOT_USER_DEFINED}/include/pugixml-${PC_PUGIXML_VERSION}
+          ${PUGIXML_ROOT_USER_DEFINED}/include/pugixml-1.9
           /usr/include
           /usr/local/include
-          /usr/local/include/pugixml-1.9
           /usr/local/include/pugixml-${PC_PUGIXML_VERSION}
+          /usr/local/include/pugixml-1.9
           /opt/local/include
-          ${PUGIXML_ROOT}/include
-          $ENV{PUGIXML_ROOT}/include
-          ${PUGIXML_ROOT}/include/pugixml-1.9
-          $ENV{PUGIXML_ROOT}/include/pugixml-1.9
-          ${PUGIXML_ROOT}/include/pugixml-${PC_PUGIXML_VERSION}
-          $ENV{PUGIXML_ROOT}/include/pugixml-${PC_PUGIXML_VERSION}
-          ${PC_PUGIXML_INCLUDEDIR}
 )
 
 find_library(PUGIXML_LIBRARY
     NAMES pugixml
-    PATHS ${PUGIXML_HOME}/lib
+    HINTS ${PC_PUGIXML_LIBDIR}
+    PATHS ${PUGIXML_ROOT_USER_DEFINED}/lib
+          ${PUGIXML_ROOT_USER_DEFINED}/lib64
+          ${PUGIXML_ROOT_USER_DEFINED}/lib/pugixml-${PC_PUGIXML_VERSION}
+          ${PUGIXML_ROOT_USER_DEFINED}/lib64/pugixml-${PC_PUGIXML_VERSION}
+          ${PUGIXML_ROOT_USER_DEFINED}}/lib/pugixml-1.9
+          ${PUGIXML_ROOT_USER_DEFINED}/lib64/pugixml-1.9
+          /usr/lib
+          /usr/lib64
           /usr/lib/x86_64-linux-gnu
           /usr/lib/aarch64-linux-gnu
           /usr/lib/arm-linux-gnueabi
@@ -65,26 +78,23 @@ find_library(PUGIXML_LIBRARY
           /usr/lib/mipsel-linux-gnu
           /usr/lib/powerpc64le-linux-gnu
           /usr/lib/s390x-linux-gnu
+          /usr/lib/alpha-linux-gnu
+          /usr/lib/hppa-linux-gnu
+          /usr/lib/m68k-linux-gnu
+          /usr/lib/powerpc-linux-gnuspe
+          /usr/lib/powerpc64-linux-gnu
+          /usr/lib/powerpc64le-linux-gnu
+          /usr/lib/sh4-linux-gnu
+          /usr/lib/sparc64-linux-gnu
+          /usr/lib/x86_64-linux-gnux32
+          /usr/lib/riscv64-linux-gnu
+          /usr/lib/x86_64-kfreebsd-gnu
+          /usr/lib/i386-kfreebsd-gnu
           /usr/local/lib
-          /usr/local/lib/pugixml-1.9
-          /usr/local/lib/pugixml-${PC_PUGIXML_VERSION}
-          /opt/local/lib
-          /usr/lib
-          /usr/lib64
           /usr/local/lib64
-          ${PUGIXML_ROOT}/lib
-          $ENV{PUGIXML_ROOT}/lib
-          ${PUGIXML_ROOT}/lib64
-          $ENV{PUGIXML_ROOT}/lib64
-          ${PUGIXML_ROOT}/lib/pugixml-1.9
-          $ENV{PUGIXML_ROOT}/lib/pugixml-1.9
-          ${PUGIXML_ROOT}/lib64/pugixml-1.9
-          $ENV{PUGIXML_ROOT}/lib64/pugixml-1.9
-          ${PUGIXML_ROOT}/lib/pugixml-${PC_PUGIXML_VERSION}
-          $ENV{PUGIXML_ROOT}/lib/pugixml-${PC_PUGIXML_VERSION}
-          ${PUGIXML_ROOT}/lib64/pugixml-${PC_PUGIXML_VERSION}
-          $ENV{PUGIXML_ROOT}/lib64/pugixml-${PC_PUGIXML_VERSION}
-          ${PC_PUGIXML_LIBDIR}
+          /usr/local/lib/pugixml-${PC_PUGIXML_VERSION}
+          /usr/local/lib/pugixml-1.9
+          /opt/local/lib
 )
 
 # Support the REQUIRED and QUIET arguments, and set PUGIXML_FOUND if found.

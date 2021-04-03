@@ -5,33 +5,19 @@
  * \author Carlos Aviles, 2010. carlos.avilesr(at)googlemail.com
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_PASS_THROUGH_H_
-#define GNSS_SDR_PASS_THROUGH_H_
+#ifndef GNSS_SDR_PASS_THROUGH_H
+#define GNSS_SDR_PASS_THROUGH_H
 
 #include "conjugate_cc.h"
 #include "conjugate_ic.h"
@@ -42,6 +28,11 @@
 #include <cstddef>
 #include <string>
 
+/** \addtogroup Algorithms_Library
+ * \{ */
+/** \addtogroup Algorithm_libs algorithms_libs
+ * \{ */
+
 
 class ConfigurationInterface;
 
@@ -51,7 +42,7 @@ class ConfigurationInterface;
 class Pass_Through : public GNSSBlockInterface
 {
 public:
-    Pass_Through(ConfigurationInterface* configuration,
+    Pass_Through(const ConfigurationInterface* configuration,
         const std::string& role,
         unsigned int in_stream,
         unsigned int out_stream);
@@ -63,7 +54,7 @@ public:
         return role_;
     }
 
-    //! returns "Pass_Through"
+    //! Returns "Pass_Through"
     inline std::string implementation() override
     {
         return "Pass_Through";
@@ -85,16 +76,19 @@ public:
     gr::basic_block_sptr get_right_block() override;
 
 private:
-    std::string item_type_;
-    std::string role_;
-    unsigned int in_streams_;
-    unsigned int out_streams_;
     gr::blocks::copy::sptr kludge_copy_;
-    size_t item_size_;
     conjugate_cc_sptr conjugate_cc_;
     conjugate_sc_sptr conjugate_sc_;
     conjugate_ic_sptr conjugate_ic_;
+    std::string item_type_;
+    std::string role_;
+    size_t item_size_;
+    unsigned int in_streams_;
+    unsigned int out_streams_;
     bool inverted_spectrum;
 };
 
-#endif /*GNSS_SDR_PASS_THROUGH_H_*/
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_PASS_THROUGH_H

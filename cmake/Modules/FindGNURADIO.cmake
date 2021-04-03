@@ -1,19 +1,8 @@
-# Copyright (C) 2011-2018 (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: 2011-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 ########################################################################
 # Find GNU Radio
@@ -23,8 +12,10 @@ if(NOT COMMAND feature_summary)
     include(FeatureSummary)
 endif()
 
-set(PKG_CONFIG_USE_CMAKE_PREFIX_PATH TRUE)
-include(FindPkgConfig)
+if(NOT PKG_CONFIG_FOUND)
+    include(FindPkgConfig)
+endif()
+
 include(FindPackageHandleStandardArgs)
 
 # if GR_REQUIRED_COMPONENTS is not defined, it will be set to the following list
@@ -40,13 +31,41 @@ set(GNURADIO_ALL_LIBRARIES "")
 set(GNURADIO_ALL_INCLUDE_DIRS "")
 
 macro(LIST_CONTAINS var value)
-  set(${var})
-  foreach(value2 ${ARGN})
-    if(${value} STREQUAL ${value2})
-      set(${var} TRUE)
-    endif()
-  endforeach()
+    set(${var})
+    foreach(value2 ${ARGN})
+        if(${value} STREQUAL ${value2})
+            set(${var} TRUE)
+        endif()
+    endforeach()
 endmacro()
+
+if(NOT GNURADIO_INSTALL_PREFIX)
+    set(GNURADIO_INSTALL_PREFIX_USER_PROVIDED /usr)
+else()
+    set(GNURADIO_INSTALL_PREFIX_USER_PROVIDED ${GNURADIO_INSTALL_PREFIX})
+endif()
+if(GNURADIO_ROOT)
+    set(GNURADIO_INSTALL_PREFIX_USER_PROVIDED
+        ${GNURADIO_INSTALL_PREFIX_USER_PROVIDED}
+        ${GNURADIO_ROOT}
+    )
+endif()
+if(DEFINED ENV{GNURADIO_ROOT})
+    set(GNURADIO_INSTALL_PREFIX_USER_PROVIDED
+        ${GNURADIO_INSTALL_PREFIX_USER_PROVIDED}
+        $ENV{GNURADIO_ROOT}
+    )
+endif()
+if(DEFINED ENV{GNURADIO_RUNTIME_DIR})
+    set(GNURADIO_INSTALL_PREFIX_USER_PROVIDED
+        ${GNURADIO_INSTALL_PREFIX_USER_PROVIDED}
+        $ENV{GNURADIO_RUNTIME_DIR}
+    )
+endif()
+set(GNURADIO_INSTALL_PREFIX_USER_PROVIDED
+    ${GNURADIO_INSTALL_PREFIX_USER_PROVIDED}
+    ${CMAKE_INSTALL_PREFIX}
+)
 
 function(GR_MODULE EXTVAR PCNAME INCFILE LIBFILE)
     list_contains(REQUIRED_MODULE ${EXTVAR} ${GR_REQUIRED_COMPONENTS})
@@ -72,28 +91,22 @@ function(GR_MODULE EXTVAR PCNAME INCFILE LIBFILE)
     # look for include files
     find_path(${INCVAR_NAME}
         NAMES ${INCFILE}
-        HINTS $ENV{GNURADIO_RUNTIME_DIR}/include
-              ${PC_INCDIR}
-              ${CMAKE_INSTALL_PREFIX}/include
-              ${GNURADIO_INSTALL_PREFIX}/include
-        PATHS /usr/local/include
+        HINTS ${PC_INCDIR}
+        PATHS ${GNURADIO_INSTALL_PREFIX_USER_PROVIDED}/include
               /usr/include
-              ${GNURADIO_INSTALL_PREFIX}/include
-              ${GNURADIO_ROOT}/include
-              $ENV{GNURADIO_ROOT}/include
+              /usr/local/include
+              /opt/local/include
     )
 
     # look for libs
     foreach(libname ${PC_GNURADIO_${EXTVAR}_LIBRARIES})
         find_library(${LIBVAR_NAME}_${libname}
             NAMES ${libname} ${libname}-${PC_GNURADIO_RUNTIME_VERSION}
-            HINTS $ENV{GNURADIO_RUNTIME_DIR}/lib
-                  ${PC_LIBDIR}
-                  ${CMAKE_INSTALL_PREFIX}/lib
-                  ${CMAKE_INSTALL_PREFIX}/lib64
-                  ${GNURADIO_INSTALL_PREFIX}/lib
-                  ${GNURADIO_INSTALL_PREFIX}/lib64
-            PATHS /usr/local/lib
+            HINTS ${PC_LIBDIR}
+            PATHS ${GNURADIO_INSTALL_PREFIX_USER_PROVIDED}/lib
+                  ${GNURADIO_INSTALL_PREFIX_USER_PROVIDED}/lib64
+                  /usr/lib
+                  /usr/lib64
                   /usr/lib/x86_64-linux-gnu
                   /usr/lib/i386-linux-gnu
                   /usr/lib/arm-linux-gnueabihf
@@ -117,13 +130,10 @@ function(GR_MODULE EXTVAR PCNAME INCFILE LIBFILE)
                   /usr/lib/sparc64-linux-gnu
                   /usr/lib/x86_64-linux-gnux32
                   /usr/lib/alpha-linux-gnu
-                  /usr/lib64
-                  /usr/lib
-                  ${GNURADIO_INSTALL_PREFIX}/lib
-                  ${GNURADIO_ROOT}/lib
-                  $ENV{GNURADIO_ROOT}/lib
-                  ${GNURADIO_ROOT}/lib64
-                  $ENV{GNURADIO_ROOT}/lib64
+                  /usr/lib/riscv64-linux-gnu
+                  /usr/local/lib
+                  /usr/local/lib64
+                  /opt/local/lib
         )
         list(APPEND ${LIBVAR_NAME} ${${LIBVAR_NAME}_${libname}})
     endforeach()
@@ -138,7 +148,9 @@ function(GR_MODULE EXTVAR PCNAME INCFILE LIBFILE)
     set(GNURADIO_ALL_INCLUDE_DIRS ${GNURADIO_ALL_INCLUDE_DIRS} ${GNURADIO_${EXTVAR}_INCLUDE_DIRS} PARENT_SCOPE)
     set(GNURADIO_ALL_LIBRARIES    ${GNURADIO_ALL_LIBRARIES}    ${GNURADIO_${EXTVAR}_LIBRARIES}    PARENT_SCOPE)
 
-    find_package_handle_standard_args(GNURADIO_${EXTVAR} DEFAULT_MSG GNURADIO_${EXTVAR}_LIBRARIES GNURADIO_${EXTVAR}_INCLUDE_DIRS)
+    if(GNURADIO_${EXTVAR}_LIBRARIES AND GNURADIO_${EXTVAR}_INCLUDE_DIRS)
+        set(GNURADIO_${EXTVAR}_FOUND TRUE)
+    endif()
     message(STATUS "GNURADIO_${EXTVAR}_FOUND = ${GNURADIO_${EXTVAR}_FOUND}")
     set(GNURADIO_${EXTVAR}_FOUND ${GNURADIO_${EXTVAR}_FOUND} PARENT_SCOPE)
 
@@ -207,14 +219,10 @@ endif()
 if(NOT PC_GNURADIO_RUNTIME_VERSION)
     find_file(GNURADIO_VERSION_GREATER_THAN_373
         NAMES gnuradio/blocks/tsb_vector_sink_f.h
-        HINTS $ENV{GNURADIO_RUNTIME_DIR}/include
-              ${CMAKE_INSTALL_PREFIX}/include
-              ${GNURADIO_INSTALL_PREFIX}/include
-        PATHS /usr/local/include
+        PATHS ${GNURADIO_INSTALL_PREFIX_USER_PROVIDED}/include
               /usr/include
-              ${GNURADIO_INSTALL_PREFIX}/include
-              ${GNURADIO_ROOT}/include
-              $ENV{GNURADIO_ROOT}/include
+              /usr/local/include
+              /opt/local/include
     )
     if(GNURADIO_VERSION_GREATER_THAN_373)
         set(PC_GNURADIO_RUNTIME_VERSION "3.7.4+")
@@ -222,24 +230,16 @@ if(NOT PC_GNURADIO_RUNTIME_VERSION)
 
     find_file(GNURADIO_VERSION_GREATER_THAN_38
         NAMES gnuradio/filter/mmse_resampler_cc.h
-        HINTS $ENV{GNURADIO_RUNTIME_DIR}/include
-              ${CMAKE_INSTALL_PREFIX}/include
-              ${GNURADIO_INSTALL_PREFIX}/include
-        PATHS /usr/local/include
+        PATHS ${GNURADIO_INSTALL_PREFIX_USER_PROVIDED}/include
               /usr/include
-              ${GNURADIO_INSTALL_PREFIX}/include
-              ${GNURADIO_ROOT}/include
-              $ENV{GNURADIO_ROOT}/include
+              /usr/local/include
+              /opt/local/include
     )
     if(GNURADIO_VERSION_GREATER_THAN_38)
         set(PC_GNURADIO_RUNTIME_VERSION "3.8.0+")
     endif()
 endif()
 
-# Trick for feature_summary
-if(NOT DEFINED GNURADIO_FOUND)
-    set(GNURADIO_FOUND TRUE)
-endif()
 set(GNURADIO_VERSION ${PC_GNURADIO_RUNTIME_VERSION})
 
 if(NOT GNSSSDR_GNURADIO_MIN_VERSION)
@@ -250,11 +250,11 @@ if(GNURADIO_VERSION)
     if(GNURADIO_VERSION VERSION_LESS ${GNSSSDR_GNURADIO_MIN_VERSION})
         unset(GNURADIO_RUNTIME_FOUND)
         message(STATUS "The GNU Radio version installed in your system (v${GNURADIO_VERSION}) is too old.")
-        if(OS_IS_LINUX)
+        if(${CMAKE_SYSTEM_NAME} MATCHES "Linux|kFreeBSD|GNU")
             message("Go to https://github.com/gnuradio/pybombs")
             message("and follow the instructions to install GNU Radio in your system.")
         endif()
-        if(OS_IS_MACOSX)
+        if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
             message("You can install it easily via Macports:")
             message("  sudo port install gnuradio ")
             message("Alternatively, you can use homebrew:")
@@ -270,6 +270,108 @@ else()
         DESCRIPTION "The free and open software radio ecosystem"
     )
 endif()
+
+find_package_handle_standard_args(GNURADIO DEFAULT_MSG GNURADIO_RUNTIME_FOUND)
+
+# Detect if using standard pointers
+set(GNURADIO_USES_STD_POINTERS FALSE)
+if(GNURADIO_VERSION VERSION_GREATER 3.8.99)
+    file(STRINGS ${GNURADIO_RUNTIME_INCLUDE_DIRS}/gnuradio/basic_block.h _basic_block)
+    foreach(_loop_var IN LISTS _basic_block)
+        string(STRIP "${_loop_var}" _file_line)
+        if("public std::enable_shared_from_this<basic_block>" STREQUAL "${_file_line}")
+            set(GNURADIO_USES_STD_POINTERS TRUE)
+        endif()
+    endforeach()
+endif()
+
+# Detect if FFT are templates
+if(EXISTS ${GNURADIO_FFT_INCLUDE_DIRS}/gnuradio/fft/fft_vfc.h)
+    set(GNURADIO_FFT_USES_TEMPLATES FALSE)
+else()
+    set(GNURADIO_FFT_USES_TEMPLATES TRUE)
+endif()
+
+# Search for IIO component
+if(GNURADIO_VERSION VERSION_GREATER 3.8.99)
+    pkg_check_modules(PC_GNURADIO_IIO QUIET gnuradio-iio)
+    # look for include files
+    message(STATUS "Checking for GNU Radio Module: IIO")
+    find_path(GNURADIO_IIO_INCLUDE_DIRS
+        NAMES gnuradio/iio/api.h
+        HINTS ${PC_GNURADIO_IIO_INCLUDEDIR}
+        PATHS ${GNURADIO_INSTALL_PREFIX_USER_PROVIDED}/include
+              /usr/include
+              /usr/local/include
+              /opt/local/include
+    )
+
+    # look for libs
+    find_library(GNURADIO_IIO_LIBRARIES
+        NAMES gnuradio-iio gnuradio-iio-${GNURADIO_VERSION}
+        HINTS ${PC_GNURADIO_IIO_LIBDIR}
+        PATHS ${GNURADIO_INSTALL_PREFIX_USER_PROVIDED}/lib
+              ${GNURADIO_INSTALL_PREFIX_USER_PROVIDED}/lib64
+              /usr/lib
+              /usr/lib64
+              /usr/lib/x86_64-linux-gnu
+              /usr/lib/i386-linux-gnu
+              /usr/lib/arm-linux-gnueabihf
+              /usr/lib/arm-linux-gnueabi
+              /usr/lib/aarch64-linux-gnu
+              /usr/lib/mipsel-linux-gnu
+              /usr/lib/mips-linux-gnu
+              /usr/lib/mips64el-linux-gnuabi64
+              /usr/lib/powerpc-linux-gnu
+              /usr/lib/powerpc64-linux-gnu
+              /usr/lib/powerpc64le-linux-gnu
+              /usr/lib/powerpc-linux-gnuspe
+              /usr/lib/hppa-linux-gnu
+              /usr/lib/s390x-linux-gnu
+              /usr/lib/i386-gnu
+              /usr/lib/hppa-linux-gnu
+              /usr/lib/x86_64-kfreebsd-gnu
+              /usr/lib/i386-kfreebsd-gnu
+              /usr/lib/m68k-linux-gnu
+              /usr/lib/sh4-linux-gnu
+              /usr/lib/sparc64-linux-gnu
+              /usr/lib/x86_64-linux-gnux32
+              /usr/lib/alpha-linux-gnu
+              /usr/lib/riscv64-linux-gnu
+              /usr/local/lib
+              /usr/local/lib64
+              /opt/local/lib
+    )
+
+    if(GNURADIO_IIO_LIBRARIES)
+        message(STATUS " * INCLUDES=${GNURADIO_IIO_INCLUDE_DIRS}")
+        message(STATUS " * LIBS=${GNURADIO_IIO_LIBRARIES}")
+    endif()
+    if(GNURADIO_IIO_LIBRARIES AND GNURADIO_IIO_INCLUDE_DIRS)
+        set(GNURADIO_IIO_FOUND TRUE)
+    endif()
+    if(GNURADIO_IIO_FOUND)
+        message(STATUS "GNURADIO_IIO_FOUND = ${GNURADIO_IIO_FOUND}")
+        # append to all includes and libs list
+        set(GNURADIO_ALL_INCLUDE_DIRS ${GNURADIO_ALL_INCLUDE_DIRS} ${GNURADIO_IIO_INCLUDE_DIRS})
+        set(GNURADIO_ALL_LIBRARIES ${GNURADIO_ALL_LIBRARIES} ${GNURADIO_IIO_LIBRARIES})
+
+        # Create imported target
+        if(NOT TARGET Gnuradio::iio)
+            add_library(Gnuradio::iio SHARED IMPORTED)
+            set(GNURADIO_LIBRARY ${GNURADIO_IIO_LIBRARIES})
+            list(GET GNURADIO_LIBRARY 0 FIRST_DIR)
+            get_filename_component(GNURADIO_DIR ${FIRST_DIR} ABSOLUTE)
+            set_target_properties(Gnuradio::iio PROPERTIES
+                IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
+                IMPORTED_LOCATION "${GNURADIO_DIR}"
+                INTERFACE_INCLUDE_DIRECTORIES "${GNURADIO_IIO_INCLUDE_DIRS}"
+                INTERFACE_LINK_LIBRARIES "${GNURADIO_LIBRARY}"
+            )
+        endif()
+    endif()
+endif()
+
 
 set_package_properties(GNURADIO PROPERTIES
     URL "https://www.gnuradio.org/"

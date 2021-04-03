@@ -5,33 +5,20 @@
  * \author Carles Fernandez, 2018
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2012-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <http://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "GPS_L1_CA.h"
 #include "gnss_block_factory.h"
+#include "gnss_block_interface.h"
 #include "gnss_sdr_flags.h"
 #include "gnuplot_i.h"
 #include "in_memory_configuration.h"
@@ -52,6 +39,11 @@
 #include <unistd.h>
 #include <utility>
 #include <vector>
+
+#if HAS_GENERIC_LAMBDA
+#else
+#include <boost/bind/bind.hpp>
+#endif
 
 #ifdef GR_GREATER_38
 #include <gnuradio/analog/sig_source.h>
@@ -78,7 +70,8 @@ DEFINE_bool(plot_gps_l1_kf_tracking_test, false, "Plots results of GpsL1CAKfTrac
 // ######## GNURADIO BLOCK MESSAGE RECEVER #########
 class GpsL1CAKfTrackingTest_msg_rx;
 
-using GpsL1CAKfTrackingTest_msg_rx_sptr = boost::shared_ptr<GpsL1CAKfTrackingTest_msg_rx>;
+
+using GpsL1CAKfTrackingTest_msg_rx_sptr = gnss_shared_ptr<GpsL1CAKfTrackingTest_msg_rx>;
 
 GpsL1CAKfTrackingTest_msg_rx_sptr GpsL1CAKfTrackingTest_msg_rx_make();
 
@@ -86,7 +79,7 @@ class GpsL1CAKfTrackingTest_msg_rx : public gr::block
 {
 private:
     friend GpsL1CAKfTrackingTest_msg_rx_sptr GpsL1CAKfTrackingTest_msg_rx_make();
-    void msg_handler_events(pmt::pmt_t msg);
+    void msg_handler_channel_events(const pmt::pmt_t msg);
     GpsL1CAKfTrackingTest_msg_rx();
 
 public:
@@ -101,16 +94,16 @@ GpsL1CAKfTrackingTest_msg_rx_sptr GpsL1CAKfTrackingTest_msg_rx_make()
 }
 
 
-void GpsL1CAKfTrackingTest_msg_rx::msg_handler_events(pmt::pmt_t msg)
+void GpsL1CAKfTrackingTest_msg_rx::msg_handler_channel_events(const pmt::pmt_t msg)
 {
     try
         {
             long int message = pmt::to_long(std::move(msg));
             rx_message = message;
         }
-    catch (boost::bad_any_cast& e)
+    catch (const boost::bad_any_cast& e)
         {
-            LOG(WARNING) << "msg_handler_telemetry Bad any cast!";
+            LOG(WARNING) << "msg_handler_channel_events Bad any_cast: " << e.what();
             rx_message = 0;
         }
 }
@@ -119,7 +112,16 @@ void GpsL1CAKfTrackingTest_msg_rx::msg_handler_events(pmt::pmt_t msg)
 GpsL1CAKfTrackingTest_msg_rx::GpsL1CAKfTrackingTest_msg_rx() : gr::block("GpsL1CAKfTrackingTest_msg_rx", gr::io_signature::make(0, 0, 0), gr::io_signature::make(0, 0, 0))
 {
     this->message_port_register_in(pmt::mp("events"));
-    this->set_msg_handler(pmt::mp("events"), boost::bind(&GpsL1CAKfTrackingTest_msg_rx::msg_handler_events, this, _1));
+    this->set_msg_handler(pmt::mp("events"),
+#if HAS_GENERIC_LAMBDA
+        [this](auto&& PH1) { msg_handler_channel_events(PH1); });
+#else
+#if USE_BOOST_BIND_PLACEHOLDERS
+        boost::bind(&GpsL1CAKfTrackingTest_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
+#else
+        boost::bind(&GpsL1CAKfTrackingTest_msg_rx::msg_handler_channel_events, this, _1));
+#endif
+#endif
     rx_message = 0;
 }
 
@@ -216,13 +218,13 @@ int GpsL1CAKfTrackingTest::generate_signal()
     else if (pid == 0)
         {
             execv(&generator_binary[0], parmList);
-            std::cout << "Return not expected. Must be an execv err." << std::endl;
+            std::cout << "Return not expected. Must be an execv err.\n";
             std::terminate();
         }
 
     waitpid(pid, &child_status, 0);
 
-    std::cout << "Signal and Observables RINEX and RAW files created." << std::endl;
+    std::cout << "Signal and Observables RINEX and RAW files created.\n";
     return 0;
 }
 
@@ -288,7 +290,7 @@ void GpsL1CAKfTrackingTest::check_results_doppler(arma::vec& true_time_s,
     std::streamsize ss = std::cout.precision();
     std::cout << std::setprecision(10) << "TRK Doppler RMSE=" << rmse
               << ", mean=" << error_mean
-              << ", stdev=" << sqrt(error_var) << " (max,min)=" << max_error << "," << min_error << " [Hz]" << std::endl;
+              << ", stdev=" << sqrt(error_var) << " (max,min)=" << max_error << "," << min_error << " [Hz]\n";
     std::cout.precision(ss);
 }
 
@@ -327,7 +329,7 @@ void GpsL1CAKfTrackingTest::check_results_acc_carrier_phase(arma::vec& true_time
     std::streamsize ss = std::cout.precision();
     std::cout << std::setprecision(10) << "TRK acc carrier phase RMSE=" << rmse
               << ", mean=" << error_mean
-              << ", stdev=" << sqrt(error_var) << " (max,min)=" << max_error << "," << min_error << " [Hz]" << std::endl;
+              << ", stdev=" << sqrt(error_var) << " (max,min)=" << max_error << "," << min_error << " [Hz]\n";
     std::cout.precision(ss);
 }
 
@@ -367,7 +369,7 @@ void GpsL1CAKfTrackingTest::check_results_codephase(arma::vec& true_time_s,
     std::streamsize ss = std::cout.precision();
     std::cout << std::setprecision(10) << "TRK code phase RMSE=" << rmse
               << ", mean=" << error_mean
-              << ", stdev=" << sqrt(error_var) << " (max,min)=" << max_error << "," << min_error << " [Chips]" << std::endl;
+              << ", stdev=" << sqrt(error_var) << " (max,min)=" << max_error << "," << min_error << " [Chips]\n";
     std::cout.precision(ss);
 }
 
@@ -390,7 +392,7 @@ TEST_F(GpsL1CAKfTrackingTest, ValidationOfResults)
     // open true observables log file written by the simulator
     Tracking_True_Obs_Reader true_obs_data;
     int test_satellite_PRN = FLAGS_test_satellite_PRN;
-    std::cout << "Testing satellite PRN=" << test_satellite_PRN << std::endl;
+    std::cout << "Testing satellite PRN=" << test_satellite_PRN << '\n';
     std::string true_obs_file = std::string("./gps_l1_ca_obs_prn");
     true_obs_file.append(std::to_string(test_satellite_PRN));
     true_obs_file.append(".dat");
@@ -398,22 +400,22 @@ TEST_F(GpsL1CAKfTrackingTest, ValidationOfResults)
 
     top_block = gr::make_top_block("Tracking test");
 
-    std::shared_ptr<GNSSBlockInterface> trk_ = factory->GetBlock(config, "Tracking_1C", implementation, 1, 1);
-    std::shared_ptr<TrackingInterface> tracking = std::dynamic_pointer_cast<TrackingInterface>(trk_);  //std::make_shared<GpsL1CaDllPllCAidTracking>(config.get(), "Tracking_1C", 1, 1);
+    std::shared_ptr<GNSSBlockInterface> trk_ = factory->GetBlock(config.get(), "Tracking_1C", 1, 1);
+    std::shared_ptr<TrackingInterface> tracking = std::dynamic_pointer_cast<TrackingInterface>(trk_);  // std::make_shared<GpsL1CaDllPllCAidTracking>(config.get(), "Tracking_1C", 1, 1);
 
-    boost::shared_ptr<GpsL1CAKfTrackingTest_msg_rx> msg_rx = GpsL1CAKfTrackingTest_msg_rx_make();
+    auto msg_rx = GpsL1CAKfTrackingTest_msg_rx_make();
 
     // load acquisition data based on the first epoch of the true observations
     ASSERT_EQ(true_obs_data.read_binary_obs(), true)
-        << "Failure reading true tracking dump file." << std::endl
+        << "Failure reading true tracking dump file.\n"
         << "Maybe sat PRN #" + std::to_string(FLAGS_test_satellite_PRN) +
                " is not available?";
 
     // restart the epoch counter
     true_obs_data.restart();
 
-    std::cout << "Initial Doppler [Hz]=" << true_obs_data.doppler_l1_hz << " Initial code delay [Chips]=" << true_obs_data.prn_delay_chips << std::endl;
-    gnss_synchro.Acq_delay_samples = (GPS_L1_CA_CODE_LENGTH_CHIPS - true_obs_data.prn_delay_chips / GPS_L1_CA_CODE_LENGTH_CHIPS) * baseband_sampling_freq * GPS_L1_CA_CODE_PERIOD;
+    std::cout << "Initial Doppler [Hz]=" << true_obs_data.doppler_l1_hz << " Initial code delay [Chips]=" << true_obs_data.prn_delay_chips << '\n';
+    gnss_synchro.Acq_delay_samples = (GPS_L1_CA_CODE_LENGTH_CHIPS - true_obs_data.prn_delay_chips / GPS_L1_CA_CODE_LENGTH_CHIPS) * baseband_sampling_freq * GPS_L1_CA_CODE_PERIOD_S;
     gnss_synchro.Acq_doppler_hz = true_obs_data.doppler_l1_hz;
     gnss_synchro.Acq_samplestamp_samples = 0;
 
@@ -452,7 +454,7 @@ TEST_F(GpsL1CAKfTrackingTest, ValidationOfResults)
     // check results
     // load the true values
     long int nepoch = true_obs_data.num_epochs();
-    std::cout << "True observation epochs=" << nepoch << std::endl;
+    std::cout << "True observation epochs=" << nepoch << '\n';
 
     arma::vec true_timestamp_s = arma::zeros(nepoch, 1);
     arma::vec true_acc_carrier_phase_cycles = arma::zeros(nepoch, 1);
@@ -471,15 +473,15 @@ TEST_F(GpsL1CAKfTrackingTest, ValidationOfResults)
             epoch_counter++;
         }
 
-    //load the measured values
+    // load the measured values
     Tracking_Dump_Reader trk_dump;
 
     ASSERT_EQ(trk_dump.open_obs_file(std::string("./tracking_ch_0.dat")), true)
         << "Failure opening tracking dump file";
 
     nepoch = trk_dump.num_epochs();
-    std::cout << "Measured observation epochs=" << nepoch << std::endl;
-    //trk_dump.restart();
+    std::cout << "Measured observation epochs=" << nepoch << '\n';
+    // trk_dump.restart();
 
     arma::vec trk_timestamp_s = arma::zeros(nepoch, 1);
     arma::vec trk_acc_carrier_phase_cycles = arma::zeros(nepoch, 1);
@@ -496,7 +498,7 @@ TEST_F(GpsL1CAKfTrackingTest, ValidationOfResults)
     while (trk_dump.read_binary_obs())
         {
             trk_timestamp_s(epoch_counter) = static_cast<double>(trk_dump.PRN_start_sample_count) / static_cast<double>(baseband_sampling_freq);
-            trk_acc_carrier_phase_cycles(epoch_counter) = trk_dump.acc_carrier_phase_rad / GPS_TWO_PI;
+            trk_acc_carrier_phase_cycles(epoch_counter) = trk_dump.acc_carrier_phase_rad / TWO_PI;
             trk_Doppler_Hz(epoch_counter) = trk_dump.carrier_doppler_hz;
             double delay_chips = GPS_L1_CA_CODE_LENGTH_CHIPS - GPS_L1_CA_CODE_LENGTH_CHIPS * (fmod((static_cast<double>(trk_dump.PRN_start_sample_count) + trk_dump.aux1) / static_cast<double>(baseband_sampling_freq), 1.0e-3) / 1.0e-3);
 
@@ -523,16 +525,16 @@ TEST_F(GpsL1CAKfTrackingTest, ValidationOfResults)
     check_results_acc_carrier_phase(true_timestamp_s, true_acc_carrier_phase_cycles, trk_timestamp_s, trk_acc_carrier_phase_cycles);
 
     std::chrono::duration<double> elapsed_seconds = end - start;
-    std::cout << "Signal tracking completed in " << elapsed_seconds.count() << " seconds." << std::endl;
+    std::cout << "Signal tracking completed in " << elapsed_seconds.count() << " seconds.\n";
 
     if (FLAGS_plot_gps_l1_kf_tracking_test == true)
         {
             const std::string gnuplot_executable(FLAGS_gnuplot_executable);
             if (gnuplot_executable.empty())
                 {
-                    std::cout << "WARNING: Although the flag plot_gps_l1_tracking_test has been set to TRUE," << std::endl;
-                    std::cout << "gnuplot has not been found in your system." << std::endl;
-                    std::cout << "Test results will not be plotted." << std::endl;
+                    std::cout << "WARNING: Although the flag plot_gps_l1_tracking_test has been set to TRUE,\n";
+                    std::cout << "gnuplot has not been found in your system.\n";
+                    std::cout << "Test results will not be plotted.\n";
                 }
             else
                 {
@@ -548,7 +550,7 @@ TEST_F(GpsL1CAKfTrackingTest, ValidationOfResults)
                             for (auto it = prompt.begin(); it != prompt.end(); it++)
                                 {
                                     timevec.push_back(t);
-                                    t = t + GPS_L1_CA_CODE_PERIOD;
+                                    t = t + GPS_L1_CA_CODE_PERIOD_S;
                                 }
                             Gnuplot g1("linespoints");
                             g1.set_title("GPS L1 C/A signal tracking correlators' output (satellite PRN #" + std::to_string(FLAGS_test_satellite_PRN) + ")");
@@ -591,7 +593,7 @@ TEST_F(GpsL1CAKfTrackingTest, ValidationOfResults)
                         }
                     catch (const GnuplotException& ge)
                         {
-                            std::cout << ge.what() << std::endl;
+                            std::cout << ge.what() << '\n';
                         }
                 }
         }

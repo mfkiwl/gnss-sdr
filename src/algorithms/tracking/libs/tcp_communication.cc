@@ -4,29 +4,15 @@
  * \author David Pubill, 2011. dpubill(at)cttc.es
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "tcp_communication.h"
@@ -49,7 +35,7 @@ int Tcp_Communication::listen_tcp_connection(size_t d_port_, size_t d_port_ch0_)
 
             if (d_port_ == d_port_ch0_)
                 {
-                    std::cout << "Server ready. Listening for TCP connections..." << std::endl;
+                    std::cout << "Server ready. Listening for TCP connections...\n";
                 }
 
             // Reuse the IP address for each connection
@@ -59,12 +45,12 @@ int Tcp_Communication::listen_tcp_connection(size_t d_port_, size_t d_port_ch0_)
             acceptor.listen(12);
             acceptor.accept(tcp_socket_);
 
-            std::cout << "Socket accepted on port " << d_port_ << std::endl;
+            std::cout << "Socket accepted on port " << d_port_ << '\n';
         }
 
     catch (const std::exception& e)
         {
-            std::cerr << "Exception: " << e.what() << std::endl;
+            std::cerr << "Exception: " << e.what() << '\n';
         }
 
     return false;
@@ -99,10 +85,9 @@ void Tcp_Communication::send_receive_tcp_packet_galileo_e1(boost::array<float, N
 
     catch (const std::exception& e)
         {
-            std::cerr << "Exception: " << e.what() << ". Please press Ctrl+C to end the program." << std::endl;
+            std::cerr << "Exception: " << e.what() << ". Please press Ctrl+C to end the program.\n";
             std::cin >> controlc;
         }
-    return;
 }
 
 
@@ -134,10 +119,9 @@ void Tcp_Communication::send_receive_tcp_packet_gps_l1_ca(boost::array<float, NU
 
     catch (const std::exception& e)
         {
-            std::cerr << "Exception: " << e.what() << ". Please press Ctrl+C to end the program." << std::endl;
+            std::cerr << "Exception: " << e.what() << ". Please press Ctrl+C to end the program.\n";
             std::cin >> controlc;
         }
-    return;
 }
 
 
@@ -145,6 +129,5 @@ void Tcp_Communication::close_tcp_connection(size_t d_port_)
 {
     // Close the TCP connection
     tcp_socket_.close();
-    std::cout << "Socket closed on port " << d_port_ << std::endl;
-    return;
+    std::cout << "Socket closed on port " << d_port_ << '\n';
 }

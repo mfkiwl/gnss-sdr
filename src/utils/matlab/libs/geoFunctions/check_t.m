@@ -9,8 +9,11 @@ function corrTime = check_t(time)
 %   Outputs:
 %       corrTime    - corrected time (seconds)
 
-% Kai Borre 04-01-96
-% Copyright (c) by Kai Borre
+% GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
+% This file is part of GNSS-SDR.
+%
+% SPDX-FileCopyrightText: Kai Borre
+% SPDX-License-Identifier: GPL-3.0-or-later
 %==========================================================================
 
 half_week = 302400;     % seconds

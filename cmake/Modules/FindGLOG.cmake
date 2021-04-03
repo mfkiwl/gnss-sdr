@@ -1,19 +1,8 @@
-# Copyright (C) 2011-2019 (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: 2011-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 # - Try to find the Google Glog library
 #
@@ -35,6 +24,10 @@ if(NOT COMMAND feature_summary)
     include(FeatureSummary)
 endif()
 
+if(NOT PKG_CONFIG_FOUND)
+    include(FindPkgConfig)
+endif()
+
 if(NOT DEFINED GLOG_ROOT)
     set(GLOG_ROOT /usr /usr/local)
 endif()
@@ -45,15 +38,15 @@ else()
     set(LIB_PATHS ${GLOG_ROOT} ${GLOG_ROOT}/lib)
 endif()
 
-set(PKG_CONFIG_USE_CMAKE_PREFIX_PATH TRUE)
-include(FindPkgConfig)
 pkg_check_modules(PC_GLOG libglog)
 
 macro(_FIND_GLOG_LIBRARIES _var)
     find_library(${_var}
           NAMES ${ARGN}
+          HINTS ${PC_GLOG_LIBDIR}
           PATHS ${LIB_PATHS}
-                /usr/local/lib
+                /usr/lib
+                /usr/lib64
                 /usr/lib/x86_64-linux-gnu
                 /usr/lib/i386-linux-gnu
                 /usr/lib/arm-linux-gnueabihf
@@ -77,13 +70,14 @@ macro(_FIND_GLOG_LIBRARIES _var)
                 /usr/lib/sparc64-linux-gnu
                 /usr/lib/x86_64-linux-gnux32
                 /usr/lib/alpha-linux-gnu
-                /usr/lib64
-                /usr/lib
+                /usr/lib/riscv64-linux-gnu
+                /usr/local/lib
+                /usr/local/lib64
+                /opt/local/lib
                 ${GLOG_ROOT}/lib
                 $ENV{GLOG_ROOT}/lib
                 ${GLOG_ROOT}/lib64
                 $ENV{GLOG_ROOT}/lib64
-                ${PC_GLOG_LIBDIR}
           PATH_SUFFIXES lib
       )
     mark_as_advanced(${_var})
@@ -100,19 +94,22 @@ endmacro()
 
 if(MSVC)
     find_path(GLOG_INCLUDE_DIR NAMES raw_logging.h
+        HINTS
+            ${PC_GLOG_INCLUDEDIR}
         PATHS
             ${GLOG_ROOT}/src/windows
             ${GLOG_ROOT}/src/windows/glog
-            ${PC_GLOG_INCLUDEDIR}
     )
 else()
     # Linux/OS X builds
     find_path(GLOG_INCLUDE_DIR NAMES raw_logging.h
-        PATHS
-            ${GLOG_ROOT}/include/glog
-            /usr/include/glog
-            /opt/local/include/glog   # default location in Macports
+        HINTS
             ${PC_GLOG_INCLUDEDIR}
+        PATHS
+            /usr/include/glog
+            /usr/local/include/glog
+            /opt/local/include/glog   # default location in Macports
+            ${GLOG_ROOT}/include/glog
     )
 endif()
 
@@ -125,7 +122,7 @@ else()
         _find_glog_libraries(GLOG_LIBRARIES libglog.so)
     endif()
     if(APPLE)
-        _find_glog_libraries(GLOG_LIBRARIES libglog.dylib)
+        _find_glog_libraries(GLOG_LIBRARIES glog)
     endif()
 endif()
 
@@ -166,8 +163,13 @@ set_package_properties(GLOG PROPERTIES
     URL "https://github.com/google/glog"
 )
 
+string(REGEX MATCH libglog.a GLOG_IS_STATIC ${GLOG_LIBRARIES})
 if(GLOG_FOUND AND NOT TARGET Glog::glog)
-    add_library(Glog::glog SHARED IMPORTED)
+    if(GLOG_IS_STATIC)
+        add_library(Glog::glog STATIC IMPORTED)
+    else()
+        add_library(Glog::glog SHARED IMPORTED)
+    endif()
     set_target_properties(Glog::glog PROPERTIES
         IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
         IMPORTED_LOCATION "${GLOG_LIBRARIES}"

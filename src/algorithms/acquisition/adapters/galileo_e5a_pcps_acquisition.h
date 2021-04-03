@@ -3,33 +3,20 @@
  * \brief Adapts a PCPS acquisition block to an AcquisitionInterface for
  *  Galileo E5a data and pilot Signals
  * \author Antonio Ramos, 2018. antonio.ramos(at)cttc.es
- * -------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
+ * -----------------------------------------------------------------------------
  *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GALILEO_E5A_PCPS_ACQUISITION_H_
-#define GALILEO_E5A_PCPS_ACQUISITION_H_
+#ifndef GNSS_SDR_GALILEO_E5A_PCPS_ACQUISITION_H
+#define GNSS_SDR_GALILEO_E5A_PCPS_ACQUISITION_H
 
 
 #include "channel_fsm.h"
@@ -39,12 +26,19 @@
 #include <string>
 #include <vector>
 
+/** \addtogroup Acquisition
+ * \{ */
+/** \addtogroup Acq_adapters
+ * \{ */
+
+
 class ConfigurationInterface;
 
 class GalileoE5aPcpsAcquisition : public AcquisitionInterface
 {
 public:
-    GalileoE5aPcpsAcquisition(ConfigurationInterface* configuration,
+    GalileoE5aPcpsAcquisition(
+        const ConfigurationInterface* configuration,
         const std::string& role,
         unsigned int in_streams,
         unsigned int out_streams);
@@ -154,35 +148,31 @@ public:
     void set_resampler_latency(uint32_t latency_samples) override;
 
 private:
-    float calculate_threshold(float pfa);
-    ConfigurationInterface* configuration_;
     pcps_acquisition_sptr acquisition_;
+    std::vector<std::complex<float>> code_;
+    std::weak_ptr<ChannelFsm> channel_fsm_;
+    Gnss_Synchro* gnss_synchro_;
     Acq_Conf acq_parameters_;
-    size_t item_size_;
     std::string item_type_;
     std::string dump_filename_;
     std::string role_;
-    bool bit_transition_flag_;
-    bool dump_;
-    bool acq_pilot_;
-    bool use_CFAR_;
-    bool blocking_;
-    bool acq_iq_;
+    int64_t fs_in_;
+    size_t item_size_;
+    float threshold_;
+    int doppler_center_;
     unsigned int vector_length_;
     unsigned int code_length_;
     unsigned int channel_;
-    std::weak_ptr<ChannelFsm> channel_fsm_;
     unsigned int doppler_max_;
     unsigned int doppler_step_;
-    int doppler_center_;
     unsigned int sampled_ms_;
-    unsigned int max_dwells_;
     unsigned int in_streams_;
     unsigned int out_streams_;
-    int64_t fs_in_;
-    float threshold_;
-    std::vector<std::complex<float>> code_;
-    Gnss_Synchro* gnss_synchro_;
+    bool acq_pilot_;
+    bool acq_iq_;
 };
 
-#endif /* GALILEO_E5A_PCPS_ACQUISITION_H_ */
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_GALILEO_E5A_PCPS_ACQUISITION_H

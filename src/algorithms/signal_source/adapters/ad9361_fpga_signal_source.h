@@ -4,52 +4,50 @@
  * This source implements only the AD9361 control. It is NOT compatible with conventional SDR acquisition and tracking blocks.
  * Please use the fmcomms2 source if conventional SDR acquisition and tracking is selected in the configuration file.
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_AD9361_FPGA_SIGNAL_SOURCE_H_
-#define GNSS_SDR_AD9361_FPGA_SIGNAL_SOURCE_H_
+#ifndef GNSS_SDR_AD9361_FPGA_SIGNAL_SOURCE_H
+#define GNSS_SDR_AD9361_FPGA_SIGNAL_SOURCE_H
 
 #include "concurrent_queue.h"
+#include "fpga_dynamic_bit_selection.h"
 #include "fpga_switch.h"
 #include "gnss_block_interface.h"
-#include <boost/shared_ptr.hpp>
 #include <pmt/pmt.h>
 #include <cstdint>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
+
+
+/** \addtogroup Signal_Source
+ * \{ */
+/** \addtogroup Signal_Source_adapters
+ * \{ */
+
 
 class ConfigurationInterface;
 
 class Ad9361FpgaSignalSource : public GNSSBlockInterface
 {
 public:
-    Ad9361FpgaSignalSource(ConfigurationInterface* configuration,
-        const std::string& role, unsigned int in_stream,
-        unsigned int out_stream, std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue);
+    Ad9361FpgaSignalSource(const ConfigurationInterface *configuration,
+        const std::string &role, unsigned int in_stream,
+        unsigned int out_stream, Concurrent_Queue<pmt::pmt_t> *queue);
 
     ~Ad9361FpgaSignalSource();
+
+    void start() override;
 
     inline std::string role() override
     {
@@ -75,47 +73,73 @@ public:
     gr::basic_block_sptr get_right_block() override;
 
 private:
+    const std::string switch_device_name = "AXIS_Switch_v1_0_0";          // Switch UIO device name
+    const std::string dyn_bit_sel_device_name = "dynamic_bits_selector";  // Switch UIO device name
+
+    // perform dynamic bit selection every 500 ms by default
+    static const uint32_t Gain_control_period_ms = 500;
+
+    void run_DMA_process(const std::string &FreqBand,
+        const std::string &Filename1,
+        const std::string &Filename2);
+
+    void run_dynamic_bit_selection_process();
+
+    std::thread thread_file_to_dma;
+    std::thread thread_dynamic_bit_selection;
+
+    std::shared_ptr<Fpga_Switch> switch_fpga;
+    std::shared_ptr<Fpga_dynamic_bit_selection> dynamic_bit_selection_fpga;
+
     std::string role_;
 
     // Front-end settings
-    std::string uri_;  // device direction
-    uint64_t freq_;    // frequency of local oscillator
-    uint64_t sample_rate_;
-    uint64_t bandwidth_;
-    uint64_t buffer_size_;  // reception buffer
-    bool rx1_en_;
-    bool rx2_en_;
-    bool quadrature_;
-    bool rf_dc_;
-    bool bb_dc_;
     std::string gain_mode_rx1_;
     std::string gain_mode_rx2_;
-    double rf_gain_rx1_;
-    double rf_gain_rx2_;
     std::string rf_port_select_;
     std::string filter_file_;
-    bool filter_auto_;
+    std::string filter_source_;
+    std::string filter_filename_;
+    std::string filename_rx1;
+    std::string filename_rx2;
+    std::string freq_band;
+
+    std::mutex dma_mutex;
+    std::mutex dynamic_bit_selection_mutex;
+
+    double rf_gain_rx1_;
+    double rf_gain_rx2_;
+    uint64_t freq_;  // frequency of local oscillator
+    uint64_t sample_rate_;
+    uint64_t bandwidth_;
+    float Fpass_;
+    float Fstop_;
 
     // DDS configuration for LO generation for external mixer
-    bool enable_dds_lo_;
-    uint64_t freq_rf_tx_hz_;
-    uint64_t freq_dds_tx_hz_;
     double scale_dds_dbfs_;
     double phase_dds_deg_;
     double tx_attenuation_db_;
-
+    uint64_t freq_rf_tx_hz_;
+    uint64_t freq_dds_tx_hz_;
+    uint64_t tx_bandwidth_;
+    size_t item_size_;
     uint32_t in_stream_;
     uint32_t out_stream_;
+    int32_t switch_position;
+    bool enable_dds_lo_;
 
-    std::string item_type_;
-    size_t item_size_;
-    long samples_;
-    bool dump_;
-    std::string dump_filename_;
-
-    std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue_;
-
-    std::shared_ptr<Fpga_Switch> switch_fpga;
+    bool filter_auto_;
+    bool quadrature_;
+    bool rf_dc_;
+    bool bb_dc_;
+    bool rx1_enable_;
+    bool rx2_enable_;
+    bool enable_DMA_;
+    bool enable_dynamic_bit_selection_;
+    bool rf_shutdown_;
 };
 
-#endif /*GNSS_SDR_AD9361_FPGA_SIGNAL_SOURCE_H_*/
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_AD9361_FPGA_SIGNAL_SOURCE_H

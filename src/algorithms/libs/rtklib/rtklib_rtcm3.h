@@ -19,48 +19,28 @@
  * Neither the executive binaries nor the shared libraries are required by, used
  * or included in GNSS-SDR.
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  * Copyright (C) 2007-2013, T. Takasu
  * Copyright (C) 2017, Javier Arribas
  * Copyright (C) 2017, Carles Fernandez
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
  *
- *----------------------------------------------------------------------------*/
+ * -----------------------------------------------------------------------------
+ */
 
-#ifndef GNSS_SDR_RTKLIB_RTCM3_H_
-#define GNSS_SDR_RTKLIB_RTCM3_H_
+#ifndef GNSS_SDR_RTKLIB_RTCM3_H
+#define GNSS_SDR_RTKLIB_RTCM3_H
 
 #include "rtklib.h"
 
 /* constants -----------------------------------------------------------------*/
 
-const double PRUNIT_GPS = 299792.458;           /* rtcm ver.3 unit of gps pseudorange (m) */
-const double PRUNIT_GLO = 599584.916;           /* rtcm ver.3 unit of glonass pseudorange (m) */
-const double RANGE_MS = SPEED_OF_LIGHT * 0.001; /* range in 1 ms */
+const double PRUNIT_GPS = 299792.458;               /* rtcm ver.3 unit of gps pseudorange (m) */
+const double PRUNIT_GLO = 599584.916;               /* rtcm ver.3 unit of glonass pseudorange (m) */
+const double RANGE_MS = SPEED_OF_LIGHT_M_S * 0.001; /* range in 1 ms */
 
 
 /* ssr update intervals ------------------------------------------------------*/
@@ -149,7 +129,7 @@ int decode_type1012(rtcm_t *rtcm);
 
 int decode_type1013(rtcm_t *rtcm);
 
-int decode_type1019(rtcm_t *rtcm);
+int decode_type1019(rtcm_t *rtcm, bool pre_2009_file = false);
 
 int decode_type1020(rtcm_t *rtcm);
 
@@ -187,7 +167,7 @@ int decode_type1038(rtcm_t *rtcm);
 
 int decode_type1039(rtcm_t *rtcm);
 
-int decode_type1044(rtcm_t *rtcm);
+int decode_type1044(rtcm_t *rtcm, bool pre_2009_file = false);
 
 int decode_type1045(rtcm_t *rtcm);
 

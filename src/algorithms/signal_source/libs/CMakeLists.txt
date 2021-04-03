@@ -1,49 +1,22 @@
-# Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
-#
+# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
-if(ENABLE_PLUTOSDR OR ENABLE_FMCOMMS2)
-    if(NOT GRIIO_FOUND)
-        message(STATUS "gnuradio-iio not found, its installation is required.")
-        message(STATUS "Please build and install the following projects:")
-        message(STATUS " * libiio from https://github.com/analogdevicesinc/libiio")
-        message(STATUS " * libad9361-iio from https://github.com/analogdevicesinc/libad9361-iio")
-        message(STATUS " * gnuradio-iio from https://github.com/analogdevicesinc/gr-iio")
-        message(FATAL_ERROR "gnuradio-iio is required for building gnss-sdr with this option enabled")
-    endif()
-endif()
 
+set(OPT_SIGNAL_SOURCE_LIB_SOURCES "")
+set(OPT_SIGNAL_SOURCE_LIB_HEADERS "")
 if(ENABLE_FMCOMMS2 OR ENABLE_AD9361)
-    if(NOT LIBIIO_FOUND)
-        message(STATUS "libiio not found, its installation is required.")
-        message(STATUS "Please build and install the following projects:")
-        message(STATUS " * libiio from https://github.com/analogdevicesinc/libiio")
-        message(STATUS " * libad9361-iio from https://github.com/analogdevicesinc/libad9361-iio")
-        message(STATUS " * gnuradio-iio from https://github.com/analogdevicesinc/gr-iio")
-        message(FATAL_ERROR "libiio is required for building gnss-sdr with this option enabled")
-    else()
-        set(OPT_SIGNAL_SOURCE_LIB_SOURCES ad9361_manager.cc)
-        set(OPT_SIGNAL_SOURCE_LIB_HEADERS ad9361_manager.h)
-    endif()
+    set(OPT_SIGNAL_SOURCE_LIB_SOURCES ad9361_manager.cc)
+    set(OPT_SIGNAL_SOURCE_LIB_HEADERS ad9361_manager.h)
 endif()
 
 if(ENABLE_FPGA OR ENABLE_AD9361)
     set(OPT_SIGNAL_SOURCE_LIB_SOURCES ${OPT_SIGNAL_SOURCE_LIB_SOURCES} fpga_switch.cc)
     set(OPT_SIGNAL_SOURCE_LIB_HEADERS ${OPT_SIGNAL_SOURCE_LIB_HEADERS} fpga_switch.h)
+    set(OPT_SIGNAL_SOURCE_LIB_SOURCES ${OPT_SIGNAL_SOURCE_LIB_SOURCES} fpga_dynamic_bit_selection.cc)
+    set(OPT_SIGNAL_SOURCE_LIB_HEADERS ${OPT_SIGNAL_SOURCE_LIB_HEADERS} fpga_dynamic_bit_selection.h)
 endif()
 
 set(SIGNAL_SOURCE_LIB_SOURCES
@@ -63,13 +36,25 @@ set(SIGNAL_SOURCE_LIB_HEADERS
 list(SORT SIGNAL_SOURCE_LIB_HEADERS)
 list(SORT SIGNAL_SOURCE_LIB_SOURCES)
 
-source_group(Headers FILES ${SIGNAL_SOURCE_LIB_HEADERS})
-
-add_library(signal_source_libs ${SIGNAL_SOURCE_LIB_SOURCES} ${SIGNAL_SOURCE_LIB_HEADERS})
+if(USE_CMAKE_TARGET_SOURCES)
+    add_library(signal_source_libs STATIC)
+    target_sources(signal_source_libs
+        PRIVATE
+            ${SIGNAL_SOURCE_LIB_SOURCES}
+        PUBLIC
+            ${SIGNAL_SOURCE_LIB_HEADERS}
+    )
+else()
+    source_group(Headers FILES ${SIGNAL_SOURCE_LIB_HEADERS})
+    add_library(signal_source_libs
+        ${SIGNAL_SOURCE_LIB_SOURCES}
+        ${SIGNAL_SOURCE_LIB_HEADERS}
+    )
+endif()
 
 target_link_libraries(signal_source_libs
     PUBLIC
-        Boost::boost
+        Boost::headers
         Gnuradio::runtime
     PRIVATE
         Gflags::gflags
@@ -80,14 +65,12 @@ target_link_libraries(signal_source_libs
 target_include_directories(signal_source_libs
     PUBLIC
         ${CMAKE_SOURCE_DIR}/src/core/receiver
+        ${CMAKE_SOURCE_DIR}/src/core/interfaces
 )
 
-if(ENABLE_PLUTOSDR OR ENABLE_FMCOMMS2)
-    target_link_libraries(signal_source_libs
-        PUBLIC
-            Gnuradio::iio
-        PRIVATE
-            Iio::iio
+if(GNURADIO_USES_STD_POINTERS)
+    target_compile_definitions(signal_source_libs
+        PUBLIC -DGNURADIO_USES_STD_POINTERS=1
     )
 endif()
 
@@ -95,7 +78,16 @@ if(ENABLE_FMCOMMS2 OR ENABLE_AD9361)
     target_link_libraries(signal_source_libs
         PUBLIC
             Iio::iio
-    )
+        PRIVATE
+            Iio::ad9361
+        )
+    if(LIBAD9361_VERSION)
+        if(LIBAD9361_VERSION VERSION_GREATER 0.1)
+            target_compile_definitions(signal_source_libs
+                PRIVATE -DLIBAD9361_VERSION_GREATER_THAN_01=1
+            )
+        endif()
+    endif()
 endif()
 
 if(ENABLE_CLANG_TIDY)

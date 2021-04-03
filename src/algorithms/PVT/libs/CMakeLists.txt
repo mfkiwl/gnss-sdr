@@ -1,65 +1,58 @@
-# Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
-#
+# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${CMAKE_SOURCE_DIR}/docs/protobuf/monitor_pvt.proto)
 
 set(PVT_LIB_SOURCES
+    pvt_conf.cc
     pvt_solution.cc
-    ls_pvt.cc
-    hybrid_ls_pvt.cc
-    kml_printer.cc
+    geojson_printer.cc
     gpx_printer.cc
-    rinex_printer.cc
+    kml_printer.cc
     nmea_printer.cc
+    rinex_printer.cc
     rtcm_printer.cc
     rtcm.cc
-    geojson_printer.cc
     rtklib_solver.cc
-    pvt_conf.cc
     monitor_pvt_udp_sink.cc
-    ${PROTO_SRCS}
 )
 
 set(PVT_LIB_HEADERS
+    pvt_conf.h
     pvt_solution.h
-    ls_pvt.h
-    hybrid_ls_pvt.h
-    kml_printer.h
+    geojson_printer.h
     gpx_printer.h
-    rinex_printer.h
+    kml_printer.h
     nmea_printer.h
+    rinex_printer.h
     rtcm_printer.h
     rtcm.h
-    geojson_printer.h
     rtklib_solver.h
-    pvt_conf.h
     monitor_pvt_udp_sink.h
     monitor_pvt.h
     serdes_monitor_pvt.h
-    ${PROTO_HDRS}
 )
 
 list(SORT PVT_LIB_HEADERS)
 list(SORT PVT_LIB_SOURCES)
 
-source_group(Headers FILES ${PVT_LIB_HEADERS})
-
-add_library(pvt_libs ${PVT_LIB_SOURCES} ${PVT_LIB_HEADERS})
+if(USE_CMAKE_TARGET_SOURCES)
+    add_library(pvt_libs STATIC)
+    target_sources(pvt_libs
+        PRIVATE
+            ${PROTO_SRCS}
+            ${PROTO_HDRS}
+            ${PVT_LIB_SOURCES}
+        PUBLIC
+            ${PVT_LIB_HEADERS}
+    )
+else()
+    source_group(Headers FILES ${PVT_LIB_HEADERS} ${PROTO_HDRS})
+    add_library(pvt_libs ${PVT_LIB_SOURCES} ${PROTO_SRCS} ${PVT_LIB_HEADERS} ${PROTO_HDRS})
+endif()
 
 if(${FILESYSTEM_FOUND})
     target_compile_definitions(pvt_libs PRIVATE -DHAS_STD_FILESYSTEM=1)
@@ -73,13 +66,11 @@ endif()
 
 target_link_libraries(pvt_libs
     PUBLIC
-        Armadillo::armadillo
         Boost::date_time
         protobuf::libprotobuf
-        algorithms_libs_rtklib
         core_system_parameters
+        algorithms_libs_rtklib
     PRIVATE
-        algorithms_libs
         Gflags::gflags
         Glog::glog
         Matio::matio
@@ -90,26 +81,22 @@ get_filename_component(PROTO_INCLUDE_HEADERS ${PROTO_HDRS} DIRECTORY)
 target_include_directories(pvt_libs
     PUBLIC
         ${CMAKE_SOURCE_DIR}/src/core/receiver
-        ${PROTO_INCLUDE_HEADERS}
+        SYSTEM ${PROTO_INCLUDE_HEADERS}
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/algorithms/libs  # for gnss_sdr_make_unique.h
 )
 
 target_compile_definitions(pvt_libs PRIVATE -DGNSS_SDR_VERSION="${VERSION}")
 
-if(CMAKE_BUILD_TYPE MATCHES Rel)
-    target_compile_definitions(pvt_libs
-        PUBLIC -DARMA_NO_BOUND_CHECKING=1
-    )
-endif()
-
-if(Boost_VERSION_STRING VERSION_GREATER 1.65.99)
+if(USE_BOOST_ASIO_IO_CONTEXT)
     target_compile_definitions(pvt_libs
         PUBLIC
-            -DBOOST_GREATER_1_65
+            -DUSE_BOOST_ASIO_IO_CONTEXT=1
     )
 endif()
 
 # Fix for Boost Asio < 1.70
-if(OS_IS_MACOSX)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     if((CMAKE_CXX_COMPILER_ID MATCHES "Clang") AND (Boost_VERSION_STRING VERSION_LESS 1.70.0))
         if(${has_string_view})
             target_compile_definitions(pvt_libs
@@ -125,18 +112,6 @@ if(OS_IS_MACOSX)
     endif()
 endif()
 
-if(ENABLE_CLANG_TIDY)
-    if(CLANG_TIDY_EXE)
-        set_target_properties(pvt_libs
-            PROPERTIES
-                CXX_CLANG_TIDY "${DO_CLANG_TIDY}"
-        )
-    endif()
-endif()
-
 set_property(TARGET pvt_libs APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/algorithms/libs>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/algorithms/libs/rtklib>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/core/system_parameters>
 )

@@ -4,69 +4,63 @@
  * \author Javier Arribas, 2013. jarribas(at)cttc.es
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
-#ifndef GNSS_SDR_GALILEO_UTC_MODEL_H_
-#define GNSS_SDR_GALILEO_UTC_MODEL_H_
+#ifndef GNSS_SDR_GALILEO_UTC_MODEL_H
+#define GNSS_SDR_GALILEO_UTC_MODEL_H
 
 #include <boost/serialization/nvp.hpp>
 #include <cstdint>
 
+/** \addtogroup Core
+ * \{ */
+/** \addtogroup System_Parameters
+ * \{ */
+
+
 /*!
  * \brief This class is a storage for the GALILEO UTC MODEL data as described in Galileo ICD
- * https://www.gsc-europa.eu/system/files/galileo_documents/Galileo_OS_SIS_ICD.pdf
+ * https://www.gsc-europa.eu/sites/default/files/sites/all/files/Galileo-OS-SIS-ICD.pdf
  * paragraph 5.1.7
  */
 class Galileo_Utc_Model
 {
 public:
-    // Word type 6: GST-UTC conversion parameters
-    double A0_6;
-    double A1_6;
-    int32_t Delta_tLS_6;
-    int32_t t0t_6;   //!< UTC data reference Time of Week [s]
-    int32_t WNot_6;  //!< UTC data reference Week number [week]
-    int32_t WN_LSF_6;
-    int32_t DN_6;
-    int32_t Delta_tLSF_6;
-    bool flag_utc_model;
-
-    // GPS to Galileo GST conversion parameters
-    double A_0G_10;
-    double A_1G_10;
-    int32_t t_0G_10;
-    int32_t WN_0G_10;
-
-    //double TOW_6;
-    double GST_to_UTC_time(double t_e, int32_t WN);  //!< GST-UTC Conversion Algorithm and Parameters
     /*!
      * Default constructor
      */
-    Galileo_Utc_Model();
+    Galileo_Utc_Model() = default;
+
+    // double TOW_6;
+    double GST_to_UTC_time(double t_e, int32_t WN) const;  //!< GST-UTC Conversion Algorithm and Parameters
+
+    // Word type 6: GST-UTC conversion parameters
+    double A0_6{};
+    double A1_6{};
+    int32_t Delta_tLS_6{};
+    int32_t t0t_6{};   //!< UTC data reference Time of Week [s]
+    int32_t WNot_6{};  //!< UTC data reference Week number [week]
+    int32_t WN_LSF_6{};
+    int32_t DN_6{};
+    int32_t Delta_tLSF_6{};
+
+    // GPS to Galileo GST conversion parameters
+    double A_0G_10{};
+    double A_1G_10{};
+    int32_t t_0G_10{};
+    int32_t WN_0G_10{};
+
+    bool flag_utc_model{};
 
     template <class Archive>
 
@@ -92,4 +86,7 @@ public:
     }
 };
 
-#endif
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_GALILEO_UTC_MODEL_H

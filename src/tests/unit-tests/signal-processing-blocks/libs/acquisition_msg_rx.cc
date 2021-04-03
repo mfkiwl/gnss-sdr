@@ -5,38 +5,26 @@
  * \author Carles Fernandez-Prades, 2018. cfernandez(at)cttc.cat
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2012-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "acquisition_msg_rx.h"
-#include <boost/bind.hpp>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <cstdint>
 #include <utility>
-
+#if HAS_GENERIC_LAMBDA
+#else
+#include <boost/bind/bind.hpp>
+#endif
 
 Acquisition_msg_rx_sptr Acquisition_msg_rx_make()
 {
@@ -44,15 +32,15 @@ Acquisition_msg_rx_sptr Acquisition_msg_rx_make()
 }
 
 
-void Acquisition_msg_rx::msg_handler_events(pmt::pmt_t msg)
+void Acquisition_msg_rx::msg_handler_channel_events(const pmt::pmt_t& msg)
 {
     try
         {
-            int64_t message = pmt::to_long(std::move(msg));
+            int64_t message = pmt::to_long(msg);
             rx_message = message;
             top_block->stop();  // stop the flowgraph
         }
-    catch (boost::bad_any_cast& e)
+    catch (const boost::bad_any_cast& e)
         {
             LOG(WARNING) << "msg_handler_acquisition Bad cast!\n";
             rx_message = 0;
@@ -63,7 +51,16 @@ void Acquisition_msg_rx::msg_handler_events(pmt::pmt_t msg)
 Acquisition_msg_rx::Acquisition_msg_rx() : gr::block("Acquisition_msg_rx", gr::io_signature::make(0, 0, 0), gr::io_signature::make(0, 0, 0))
 {
     this->message_port_register_in(pmt::mp("events"));
-    this->set_msg_handler(pmt::mp("events"), boost::bind(&Acquisition_msg_rx::msg_handler_events, this, _1));
+    this->set_msg_handler(pmt::mp("events"),
+#if HAS_GENERIC_LAMBDA
+        [this](auto&& PH1) { msg_handler_channel_events(PH1); });
+#else
+#if USE_BOOST_BIND_PLACEHOLDERS
+        boost::bind(&Acquisition_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
+#else
+        boost::bind(&Acquisition_msg_rx::msg_handler_channel_events, this, _1));
+#endif
+#endif
     rx_message = 0;
 }
 

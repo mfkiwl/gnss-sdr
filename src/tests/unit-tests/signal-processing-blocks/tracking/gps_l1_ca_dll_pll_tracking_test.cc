@@ -5,33 +5,20 @@
  * \author Javier Arribas, 2017. jarribas(at)cttc.es
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2012-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "GPS_L1_CA.h"
 #include "gnss_block_factory.h"
+#include "gnss_block_interface.h"
 #include "gnuplot_i.h"
 #include "in_memory_configuration.h"
 #include "signal_generator_flags.h"
@@ -54,6 +41,11 @@
 #include <utility>
 #include <vector>
 
+#if HAS_GENERIC_LAMBDA
+#else
+#include <boost/bind/bind.hpp>
+#endif
+
 #ifdef GR_GREATER_38
 #include <gnuradio/analog/sig_source.h>
 #else
@@ -73,10 +65,11 @@ namespace fs = std::filesystem;
 namespace fs = boost::filesystem;
 #endif
 
+
 // ######## GNURADIO BLOCK MESSAGE RECEVER #########
 class GpsL1CADllPllTrackingTest_msg_rx;
 
-using GpsL1CADllPllTrackingTest_msg_rx_sptr = boost::shared_ptr<GpsL1CADllPllTrackingTest_msg_rx>;
+using GpsL1CADllPllTrackingTest_msg_rx_sptr = gnss_shared_ptr<GpsL1CADllPllTrackingTest_msg_rx>;
 
 GpsL1CADllPllTrackingTest_msg_rx_sptr GpsL1CADllPllTrackingTest_msg_rx_make();
 
@@ -84,7 +77,7 @@ class GpsL1CADllPllTrackingTest_msg_rx : public gr::block
 {
 private:
     friend GpsL1CADllPllTrackingTest_msg_rx_sptr GpsL1CADllPllTrackingTest_msg_rx_make();
-    void msg_handler_events(pmt::pmt_t msg);
+    void msg_handler_channel_events(const pmt::pmt_t msg);
     GpsL1CADllPllTrackingTest_msg_rx();
 
 public:
@@ -99,17 +92,17 @@ GpsL1CADllPllTrackingTest_msg_rx_sptr GpsL1CADllPllTrackingTest_msg_rx_make()
 }
 
 
-void GpsL1CADllPllTrackingTest_msg_rx::msg_handler_events(pmt::pmt_t msg)
+void GpsL1CADllPllTrackingTest_msg_rx::msg_handler_channel_events(const pmt::pmt_t msg)
 {
     try
         {
             int64_t message = pmt::to_long(std::move(msg));
-            rx_message = message;  //3 -> loss of lock
-            //std::cout << "Received trk message: " << rx_message << std::endl;
+            rx_message = message;  // 3 -> loss of lock
+            // std::cout << "Received trk message: " << rx_message << '\n';
         }
-    catch (boost::bad_any_cast& e)
+    catch (const boost::bad_any_cast& e)
         {
-            LOG(WARNING) << "msg_handler_telemetry Bad any cast!";
+            LOG(WARNING) << "msg_handler_channel_events Bad any_cast: " << e.what();
             rx_message = 0;
         }
 }
@@ -118,7 +111,16 @@ void GpsL1CADllPllTrackingTest_msg_rx::msg_handler_events(pmt::pmt_t msg)
 GpsL1CADllPllTrackingTest_msg_rx::GpsL1CADllPllTrackingTest_msg_rx() : gr::block("GpsL1CADllPllTrackingTest_msg_rx", gr::io_signature::make(0, 0, 0), gr::io_signature::make(0, 0, 0))
 {
     this->message_port_register_in(pmt::mp("events"));
-    this->set_msg_handler(pmt::mp("events"), boost::bind(&GpsL1CADllPllTrackingTest_msg_rx::msg_handler_events, this, _1));
+    this->set_msg_handler(pmt::mp("events"),
+#if HAS_GENERIC_LAMBDA
+        [this](auto&& PH1) { msg_handler_channel_events(PH1); });
+#else
+#if USE_BOOST_BIND_PLACEHOLDERS
+        boost::bind(&GpsL1CADllPllTrackingTest_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
+#else
+        boost::bind(&GpsL1CADllPllTrackingTest_msg_rx::msg_handler_channel_events, this, _1));
+#endif
+#endif
     rx_message = 0;
 }
 
@@ -210,7 +212,7 @@ int GpsL1CADllPllTrackingTest::configure_generator(double CN0_dBHz, int file_idx
         }
     p3 = std::string("-rinex_obs_file=") + FLAGS_filename_rinex_obs;                          // RINEX 2.10 observation file output
     p4 = std::string("-sig_out_file=") + FLAGS_filename_raw_data + std::to_string(file_idx);  // Baseband signal output file. Will be stored in int8_t IQ multiplexed samples
-    p5 = std::string("-sampling_freq=") + std::to_string(baseband_sampling_freq);             //Baseband sampling frequency [MSps]
+    p5 = std::string("-sampling_freq=") + std::to_string(baseband_sampling_freq);             // Baseband sampling frequency [MSps]
     p6 = std::string("-CN0_dBHz=") + std::to_string(CN0_dBHz);                                // Signal generator CN0
     return 0;
 }
@@ -230,13 +232,13 @@ int GpsL1CADllPllTrackingTest::generate_signal()
     else if (pid == 0)
         {
             execv(&generator_binary[0], parmList);
-            std::cout << "Return not expected. Must be an execv err." << std::endl;
+            std::cout << "Return not expected. Must be an execv err.\n";
             std::terminate();
         }
 
     waitpid(pid, &child_status, 0);
 
-    std::cout << "Signal and Observables RINEX and RAW files created." << std::endl;
+    std::cout << "Signal and Observables RINEX and RAW files created.\n";
     return 0;
 }
 
@@ -327,7 +329,7 @@ std::vector<double> GpsL1CADllPllTrackingTest::check_results_doppler(arma::vec& 
     std::streamsize ss = std::cout.precision();
     std::cout << std::setprecision(10) << "TRK Doppler RMSE=" << rmse
               << ", mean=" << error_mean
-              << ", stdev=" << sqrt(error_var) << " (max,min)=" << max_error << "," << min_error << " [Hz]" << std::endl;
+              << ", stdev=" << sqrt(error_var) << " (max,min)=" << max_error << "," << min_error << " [Hz]\n";
     std::cout.precision(ss);
     return err_std_vector;
 }
@@ -354,7 +356,7 @@ std::vector<double> GpsL1CADllPllTrackingTest::check_results_acc_carrier_phase(a
 
     // 2. RMSE
     arma::vec err;
-    //it is required to remove the initial offset in the accumulated carrier phase error
+    // it is required to remove the initial offset in the accumulated carrier phase error
     err = (meas_value - meas_value(0)) - (true_value_interp - true_value_interp(0));
     arma::vec err2 = arma::square(err);
     // conversion between arma::vec and std:vector
@@ -376,7 +378,7 @@ std::vector<double> GpsL1CADllPllTrackingTest::check_results_acc_carrier_phase(a
     std::streamsize ss = std::cout.precision();
     std::cout << std::setprecision(10) << "TRK acc carrier phase RMSE=" << rmse
               << ", mean=" << error_mean
-              << ", stdev=" << sqrt(error_var) << " (max,min)=" << max_error << "," << min_error << " [Hz]" << std::endl;
+              << ", stdev=" << sqrt(error_var) << " (max,min)=" << max_error << "," << min_error << " [Hz]\n";
     std::cout.precision(ss);
     return err_std_vector;
 }
@@ -426,7 +428,7 @@ std::vector<double> GpsL1CADllPllTrackingTest::check_results_codephase(arma::vec
     std::streamsize ss = std::cout.precision();
     std::cout << std::setprecision(10) << "TRK code phase RMSE=" << rmse
               << ", mean=" << error_mean
-              << ", stdev=" << sqrt(error_var) << " (max,min)=" << max_error << "," << min_error << " [Chips]" << std::endl;
+              << ", stdev=" << sqrt(error_var) << " (max,min)=" << max_error << "," << min_error << " [Chips]\n";
     std::cout.precision(ss);
     return err_std_vector;
 }
@@ -434,23 +436,23 @@ std::vector<double> GpsL1CADllPllTrackingTest::check_results_codephase(arma::vec
 
 TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
 {
-    //*************************************************
-    //***** STEP 2: Prepare the parameters sweep ******
-    //*************************************************
+    // *************************************************
+    // ***** STEP 2: Prepare the parameters sweep ******
+    // *************************************************
     std::vector<double> generator_CN0_values;
 
-    //data containers for config param sweep
-    std::vector<std::vector<double>> mean_doppler_error_sweep;     //swep config param and cn0 sweep
-    std::vector<std::vector<double>> std_dev_doppler_error_sweep;  //swep config param and cn0 sweep
-    std::vector<std::vector<double>> rmse_doppler_sweep;           //swep config param and cn0 sweep
+    // data containers for config param sweep
+    std::vector<std::vector<double>> mean_doppler_error_sweep;     // swep config param and cn0 sweep
+    std::vector<std::vector<double>> std_dev_doppler_error_sweep;  // swep config param and cn0 sweep
+    std::vector<std::vector<double>> rmse_doppler_sweep;           // swep config param and cn0 sweep
 
-    std::vector<std::vector<double>> mean_code_phase_error_sweep;     //swep config param and cn0 sweep
-    std::vector<std::vector<double>> std_dev_code_phase_error_sweep;  //swep config param and cn0 sweep
-    std::vector<std::vector<double>> rmse_code_phase_sweep;           //swep config param and cn0 sweep
+    std::vector<std::vector<double>> mean_code_phase_error_sweep;     // swep config param and cn0 sweep
+    std::vector<std::vector<double>> std_dev_code_phase_error_sweep;  // swep config param and cn0 sweep
+    std::vector<std::vector<double>> rmse_code_phase_sweep;           // swep config param and cn0 sweep
 
-    std::vector<std::vector<double>> mean_carrier_phase_error_sweep;     //swep config param and cn0 sweep
-    std::vector<std::vector<double>> std_dev_carrier_phase_error_sweep;  //swep config param and cn0 sweep
-    std::vector<std::vector<double>> rmse_carrier_phase_sweep;           //swep config param and cn0 sweep
+    std::vector<std::vector<double>> mean_carrier_phase_error_sweep;     // swep config param and cn0 sweep
+    std::vector<std::vector<double>> std_dev_carrier_phase_error_sweep;  // swep config param and cn0 sweep
+    std::vector<std::vector<double>> rmse_carrier_phase_sweep;           // swep config param and cn0 sweep
 
     std::vector<std::vector<double>> trk_valid_timestamp_s_sweep;
     std::vector<std::vector<double>> generator_CN0_values_sweep_copy;
@@ -464,20 +466,20 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
     std::vector<double> PLL_wide_bw_values;
     std::vector<double> DLL_wide_bw_values;
 
-    //***********************************************************
-    //***** STEP 2: Tracking configuration parameters sweep *****
-    //***********************************************************
+    // ***********************************************************
+    // ***** STEP 2: Tracking configuration parameters sweep *****
+    // ***********************************************************
     if (FLAGS_PLL_bw_hz_start == FLAGS_PLL_bw_hz_stop)
         {
             if (FLAGS_DLL_bw_hz_start == FLAGS_DLL_bw_hz_stop)
                 {
-                    //NO PLL/DLL BW sweep
+                    // NO PLL/DLL BW sweep
                     PLL_wide_bw_values.push_back(FLAGS_PLL_bw_hz_start);
                     DLL_wide_bw_values.push_back(FLAGS_DLL_bw_hz_start);
                 }
             else
                 {
-                    //DLL BW Sweep
+                    // DLL BW Sweep
                     for (double dll_bw = FLAGS_DLL_bw_hz_start; dll_bw >= FLAGS_DLL_bw_hz_stop; dll_bw = dll_bw - FLAGS_DLL_bw_hz_step)
                         {
                             PLL_wide_bw_values.push_back(FLAGS_PLL_bw_hz_start);
@@ -487,7 +489,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
         }
     else
         {
-            //PLL BW Sweep
+            // PLL BW Sweep
             for (double pll_bw = FLAGS_PLL_bw_hz_start; pll_bw >= FLAGS_PLL_bw_hz_stop; pll_bw = pll_bw - FLAGS_PLL_bw_hz_step)
                 {
                     PLL_wide_bw_values.push_back(pll_bw);
@@ -495,9 +497,9 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                 }
         }
 
-    //*********************************************
-    //***** STEP 3: Generate the input signal *****
-    //*********************************************
+    // *********************************************
+    // ***** STEP 3: Generate the input signal *****
+    // *********************************************
     std::vector<double> cno_vector;
     if (FLAGS_CN0_dBHz_start == FLAGS_CN0_dBHz_stop)
         {
@@ -514,7 +516,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
     // use generator or use an external capture file
     if (FLAGS_enable_external_signal_file)
         {
-            //todo: create and configure an acquisition block and perform an acquisition to obtain the synchronization parameters
+            // todo: create and configure an acquisition block and perform an acquisition to obtain the synchronization parameters
         }
     else
         {
@@ -531,12 +533,12 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                 }
         }
 
-    //************************************************************
-    //***** STEP 4: Configure the signal tracking parameters *****
-    //************************************************************
+    // ************************************************************
+    // ***** STEP 4: Configure the signal tracking parameters *****
+    // ************************************************************
     for (unsigned int config_idx = 0; config_idx < PLL_wide_bw_values.size(); config_idx++)
         {
-            //CN0 LOOP
+            // CN0 LOOP
             // data containers for CN0 sweep
             std::vector<std::vector<double>> prompt_sweep;
             std::vector<std::vector<double>> early_sweep;
@@ -569,9 +571,9 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                 FLAGS_extend_correlation_symbols);
             for (unsigned int current_cn0_idx = 0; current_cn0_idx < generator_CN0_values.size(); current_cn0_idx++)
                 {
-                    //******************************************************************************************
-                    //***** Obtain the initial signal sinchronization parameters (emulating an acquisition) ****
-                    //******************************************************************************************
+                    // ******************************************************************************************
+                    // ***** Obtain the initial signal sinchronization parameters (emulating an acquisition) ****
+                    // ******************************************************************************************
                     if (!FLAGS_enable_external_signal_file)
                         {
                             test_satellite_PRN = FLAGS_test_satellite_PRN;
@@ -582,13 +584,13 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                             ASSERT_EQ(true_obs_data.open_obs_file(true_obs_file), true) << "Failure opening true observables file";
                             // load acquisition data based on the first epoch of the true observations
                             ASSERT_EQ(true_obs_data.read_binary_obs(), true)
-                                << "Failure reading true tracking dump file." << std::endl
+                                << "Failure reading true tracking dump file.\n"
                                 << "Maybe sat PRN #" + std::to_string(FLAGS_test_satellite_PRN) +
                                        " is not available?";
-                            std::cout << "Testing satellite PRN=" << test_satellite_PRN << std::endl;
-                            std::cout << "Initial Doppler [Hz]=" << true_obs_data.doppler_l1_hz << " Initial code delay [Chips]=" << true_obs_data.prn_delay_chips << std::endl;
+                            std::cout << "Testing satellite PRN=" << test_satellite_PRN << '\n';
+                            std::cout << "Initial Doppler [Hz]=" << true_obs_data.doppler_l1_hz << " Initial code delay [Chips]=" << true_obs_data.prn_delay_chips << '\n';
                             acq_doppler_hz = true_obs_data.doppler_l1_hz;
-                            acq_delay_samples = (GPS_L1_CA_CODE_LENGTH_CHIPS - true_obs_data.prn_delay_chips / GPS_L1_CA_CODE_LENGTH_CHIPS) * static_cast<double>(baseband_sampling_freq) * GPS_L1_CA_CODE_PERIOD;
+                            acq_delay_samples = (GPS_L1_CA_CODE_LENGTH_CHIPS - true_obs_data.prn_delay_chips / GPS_L1_CA_CODE_LENGTH_CHIPS) * static_cast<double>(baseband_sampling_freq) * GPS_L1_CA_CODE_PERIOD_S;
                             // restart the epoch counter
                             true_obs_data.restart();
                         }
@@ -597,10 +599,10 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
 
                     top_block = gr::make_top_block("Tracking test");
 
-                    std::shared_ptr<GNSSBlockInterface> trk_ = factory->GetBlock(config, "Tracking_1C", implementation, 1, 1);
+                    std::shared_ptr<GNSSBlockInterface> trk_ = factory->GetBlock(config.get(), "Tracking_1C", 1, 1);
                     std::shared_ptr<TrackingInterface> tracking = std::dynamic_pointer_cast<TrackingInterface>(trk_);
 
-                    boost::shared_ptr<GpsL1CADllPllTrackingTest_msg_rx> msg_rx = GpsL1CADllPllTrackingTest_msg_rx_make();
+                    auto msg_rx = GpsL1CADllPllTrackingTest_msg_rx_make();
 
                     gnss_synchro.Acq_delay_samples = acq_delay_samples;
                     gnss_synchro.Acq_doppler_hz = acq_doppler_hz;
@@ -630,10 +632,10 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                         top_block->msg_connect(tracking->get_right_block(), pmt::mp("events"), msg_rx, pmt::mp("events"));
                     }) << "Failure connecting the blocks of tracking test.";
 
-                    //********************************************************************
-                    //***** STEP 5: Perform the signal tracking and read the results *****
-                    //********************************************************************
-                    std::cout << "------------ START TRACKING -------------" << std::endl;
+                    // ********************************************************************
+                    // ***** STEP 5: Perform the signal tracking and read the results *****
+                    // ********************************************************************
+                    std::cout << "------------ START TRACKING -------------\n";
                     tracking->start_tracking();
 
                     EXPECT_NO_THROW({
@@ -643,9 +645,9 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                     }) << "Failure running the top_block.";
 
                     std::chrono::duration<double> elapsed_seconds = end - start;
-                    std::cout << "Signal tracking completed in " << elapsed_seconds.count() << " seconds" << std::endl;
+                    std::cout << "Signal tracking completed in " << elapsed_seconds.count() << " seconds\n";
 
-                    int tracking_last_msg = msg_rx->rx_message;  //save last aasynchronous tracking message in order to detect a loss of lock
+                    int tracking_last_msg = msg_rx->rx_message;  // save last aasynchronous tracking message in order to detect a loss of lock
 
                     // check results
                     // load the measured values
@@ -654,7 +656,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                         << "Failure opening tracking dump file";
 
                     int64_t n_measured_epochs = trk_dump.num_epochs();
-                    //std::cout << "Measured observation epochs=" << n_measured_epochs << std::endl;
+                    // std::cout << "Measured observation epochs=" << n_measured_epochs << '\n';
 
                     arma::vec trk_timestamp_s = arma::zeros(n_measured_epochs, 1);
                     arma::vec trk_acc_carrier_phase_cycles = arma::zeros(n_measured_epochs, 1);
@@ -673,7 +675,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                     while (trk_dump.read_binary_obs())
                         {
                             trk_timestamp_s(epoch_counter) = static_cast<double>(trk_dump.PRN_start_sample_count) / static_cast<double>(baseband_sampling_freq);
-                            trk_acc_carrier_phase_cycles(epoch_counter) = trk_dump.acc_carrier_phase_rad / GPS_TWO_PI;
+                            trk_acc_carrier_phase_cycles(epoch_counter) = trk_dump.acc_carrier_phase_rad / TWO_PI;
                             trk_Doppler_Hz(epoch_counter) = trk_dump.carrier_doppler_hz;
                             double delay_chips = GPS_L1_CA_CODE_LENGTH_CHIPS - GPS_L1_CA_CODE_LENGTH_CHIPS * (fmod((static_cast<double>(trk_dump.PRN_start_sample_count) + trk_dump.aux1) / static_cast<double>(baseband_sampling_freq), 1.0e-3) / 1.0e-3);
 
@@ -697,9 +699,9 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                     promptQ_sweep.push_back(promptQ);
                     CN0_dBHz_sweep.push_back(CN0_dBHz);
 
-                    //***********************************************************
-                    //***** STEP 6: Compare with true values (if available) *****
-                    //***********************************************************
+                    // ***********************************************************
+                    // ***** STEP 6: Compare with true values (if available) *****
+                    // ***********************************************************
                     if (!FLAGS_enable_external_signal_file)
                         {
                             std::vector<double> doppler_error_hz;
@@ -711,7 +713,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                                 {
                                     // load the true values
                                     int64_t n_true_epochs = true_obs_data.num_epochs();
-                                    //std::cout << "True observation epochs=" << n_true_epochs << std::endl;
+                                    // std::cout << "True observation epochs=" << n_true_epochs << '\n';
 
                                     arma::vec true_timestamp_s = arma::zeros(n_true_epochs, 1);
                                     arma::vec true_acc_carrier_phase_cycles = arma::zeros(n_true_epochs, 1);
@@ -719,7 +721,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                                     arma::vec true_prn_delay_chips = arma::zeros(n_true_epochs, 1);
                                     arma::vec true_tow_s = arma::zeros(n_true_epochs, 1);
 
-                                    int64_t epoch_counter = 0;
+                                    epoch_counter = 0;
                                     while (true_obs_data.read_binary_obs())
                                         {
                                             true_timestamp_s(epoch_counter) = true_obs_data.signal_timestamp_s;
@@ -744,7 +746,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                                             double std_dev_error;
                                             double rmse;
 
-                                            valid_CN0_values.push_back(generator_CN0_values.at(current_cn0_idx));  //save the current cn0 value (valid tracking)
+                                            valid_CN0_values.push_back(generator_CN0_values.at(current_cn0_idx));  // save the current cn0 value (valid tracking)
 
                                             doppler_error_hz = check_results_doppler(true_timestamp_s, true_Doppler_Hz, trk_timestamp_s, trk_Doppler_Hz, mean_error, std_dev_error, rmse);
                                             mean_doppler_error.push_back(mean_error);
@@ -754,7 +756,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                                             code_phase_error_chips = check_results_codephase(true_timestamp_s, true_prn_delay_chips, trk_timestamp_s, trk_prn_delay_chips, mean_error, std_dev_error, rmse);
                                             for (double code_phase_error_chip : code_phase_error_chips)
                                                 {
-                                                    code_phase_error_meters.push_back(GPS_L1_CA_CHIP_PERIOD * code_phase_error_chip * GPS_C_M_S);
+                                                    code_phase_error_meters.push_back(GPS_L1_CA_CHIP_PERIOD_S * code_phase_error_chip * SPEED_OF_LIGHT_M_S);
                                                 }
                                             mean_code_phase_error.push_back(mean_error);
                                             std_dev_code_phase_error.push_back(std_dev_error);
@@ -765,7 +767,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                                             std_dev_carrier_phase_error.push_back(std_dev_error);
                                             rmse_carrier_phase.push_back(rmse);
 
-                                            //save tracking measurement timestamps to std::vector
+                                            // save tracking measurement timestamps to std::vector
                                             std::vector<double> vector_trk_timestamp_s(trk_timestamp_s.colptr(0), trk_timestamp_s.colptr(0) + trk_timestamp_s.n_rows);
                                             trk_valid_timestamp_s_sweep.push_back(vector_trk_timestamp_s);
 
@@ -776,15 +778,15 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                                         }
                                     else
                                         {
-                                            std::cout << "Tracking output could not be used, possible loss of lock " << std::endl;
+                                            std::cout << "Tracking output could not be used, possible loss of lock \n";
                                         }
                                 }
                             catch (const std::exception& ex)
                                 {
-                                    std::cout << "Tracking output could not be used, possible loss of lock " << ex.what() << std::endl;
+                                    std::cout << "Tracking output could not be used, possible loss of lock " << ex.what() << '\n';
                                 }
                         }
-                }  //CN0 LOOP
+                }  // CN0 LOOP
 
             if (!FLAGS_enable_external_signal_file)
                 {
@@ -800,21 +802,21 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                     std_dev_carrier_phase_error_sweep.push_back(std_dev_carrier_phase_error);
                     rmse_carrier_phase_sweep.push_back(rmse_carrier_phase);
 
-                    //make a copy of the CN0 vector for each configuration parameter in order to filter the loss of lock events
+                    // make a copy of the CN0 vector for each configuration parameter in order to filter the loss of lock events
                     generator_CN0_values_sweep_copy.push_back(valid_CN0_values);
                 }
 
-            //********************************
-            //***** STEP 7: Plot results *****
-            //********************************
+            // ********************************
+            // ***** STEP 7: Plot results *****
+            // ********************************
             if (FLAGS_plot_gps_l1_tracking_test == true)
                 {
                     const std::string gnuplot_executable(FLAGS_gnuplot_executable);
                     if (gnuplot_executable.empty())
                         {
-                            std::cout << "WARNING: Although the flag plot_gps_l1_tracking_test has been set to TRUE," << std::endl;
-                            std::cout << "gnuplot has not been found in your system." << std::endl;
-                            std::cout << "Test results will not be plotted." << std::endl;
+                            std::cout << "WARNING: Although the flag plot_gps_l1_tracking_test has been set to TRUE,\n";
+                            std::cout << "gnuplot has not been found in your system.\n";
+                            std::cout << "Test results will not be plotted.\n";
                         }
                     else
                         {
@@ -843,7 +845,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                                                     g1.set_grid();
                                                     g1.set_xlabel("Time [s]");
                                                     g1.set_ylabel("Correlators' output");
-                                                    //g1.cmd("set key box opaque");
+                                                    // g1.cmd("set key box opaque");
                                                     g1.plot_xy(trk_timestamp_s_sweep.at(current_cn0_idx), prompt_sweep.at(current_cn0_idx), "Prompt", decimate);
                                                     g1.plot_xy(trk_timestamp_s_sweep.at(current_cn0_idx), early_sweep.at(current_cn0_idx), "Early", decimate);
                                                     g1.plot_xy(trk_timestamp_s_sweep.at(current_cn0_idx), late_sweep.at(current_cn0_idx), "Late", decimate);
@@ -869,7 +871,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                                                     g2.set_grid();
                                                     g2.set_xlabel("Inphase");
                                                     g2.set_ylabel("Quadrature");
-                                                    //g2.cmd("set size ratio -1");
+                                                    // g2.cmd("set size ratio -1");
                                                     g2.plot_xy(promptI_sweep.at(current_cn0_idx), promptQ_sweep.at(current_cn0_idx));
                                                 }
                                             g2.unset_multiplot();
@@ -1023,7 +1025,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                                                             g4.reset_plot();
                                                             g4.set_title("Dopper error" + std::to_string(static_cast<int>(round(generator_CN0_values_sweep_copy.at(config_idx).at(current_cn0_idx)))) + "[dB-Hz], PLL/DLL BW: " + std::to_string(PLL_wide_bw_values.at(config_idx)) + "," + std::to_string(DLL_wide_bw_values.at(config_idx)) + " Hz (PRN #" + std::to_string(FLAGS_test_satellite_PRN) + ")");
                                                             g4.set_grid();
-                                                            //g4.cmd("set key box opaque");
+                                                            // g4.cmd("set key box opaque");
                                                             g4.set_xlabel("Time [s]");
                                                             g4.set_ylabel("Dopper error [Hz]");
                                                             try
@@ -1048,7 +1050,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                                 }
                             catch (const GnuplotException& ge)
                                 {
-                                    std::cout << ge.what() << std::endl;
+                                    std::cout << ge.what() << '\n';
                                 }
                         }
                 }
@@ -1056,12 +1058,12 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
 
     if (FLAGS_plot_gps_l1_tracking_test == true)
         {
-            std::cout << "Plotting performance metrics..." << std::endl;
+            std::cout << "Plotting performance metrics...\n";
             try
                 {
                     if (generator_CN0_values.size() > 1)
                         {
-                            //plot metrics
+                            // plot metrics
                             Gnuplot g7("linespoints");
                             if (FLAGS_show_plots)
                                 {
@@ -1086,7 +1088,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                                         "PLL/DLL BW: " + std::to_string(PLL_wide_bw_values.at(config_sweep_idx)) +
                                             +"," + std::to_string(DLL_wide_bw_values.at(config_sweep_idx)) + " Hz");
 
-                                    //matlab save
+                                    // matlab save
                                     save_mat_xy(generator_CN0_values_sweep_copy.at(config_sweep_idx),
                                         rmse_doppler_sweep.at(config_sweep_idx),
                                         "RMSE_Doppler_CN0_Sweep_PLL_DLL" + std::to_string(PLL_wide_bw_values.at(config_sweep_idx)) +
@@ -1110,7 +1112,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                                         std_dev_carrier_phase_error_sweep.at(config_sweep_idx),
                                         "PLL/DLL BW: " + std::to_string(PLL_wide_bw_values.at(config_sweep_idx)) +
                                             +"," + std::to_string(DLL_wide_bw_values.at(config_sweep_idx)) + " Hz");
-                                    //matlab save
+                                    // matlab save
                                     save_mat_xy(generator_CN0_values_sweep_copy.at(config_sweep_idx),
                                         rmse_carrier_phase_sweep.at(config_sweep_idx),
                                         "RMSE_Carrier_Phase_CN0_Sweep_PLL_DLL" + std::to_string(PLL_wide_bw_values.at(config_sweep_idx)) +
@@ -1134,7 +1136,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                                         std_dev_code_phase_error_sweep.at(config_sweep_idx),
                                         "PLL/DLL BW: " + std::to_string(PLL_wide_bw_values.at(config_sweep_idx)) +
                                             +"," + std::to_string(DLL_wide_bw_values.at(config_sweep_idx)) + " Hz");
-                                    //matlab save
+                                    // matlab save
                                     save_mat_xy(generator_CN0_values_sweep_copy.at(config_sweep_idx),
                                         rmse_code_phase_sweep.at(config_sweep_idx),
                                         "RMSE_Code_Phase_CN0_Sweep_PLL_DLL" + std::to_string(PLL_wide_bw_values.at(config_sweep_idx)) +
@@ -1146,7 +1148,7 @@ TEST_F(GpsL1CADllPllTrackingTest, ValidationOfResults)
                 }
             catch (const GnuplotException& ge)
                 {
-                    std::cout << ge.what() << std::endl;
+                    std::cout << ge.what() << '\n';
                 }
         }
 }

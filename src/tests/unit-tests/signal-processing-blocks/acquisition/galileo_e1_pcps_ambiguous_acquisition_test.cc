@@ -5,29 +5,15 @@
  * \author Luis Esteve, 2012. luis(at)epsilon-formacion.com
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
@@ -54,6 +40,11 @@
 #include <chrono>
 #include <utility>
 
+#if HAS_GENERIC_LAMBDA
+#else
+#include <boost/bind/bind.hpp>
+#endif
+
 #ifdef GR_GREATER_38
 #include <gnuradio/analog/sig_source.h>
 #else
@@ -77,7 +68,7 @@ namespace fs = boost::filesystem;
 // ######## GNURADIO BLOCK MESSAGE RECEVER #########
 class GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx;
 
-using GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx_sptr = boost::shared_ptr<GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx>;
+using GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx_sptr = gnss_shared_ptr<GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx>;
 
 GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx_sptr GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx_make();
 
@@ -85,7 +76,7 @@ class GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx : public gr::block
 {
 private:
     friend GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx_sptr GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx_make();
-    void msg_handler_events(pmt::pmt_t msg);
+    void msg_handler_channel_events(const pmt::pmt_t msg);
     GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx();
 
 public:
@@ -100,16 +91,16 @@ GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx_sptr GalileoE1PcpsAmbiguousAcquisit
 }
 
 
-void GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx::msg_handler_events(pmt::pmt_t msg)
+void GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx::msg_handler_channel_events(const pmt::pmt_t msg)
 {
     try
         {
             int64_t message = pmt::to_long(std::move(msg));
             rx_message = message;
         }
-    catch (boost::bad_any_cast& e)
+    catch (const boost::bad_any_cast& e)
         {
-            LOG(WARNING) << "msg_handler_telemetry Bad any cast!";
+            LOG(WARNING) << "msg_handler_channel_events Bad any_cast: " << e.what();
             rx_message = 0;
         }
 }
@@ -118,7 +109,16 @@ void GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx::msg_handler_events(pmt::pmt_t
 GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx::GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx() : gr::block("GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx", gr::io_signature::make(0, 0, 0), gr::io_signature::make(0, 0, 0))
 {
     this->message_port_register_in(pmt::mp("events"));
-    this->set_msg_handler(pmt::mp("events"), boost::bind(&GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx::msg_handler_events, this, _1));
+    this->set_msg_handler(pmt::mp("events"),
+#if HAS_GENERIC_LAMBDA
+        [this](auto&& PH1) { msg_handler_channel_events(PH1); });
+#else
+#if USE_BOOST_BIND_PLACEHOLDERS
+        boost::bind(&GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
+#else
+        boost::bind(&GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx::msg_handler_channel_events, this, _1));
+#endif
+#endif
     rx_message = 0;
 }
 
@@ -177,7 +177,8 @@ void GalileoE1PcpsAmbiguousAcquisitionTest::init()
             config->set_property("Acquisition_1B.dump", "false");
         }
     config->set_property("Acquisition_1B.dump_filename", "./tmp-acq-gal1/acquisition");
-    config->set_property("Acquisition_1B.threshold", "0.0001");
+    // config->set_property("Acquisition_1B.threshold", "2.5");
+    config->set_property("Acquisition_1B.pfa", "0.001");
     config->set_property("Acquisition_1B.doppler_max", std::to_string(doppler_max));
     config->set_property("Acquisition_1B.doppler_step", std::to_string(doppler_step));
     config->set_property("Acquisition_1B.repeat_satellite", "false");
@@ -187,16 +188,16 @@ void GalileoE1PcpsAmbiguousAcquisitionTest::init()
 
 void GalileoE1PcpsAmbiguousAcquisitionTest::plot_grid()
 {
-    //load the measured values
+    // load the measured values
     std::string basename = "./tmp-acq-gal1/acquisition_E_1B";
     auto sat = static_cast<unsigned int>(gnss_synchro.PRN);
 
-    auto samples_per_code = static_cast<unsigned int>(round(4000000 / (GALILEO_E1_CODE_CHIP_RATE_HZ / GALILEO_E1_B_CODE_LENGTH_CHIPS)));  // !!
+    auto samples_per_code = static_cast<unsigned int>(round(4000000 / (GALILEO_E1_CODE_CHIP_RATE_CPS / GALILEO_E1_B_CODE_LENGTH_CHIPS)));  // !!
     Acquisition_Dump_Reader acq_dump(basename, sat, doppler_max, doppler_step, samples_per_code);
 
     if (!acq_dump.read_binary_acq())
         {
-            std::cout << "Error reading files" << std::endl;
+            std::cout << "Error reading files\n";
         }
 
     std::vector<int>* doppler = &acq_dump.doppler;
@@ -206,13 +207,13 @@ void GalileoE1PcpsAmbiguousAcquisitionTest::plot_grid()
     const std::string gnuplot_executable(FLAGS_gnuplot_executable);
     if (gnuplot_executable.empty())
         {
-            std::cout << "WARNING: Although the flag plot_acq_grid has been set to TRUE," << std::endl;
-            std::cout << "gnuplot has not been found in your system." << std::endl;
-            std::cout << "Test results will not be plotted." << std::endl;
+            std::cout << "WARNING: Although the flag plot_acq_grid has been set to TRUE,\n";
+            std::cout << "gnuplot has not been found in your system.\n";
+            std::cout << "Test results will not be plotted.\n";
         }
     else
         {
-            std::cout << "Plotting the acquisition grid. This can take a while..." << std::endl;
+            std::cout << "Plotting the acquisition grid. This can take a while...\n";
             try
                 {
                     fs::path p(gnuplot_executable);
@@ -232,7 +233,7 @@ void GalileoE1PcpsAmbiguousAcquisitionTest::plot_grid()
                     g1.set_title("Galileo E1b/c signal acquisition for satellite PRN #" + std::to_string(gnss_synchro.PRN));
                     g1.set_xlabel("Doppler [Hz]");
                     g1.set_ylabel("Sample");
-                    //g1.cmd("set view 60, 105, 1, 1");
+                    // g1.cmd("set view 60, 105, 1, 1");
                     g1.plot_grid3d(*doppler, *samples, *mag);
 
                     g1.savetops("Galileo_E1_acq_grid");
@@ -240,7 +241,7 @@ void GalileoE1PcpsAmbiguousAcquisitionTest::plot_grid()
                 }
             catch (const GnuplotException& ge)
                 {
-                    std::cout << ge.what() << std::endl;
+                    std::cout << ge.what() << '\n';
                 }
         }
     std::string data_str = "./tmp-acq-gal1";
@@ -254,7 +255,7 @@ void GalileoE1PcpsAmbiguousAcquisitionTest::plot_grid()
 TEST_F(GalileoE1PcpsAmbiguousAcquisitionTest, Instantiate)
 {
     init();
-    std::shared_ptr<GNSSBlockInterface> acq_ = factory->GetBlock(config, "Acquisition_1B", "Galileo_E1_PCPS_Ambiguous_Acquisition", 1, 0);
+    std::shared_ptr<GNSSBlockInterface> acq_ = factory->GetBlock(config.get(), "Acquisition_1B", 1, 0);
     std::shared_ptr<AcquisitionInterface> acquisition = std::dynamic_pointer_cast<AcquisitionInterface>(acq_);
 }
 
@@ -268,14 +269,14 @@ TEST_F(GalileoE1PcpsAmbiguousAcquisitionTest, ConnectAndRun)
     top_block = gr::make_top_block("Acquisition test");
     std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
     init();
-    std::shared_ptr<GNSSBlockInterface> acq_ = factory->GetBlock(config, "Acquisition_1B", "Galileo_E1_PCPS_Ambiguous_Acquisition", 1, 0);
+    std::shared_ptr<GNSSBlockInterface> acq_ = factory->GetBlock(config.get(), "Acquisition_1B", 1, 0);
     std::shared_ptr<AcquisitionInterface> acquisition = std::dynamic_pointer_cast<AcquisitionInterface>(acq_);
-    boost::shared_ptr<GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx> msg_rx = GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx_make();
+    auto msg_rx = GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx_make();
 
     ASSERT_NO_THROW({
         acquisition->connect(top_block);
-        boost::shared_ptr<gr::analog::sig_source_c> source = gr::analog::sig_source_c::make(fs_in, gr::analog::GR_SIN_WAVE, 1000, 1, gr_complex(0));
-        boost::shared_ptr<gr::block> valve = gnss_sdr_make_valve(sizeof(gr_complex), nsamples, queue);
+        auto source = gr::analog::sig_source_c::make(fs_in, gr::analog::GR_SIN_WAVE, 1000, 1, gr_complex(0));
+        auto valve = gnss_sdr_make_valve(sizeof(gr_complex), nsamples, queue.get());
         top_block->connect(source, 0, valve, 0);
         top_block->connect(valve, 0, acquisition->get_left_block(), 0);
         top_block->msg_connect(acquisition->get_right_block(), pmt::mp("events"), msg_rx, pmt::mp("events"));
@@ -287,7 +288,7 @@ TEST_F(GalileoE1PcpsAmbiguousAcquisitionTest, ConnectAndRun)
         end = std::chrono::system_clock::now();
         elapsed_seconds = end - start;
     }) << "Failure running the top_block.";
-    std::cout << "Processed " << nsamples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds" << std::endl;
+    std::cout << "Processed " << nsamples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds\n";
 }
 
 
@@ -306,13 +307,13 @@ TEST_F(GalileoE1PcpsAmbiguousAcquisitionTest, ValidationOfResults)
             fs::create_directory(data_str);
         }
 
-    double expected_delay_samples = 2920;  //18250;
+    double expected_delay_samples = 2920;  // 18250;
     double expected_doppler_hz = -632;
     init();
     top_block = gr::make_top_block("Acquisition test");
-    std::shared_ptr<GNSSBlockInterface> acq_ = factory->GetBlock(config, "Acquisition_1B", "Galileo_E1_PCPS_Ambiguous_Acquisition", 1, 0);
+    std::shared_ptr<GNSSBlockInterface> acq_ = factory->GetBlock(config.get(), "Acquisition_1B", 1, 0);
     std::shared_ptr<GalileoE1PcpsAmbiguousAcquisition> acquisition = std::dynamic_pointer_cast<GalileoE1PcpsAmbiguousAcquisition>(acq_);
-    boost::shared_ptr<GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx> msg_rx = GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx_make();
+    auto msg_rx = GalileoE1PcpsAmbiguousAcquisitionTest_msg_rx_make();
 
     ASSERT_NO_THROW({
         acquisition->set_channel(gnss_synchro.Channel_ID);
@@ -360,11 +361,11 @@ TEST_F(GalileoE1PcpsAmbiguousAcquisitionTest, ValidationOfResults)
     }) << "Failure running the top_block.";
 
     uint64_t nsamples = gnss_synchro.Acq_samplestamp_samples;
-    std::cout << "Acquired " << nsamples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds" << std::endl;
+    std::cout << "Acquired " << nsamples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds\n";
     ASSERT_EQ(1, msg_rx->rx_message) << "Acquisition failure. Expected message: 1=ACQ SUCCESS.";
 
-    std::cout << "Delay: " << gnss_synchro.Acq_delay_samples << std::endl;
-    std::cout << "Doppler: " << gnss_synchro.Acq_doppler_hz << std::endl;
+    std::cout << "Delay: " << gnss_synchro.Acq_delay_samples << '\n';
+    std::cout << "Doppler: " << gnss_synchro.Acq_doppler_hz << '\n';
 
     double delay_error_samples = std::abs(expected_delay_samples - gnss_synchro.Acq_delay_samples);
     auto delay_error_chips = static_cast<float>(delay_error_samples * 1023 / 4000000);

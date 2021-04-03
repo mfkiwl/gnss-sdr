@@ -5,33 +5,19 @@
  * \author Damian Miralles Sanchez. dmiralles2009@gmail.com
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_GPS_L1_CA_PCPS_QUICKSYNC_ACQUISITION_H_
-#define GNSS_SDR_GPS_L1_CA_PCPS_QUICKSYNC_ACQUISITION_H_
+#ifndef GNSS_SDR_GPS_L1_CA_PCPS_QUICKSYNC_ACQUISITION_H
+#define GNSS_SDR_GPS_L1_CA_PCPS_QUICKSYNC_ACQUISITION_H
 
 #include "channel_fsm.h"
 #include "configuration_interface.h"
@@ -42,6 +28,12 @@
 #include <string>
 #include <vector>
 
+/** \addtogroup Acquisition
+ * \{ */
+/** \addtogroup Acq_adapters
+ * \{ */
+
+
 class ConfigurationInterface;
 
 /*!
@@ -51,7 +43,8 @@ class ConfigurationInterface;
 class GpsL1CaPcpsQuickSyncAcquisition : public AcquisitionInterface
 {
 public:
-    GpsL1CaPcpsQuickSyncAcquisition(ConfigurationInterface* configuration,
+    GpsL1CaPcpsQuickSyncAcquisition(
+        const ConfigurationInterface* configuration,
         const std::string& role,
         unsigned int in_streams,
         unsigned int out_streams);
@@ -154,31 +147,38 @@ public:
     void set_resampler_latency(uint32_t latency_samples __attribute__((unused))) override{};
 
 private:
-    ConfigurationInterface* configuration_;
+    float calculate_threshold(float pfa) const;
+
+    const ConfigurationInterface* configuration_;
     pcps_quicksync_acquisition_cc_sptr acquisition_cc_;
+    std::weak_ptr<ChannelFsm> channel_fsm_;
+
     gr::blocks::stream_to_vector::sptr stream_to_vector_;
-    size_t item_size_;
+    std::vector<std::complex<float>> code_;
     std::string item_type_;
+    std::string dump_filename_;
+    std::string role_;
+
+    Gnss_Synchro* gnss_synchro_;
+
+    int64_t fs_in_;
+    size_t item_size_;
+    float threshold_;
     unsigned int vector_length_;
     unsigned int code_length_;
-    bool bit_transition_flag_;
     unsigned int channel_;
-    std::weak_ptr<ChannelFsm> channel_fsm_;
-    float threshold_;
     unsigned int doppler_max_;
     unsigned int doppler_step_;
     unsigned int sampled_ms_;
     unsigned int max_dwells_;
     unsigned int folding_factor_;
-    int64_t fs_in_;
-    bool dump_;
-    std::string dump_filename_;
-    std::vector<std::complex<float>> code_;
-    Gnss_Synchro* gnss_synchro_;
-    std::string role_;
     unsigned int in_streams_;
     unsigned int out_streams_;
-    float calculate_threshold(float pfa);
+    bool bit_transition_flag_;
+    bool dump_;
 };
 
-#endif /* GNSS_SDR_GPS_L1_CA_PCPS_QUICKSYNC_ACQUISITION_H_ */
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_GPS_L1_CA_PCPS_QUICKSYNC_ACQUISITION_H

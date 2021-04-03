@@ -5,29 +5,15 @@
  * \author Sergi Segura, 2018. sergi.segura.munoz(at)gmail.com
  * \author Damian Miralles, 2019. dmiralles2009(at)gmail.com
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
@@ -35,7 +21,6 @@
 #include "acquisition_dump_reader.h"
 #include "beidou_b1i_pcps_acquisition.h"
 #include "concurrent_queue.h"
-#include "gnss_block_factory.h"
 #include "gnss_block_interface.h"
 #include "gnss_sdr_valve.h"
 #include "gnss_synchro.h"
@@ -52,6 +37,11 @@
 #include <pmt/pmt.h>
 #include <chrono>
 #include <utility>
+
+#if HAS_GENERIC_LAMBDA
+#else
+#include <boost/bind/bind.hpp>
+#endif
 
 #ifdef GR_GREATER_38
 #include <gnuradio/analog/sig_source.h>
@@ -75,7 +65,7 @@ namespace fs = boost::filesystem;
 // ######## GNURADIO BLOCK MESSAGE RECEVER #########
 class BeidouB1iPcpsAcquisitionTest_msg_rx;
 
-using BeidouB1iPcpsAcquisitionTest_msg_rx_sptr = boost::shared_ptr<BeidouB1iPcpsAcquisitionTest_msg_rx>;
+using BeidouB1iPcpsAcquisitionTest_msg_rx_sptr = std::shared_ptr<BeidouB1iPcpsAcquisitionTest_msg_rx>;
 
 BeidouB1iPcpsAcquisitionTest_msg_rx_sptr BeidouB1iPcpsAcquisitionTest_msg_rx_make();
 
@@ -83,7 +73,7 @@ class BeidouB1iPcpsAcquisitionTest_msg_rx : public gr::block
 {
 private:
     friend BeidouB1iPcpsAcquisitionTest_msg_rx_sptr BeidouB1iPcpsAcquisitionTest_msg_rx_make();
-    void msg_handler_events(pmt::pmt_t msg);
+    void msg_handler_channel_events(const pmt::pmt_t msg);
     BeidouB1iPcpsAcquisitionTest_msg_rx();
 
 public:
@@ -98,16 +88,16 @@ BeidouB1iPcpsAcquisitionTest_msg_rx_sptr BeidouB1iPcpsAcquisitionTest_msg_rx_mak
 }
 
 
-void BeidouB1iPcpsAcquisitionTest_msg_rx::msg_handler_events(pmt::pmt_t msg)
+void BeidouB1iPcpsAcquisitionTest_msg_rx::msg_handler_channel_events(const pmt::pmt_t msg)
 {
     try
         {
             int64_t message = pmt::to_long(std::move(msg));
             rx_message = message;
         }
-    catch (boost::bad_any_cast &e)
+    catch (const boost::bad_any_cast &e)
         {
-            LOG(WARNING) << "msg_handler_telemetry Bad any cast!";
+            LOG(WARNING) << "msg_handler_channel_events Bad any_cast: " << e.what();
             rx_message = 0;
         }
 }
@@ -116,7 +106,16 @@ void BeidouB1iPcpsAcquisitionTest_msg_rx::msg_handler_events(pmt::pmt_t msg)
 BeidouB1iPcpsAcquisitionTest_msg_rx::BeidouB1iPcpsAcquisitionTest_msg_rx() : gr::block("BeidouB1iPcpsAcquisitionTest_msg_rx", gr::io_signature::make(0, 0, 0), gr::io_signature::make(0, 0, 0))
 {
     this->message_port_register_in(pmt::mp("events"));
-    this->set_msg_handler(pmt::mp("events"), boost::bind(&BeidouB1iPcpsAcquisitionTest_msg_rx::msg_handler_events, this, _1));
+    this->set_msg_handler(pmt::mp("events"),
+#if HAS_GENERIC_LAMBDA
+        [this](auto &&PH1) { msg_handler_channel_events(PH1); });
+#else
+#if USE_BOOST_BIND_PLACEHOLDERS
+        boost::bind(&BeidouB1iPcpsAcquisitionTest_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
+#else
+        boost::bind(&BeidouB1iPcpsAcquisitionTest_msg_rx::msg_handler_channel_events, this, _1));
+#endif
+#endif
     rx_message = 0;
 }
 
@@ -131,7 +130,6 @@ class BeidouB1iPcpsAcquisitionTest : public ::testing::Test
 protected:
     BeidouB1iPcpsAcquisitionTest()
     {
-        factory = std::make_shared<GNSSBlockFactory>();
         config = std::make_shared<InMemoryConfiguration>();
         item_size = sizeof(gr_complex);
         gnss_synchro = Gnss_Synchro();
@@ -145,7 +143,6 @@ protected:
     void plot_grid();
 
     gr::top_block_sptr top_block;
-    std::shared_ptr<GNSSBlockFactory> factory;
     std::shared_ptr<InMemoryConfiguration> config;
     Gnss_Synchro gnss_synchro{};
     size_t item_size;
@@ -179,22 +176,22 @@ void BeidouB1iPcpsAcquisitionTest::init()
     config->set_property("Acquisition_B1.doppler_max", std::to_string(doppler_max));
     config->set_property("Acquisition_B1.doppler_step", std::to_string(doppler_step));
     config->set_property("Acquisition_B1.repeat_satellite", "false");
-    //config->set_property("Acquisition_B1.pfa", "0.0");
+    // config->set_property("Acquisition_B1.pfa", "0.0");
 }
 
 
 void BeidouB1iPcpsAcquisitionTest::plot_grid()
 {
-    //load the measured values
+    // load the measured values
     std::string basename = "./tmp-acq-bds-b1i/acquisition_C_B1";
     auto sat = static_cast<unsigned int>(gnss_synchro.PRN);
 
-    auto samples_per_code = static_cast<unsigned int>(round(25000000 / (BEIDOU_B1I_CODE_RATE_HZ / BEIDOU_B1I_CODE_LENGTH_CHIPS)));  // !!
+    auto samples_per_code = static_cast<unsigned int>(round(25000000 / (BEIDOU_B1I_CODE_RATE_CPS / BEIDOU_B1I_CODE_LENGTH_CHIPS)));  // !!
     Acquisition_Dump_Reader acq_dump(basename, sat, doppler_max, doppler_step, samples_per_code, 1);
 
     if (!acq_dump.read_binary_acq())
         {
-            std::cout << "Error reading files" << std::endl;
+            std::cout << "Error reading files\n";
         }
 
     std::vector<int> *doppler = &acq_dump.doppler;
@@ -204,13 +201,13 @@ void BeidouB1iPcpsAcquisitionTest::plot_grid()
     const std::string gnuplot_executable(FLAGS_gnuplot_executable);
     if (gnuplot_executable.empty())
         {
-            std::cout << "WARNING: Although the flag plot_acq_grid has been set to TRUE," << std::endl;
-            std::cout << "gnuplot has not been found in your system." << std::endl;
-            std::cout << "Test results will not be plotted." << std::endl;
+            std::cout << "WARNING: Although the flag plot_acq_grid has been set to TRUE,\n";
+            std::cout << "gnuplot has not been found in your system.\n";
+            std::cout << "Test results will not be plotted.\n";
         }
     else
         {
-            std::cout << "Plotting the acquisition grid. This can take a while..." << std::endl;
+            std::cout << "Plotting the acquisition grid. This can take a while...\n";
             try
                 {
                     fs::path p(gnuplot_executable);
@@ -230,7 +227,7 @@ void BeidouB1iPcpsAcquisitionTest::plot_grid()
                     g1.set_title("BeiDou B1I signal acquisition for satellite PRN #" + std::to_string(gnss_synchro.PRN));
                     g1.set_xlabel("Doppler [Hz]");
                     g1.set_ylabel("Sample");
-                    //g1.cmd("set view 60, 105, 1, 1");
+                    // g1.cmd("set view 60, 105, 1, 1");
                     g1.plot_grid3d(*doppler, *samples, *mag);
 
                     g1.savetops("BeiDou_B1I_acq_grid");
@@ -238,7 +235,7 @@ void BeidouB1iPcpsAcquisitionTest::plot_grid()
                 }
             catch (const GnuplotException &ge)
                 {
-                    std::cout << ge.what() << std::endl;
+                    std::cout << ge.what() << '\n';
                 }
         }
     std::string data_str = "./tmp-acq-bds-b1i";
@@ -252,7 +249,7 @@ void BeidouB1iPcpsAcquisitionTest::plot_grid()
 TEST_F(BeidouB1iPcpsAcquisitionTest, Instantiate)
 {
     init();
-    boost::shared_ptr<BeidouB1iPcpsAcquisition> acquisition = boost::make_shared<BeidouB1iPcpsAcquisition>(config.get(), "Acquisition_B1", 1, 0);
+    std::shared_ptr<BeidouB1iPcpsAcquisition> acquisition = boost::make_shared<BeidouB1iPcpsAcquisition>(config.get(), "Acquisition_B1", 1, 0);
 }
 
 
@@ -266,13 +263,13 @@ TEST_F(BeidouB1iPcpsAcquisitionTest, ConnectAndRun)
 
     top_block = gr::make_top_block("Acquisition test");
     init();
-    boost::shared_ptr<BeidouB1iPcpsAcquisition> acquisition = boost::make_shared<BeidouB1iPcpsAcquisition>(config.get(), "Acquisition_B1", 1, 0);
-    boost::shared_ptr<BeidouB1iPcpsAcquisitionTest_msg_rx> msg_rx = BeidouB1iPcpsAcquisitionTest_msg_rx_make();
+    std::shared_ptr<BeidouB1iPcpsAcquisition> acquisition = boost::make_shared<BeidouB1iPcpsAcquisition>(config.get(), "Acquisition_B1", 1, 0);
+    std::shared_ptr<BeidouB1iPcpsAcquisitionTest_msg_rx> msg_rx = BeidouB1iPcpsAcquisitionTest_msg_rx_make();
 
     ASSERT_NO_THROW({
         acquisition->connect(top_block);
-        boost::shared_ptr<gr::analog::sig_source_c> source = gr::analog::sig_source_c::make(fs_in, gr::analog::GR_SIN_WAVE, 1000, 1, gr_complex(0));
-        boost::shared_ptr<gr::block> valve = gnss_sdr_make_valve(sizeof(gr_complex), nsamples, queue);
+        auto source = gr::analog::sig_source_c::make(fs_in, gr::analog::GR_SIN_WAVE, 1000, 1, gr_complex(0));
+        auto valve = gnss_sdr_make_valve(sizeof(gr_complex), nsamples, queue.get());
         top_block->connect(source, 0, valve, 0);
         top_block->connect(valve, 0, acquisition->get_left_block(), 0);
         top_block->msg_connect(acquisition->get_right_block(), pmt::mp("events"), msg_rx, pmt::mp("events"));
@@ -285,7 +282,7 @@ TEST_F(BeidouB1iPcpsAcquisitionTest, ConnectAndRun)
         elapsed_seconds = end - start;
     }) << "Failure running the top_block.";
 
-    std::cout << "Processed " << nsamples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds" << std::endl;
+    std::cout << "Processed " << nsamples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds\n";
 }
 
 
@@ -311,7 +308,7 @@ TEST_F(BeidouB1iPcpsAcquisitionTest, ValidationOfResults)
         }
 
     std::shared_ptr<BeidouB1iPcpsAcquisition> acquisition = std::make_shared<BeidouB1iPcpsAcquisition>(config.get(), "Acquisition_B1", 1, 0);
-    boost::shared_ptr<BeidouB1iPcpsAcquisitionTest_msg_rx> msg_rx = BeidouB1iPcpsAcquisitionTest_msg_rx_make();
+    std::shared_ptr<BeidouB1iPcpsAcquisitionTest_msg_rx> msg_rx = BeidouB1iPcpsAcquisitionTest_msg_rx_make();
 
     ASSERT_NO_THROW({
         acquisition->set_channel(1);
@@ -358,7 +355,7 @@ TEST_F(BeidouB1iPcpsAcquisitionTest, ValidationOfResults)
     }) << "Failure running the top_block.";
 
     uint64_t nsamples = gnss_synchro.Acq_samplestamp_samples;
-    std::cout << "Acquired " << nsamples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds" << std::endl;
+    std::cout << "Acquired " << nsamples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds\n";
     ASSERT_EQ(1, msg_rx->rx_message) << "Acquisition failure. Expected message: 1=ACQ SUCCESS.";
 
     double delay_error_samples = std::abs(expected_delay_samples - gnss_synchro.Acq_delay_samples);

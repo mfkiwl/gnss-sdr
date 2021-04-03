@@ -1,25 +1,15 @@
-# Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
-#
+# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 
+set(OPT_DRIVER_SOURCES "")
+set(OPT_DRIVER_HEADERS "")
 if(ENABLE_RAW_UDP AND PCAP_FOUND)
-    set(OPT_DRIVER_SOURCES ${OPT_DRIVER_SOURCES} gr_complex_ip_packet_source.cc)
-    set(OPT_DRIVER_HEADERS ${OPT_DRIVER_HEADERS} gr_complex_ip_packet_source.h)
+    set(OPT_DRIVER_SOURCES gr_complex_ip_packet_source.cc)
+    set(OPT_DRIVER_HEADERS gr_complex_ip_packet_source.h)
 endif()
 
 
@@ -51,18 +41,26 @@ set(SIGNAL_SOURCE_GR_BLOCKS_HEADERS
 list(SORT SIGNAL_SOURCE_GR_BLOCKS_HEADERS)
 list(SORT SIGNAL_SOURCE_GR_BLOCKS_SOURCES)
 
-source_group(Headers FILES ${SIGNAL_SOURCE_GR_BLOCKS_HEADERS})
-
-add_library(signal_source_gr_blocks
-    ${SIGNAL_SOURCE_GR_BLOCKS_SOURCES}
-    ${SIGNAL_SOURCE_GR_BLOCKS_HEADERS}
-)
+if(USE_CMAKE_TARGET_SOURCES)
+    add_library(signal_source_gr_blocks STATIC)
+    target_sources(signal_source_gr_blocks
+        PRIVATE
+            ${SIGNAL_SOURCE_GR_BLOCKS_SOURCES}
+        PUBLIC
+            ${SIGNAL_SOURCE_GR_BLOCKS_HEADERS}
+    )
+else()
+    source_group(Headers FILES ${SIGNAL_SOURCE_GR_BLOCKS_HEADERS})
+    add_library(signal_source_gr_blocks
+        ${SIGNAL_SOURCE_GR_BLOCKS_SOURCES}
+        ${SIGNAL_SOURCE_GR_BLOCKS_HEADERS}
+    )
+endif()
 
 target_link_libraries(signal_source_gr_blocks
     PUBLIC
         signal_source_libs
         Boost::thread
-        Gnuradio::runtime
     PRIVATE
         core_libs
         Gflags::gflags
@@ -74,6 +72,12 @@ target_include_directories(signal_source_gr_blocks
         ${CMAKE_SOURCE_DIR}/src/core/receiver
 )
 
+if(GNURADIO_USES_STD_POINTERS)
+    target_compile_definitions(signal_source_gr_blocks
+        PUBLIC -DGNURADIO_USES_STD_POINTERS=1
+    )
+endif()
+
 if(ENABLE_RAW_UDP AND PCAP_FOUND)
     target_link_libraries(signal_source_gr_blocks
         PUBLIC
@@ -82,7 +86,7 @@ if(ENABLE_RAW_UDP AND PCAP_FOUND)
 endif()
 
 # Fix for Boost Asio < 1.70
-if(OS_IS_MACOSX)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     if((CMAKE_CXX_COMPILER_ID MATCHES "Clang") AND (Boost_VERSION_STRING VERSION_LESS 1.70.0))
         if(${has_string_view})
             target_compile_definitions(signal_source_gr_blocks
@@ -98,10 +102,32 @@ if(OS_IS_MACOSX)
     endif()
 endif()
 
-if(Boost_VERSION_STRING VERSION_GREATER 1.65.99)
+if(USE_BOOST_ASIO_IO_CONTEXT)
     target_compile_definitions(signal_source_gr_blocks
         PUBLIC
-            -DBOOST_GREATER_1_65
+            -DUSE_BOOST_ASIO_IO_CONTEXT=1
+    )
+endif()
+
+if(USE_BOOST_BIND_PLACEHOLDERS)
+    target_compile_definitions(signal_source_gr_blocks
+        PRIVATE
+            -DUSE_BOOST_BIND_PLACEHOLDERS=1
+    )
+endif()
+
+if(USE_GENERIC_LAMBDAS)
+    set(has_generic_lambdas HAS_GENERIC_LAMBDA=1)
+    set(no_has_generic_lambdas HAS_GENERIC_LAMBDA=0)
+    target_compile_definitions(signal_source_gr_blocks
+        PRIVATE
+            "$<$<COMPILE_FEATURES:cxx_generic_lambdas>:${has_generic_lambdas}>"
+            "$<$<NOT:$<COMPILE_FEATURES:cxx_generic_lambdas>>:${no_has_generic_lambdas}>"
+    )
+else()
+    target_compile_definitions(signal_source_gr_blocks
+        PRIVATE
+            -DHAS_GENERIC_LAMBDA=0
     )
 endif()
 

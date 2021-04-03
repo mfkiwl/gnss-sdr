@@ -1,20 +1,8 @@
-# Copyright (C) 2012-2019  (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
-#
+# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 
 set(RESAMPLER_ADAPTER_SOURCES
@@ -30,16 +18,24 @@ set(RESAMPLER_ADAPTER_HEADERS
 list(SORT RESAMPLER_ADAPTER_HEADERS)
 list(SORT RESAMPLER_ADAPTER_SOURCES)
 
-source_group(Headers FILES ${RESAMPLER_ADAPTER_HEADERS})
-
-add_library(resampler_adapters
-    ${RESAMPLER_ADAPTER_SOURCES}
-    ${RESAMPLER_ADAPTER_HEADERS}
-)
+if(USE_CMAKE_TARGET_SOURCES)
+    add_library(resampler_adapters STATIC)
+    target_sources(resampler_adapters
+        PRIVATE
+            ${RESAMPLER_ADAPTER_SOURCES}
+        PUBLIC
+            ${RESAMPLER_ADAPTER_HEADERS}
+    )
+else()
+    source_group(Headers FILES ${RESAMPLER_ADAPTER_HEADERS})
+    add_library(resampler_adapters
+        ${RESAMPLER_ADAPTER_SOURCES}
+        ${RESAMPLER_ADAPTER_HEADERS}
+    )
+endif()
 
 target_link_libraries(resampler_adapters
     PUBLIC
-        Gnuradio::runtime
         resampler_gr_blocks
     PRIVATE
         Gflags::gflags
@@ -52,7 +48,7 @@ target_include_directories(resampler_adapters
         ${CMAKE_SOURCE_DIR}/src/core/interfaces
 )
 
-if(NOT (GNURADIO_VERSION VERSION_LESS "3.8"))
+if(GNURADIO_IS_38_OR_GREATER)
     target_compile_definitions(resampler_adapters PUBLIC -DGR_GREATER_38=1)
 endif()
 

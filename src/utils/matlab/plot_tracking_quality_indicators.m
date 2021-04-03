@@ -1,4 +1,11 @@
-%plot tracking quality indicators
+% plot tracking quality indicators
+
+% GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
+% This file is part of GNSS-SDR.
+%
+% SPDX-FileCopyrightText: Javier Arribas <jarribas@cttc.es>
+% SPDX-License-Identifier: GPL-3.0-or-later
+
 figure;
 hold on;
 title('Carrier lock test output for all the channels');

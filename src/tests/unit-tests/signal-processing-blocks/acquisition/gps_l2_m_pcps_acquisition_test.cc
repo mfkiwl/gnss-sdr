@@ -5,36 +5,21 @@
  * \author Javier Arribas, 2015 (jarribas@cttc.es)
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
 #include "GPS_L2C.h"
 #include "acquisition_dump_reader.h"
 #include "concurrent_queue.h"
-#include "gnss_block_factory.h"
 #include "gnss_block_interface.h"
 #include "gnss_sdr_valve.h"
 #include "gnss_synchro.h"
@@ -52,6 +37,11 @@
 #include <gtest/gtest.h>
 #include <chrono>
 #include <utility>
+
+#if HAS_GENERIC_LAMBDA
+#else
+#include <boost/bind/bind.hpp>
+#endif
 
 #ifdef GR_GREATER_38
 #include <gnuradio/analog/sig_source.h>
@@ -76,7 +66,7 @@ namespace fs = boost::filesystem;
 // ######## GNURADIO BLOCK MESSAGE RECEVER #########
 class GpsL2MPcpsAcquisitionTest_msg_rx;
 
-using GpsL2MPcpsAcquisitionTest_msg_rx_sptr = boost::shared_ptr<GpsL2MPcpsAcquisitionTest_msg_rx>;
+using GpsL2MPcpsAcquisitionTest_msg_rx_sptr = gnss_shared_ptr<GpsL2MPcpsAcquisitionTest_msg_rx>;
 
 GpsL2MPcpsAcquisitionTest_msg_rx_sptr GpsL2MPcpsAcquisitionTest_msg_rx_make();
 
@@ -84,7 +74,7 @@ class GpsL2MPcpsAcquisitionTest_msg_rx : public gr::block
 {
 private:
     friend GpsL2MPcpsAcquisitionTest_msg_rx_sptr GpsL2MPcpsAcquisitionTest_msg_rx_make();
-    void msg_handler_events(pmt::pmt_t msg);
+    void msg_handler_channel_events(const pmt::pmt_t msg);
     GpsL2MPcpsAcquisitionTest_msg_rx();
 
 public:
@@ -97,16 +87,16 @@ GpsL2MPcpsAcquisitionTest_msg_rx_sptr GpsL2MPcpsAcquisitionTest_msg_rx_make()
     return GpsL2MPcpsAcquisitionTest_msg_rx_sptr(new GpsL2MPcpsAcquisitionTest_msg_rx());
 }
 
-void GpsL2MPcpsAcquisitionTest_msg_rx::msg_handler_events(pmt::pmt_t msg)
+void GpsL2MPcpsAcquisitionTest_msg_rx::msg_handler_channel_events(const pmt::pmt_t msg)
 {
     try
         {
             int64_t message = pmt::to_long(std::move(msg));
             rx_message = message;
         }
-    catch (boost::bad_any_cast &e)
+    catch (const boost::bad_any_cast &e)
         {
-            LOG(WARNING) << "msg_handler_telemetry Bad any cast!";
+            LOG(WARNING) << "msg_handler_channel_events Bad any_cast: " << e.what();
             rx_message = 0;
         }
 }
@@ -114,7 +104,16 @@ void GpsL2MPcpsAcquisitionTest_msg_rx::msg_handler_events(pmt::pmt_t msg)
 GpsL2MPcpsAcquisitionTest_msg_rx::GpsL2MPcpsAcquisitionTest_msg_rx() : gr::block("GpsL2MPcpsAcquisitionTest_msg_rx", gr::io_signature::make(0, 0, 0), gr::io_signature::make(0, 0, 0))
 {
     this->message_port_register_in(pmt::mp("events"));
-    this->set_msg_handler(pmt::mp("events"), boost::bind(&GpsL2MPcpsAcquisitionTest_msg_rx::msg_handler_events, this, _1));
+    this->set_msg_handler(pmt::mp("events"),
+#if HAS_GENERIC_LAMBDA
+        [this](auto &&PH1) { msg_handler_channel_events(PH1); });
+#else
+#if USE_BOOST_BIND_PLACEHOLDERS
+        boost::bind(&GpsL2MPcpsAcquisitionTest_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
+#else
+        boost::bind(&GpsL2MPcpsAcquisitionTest_msg_rx::msg_handler_channel_events, this, _1));
+#endif
+#endif
     rx_message = 0;
 }
 
@@ -128,7 +127,6 @@ class GpsL2MPcpsAcquisitionTest : public ::testing::Test
 protected:
     GpsL2MPcpsAcquisitionTest()
     {
-        factory = std::make_shared<GNSSBlockFactory>();
         config = std::make_shared<InMemoryConfiguration>();
         item_size = sizeof(gr_complex);
         sampling_frequency_hz = 5000000;
@@ -145,7 +143,6 @@ protected:
 
     std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue;
     gr::top_block_sptr top_block;
-    std::shared_ptr<GNSSBlockFactory> factory;
     std::shared_ptr<InMemoryConfiguration> config;
     Gnss_Synchro gnss_synchro;
     size_t item_size;
@@ -165,7 +162,7 @@ void GpsL2MPcpsAcquisitionTest::init()
     gnss_synchro.Signal[2] = 0;                                                // make sure that string length is only two characters
     gnss_synchro.PRN = 7;
 
-    nsamples = round(static_cast<double>(sampling_frequency_hz) * GPS_L2_M_PERIOD) * 2;
+    nsamples = round(static_cast<double>(sampling_frequency_hz) * GPS_L2_M_PERIOD_S) * 2;
     config->set_property("GNSS-SDR.internal_fs_sps", std::to_string(sampling_frequency_hz));
     config->set_property("Acquisition_2S.implementation", "GPS_L2_M_PCPS_Acquisition");
     config->set_property("Acquisition_2S.item_type", "gr_complex");
@@ -189,15 +186,15 @@ void GpsL2MPcpsAcquisitionTest::init()
 
 void GpsL2MPcpsAcquisitionTest::plot_grid()
 {
-    //load the measured values
+    // load the measured values
     std::string basename = "./tmp-acq-gps2/acquisition_test_G_2S";
     auto sat = static_cast<unsigned int>(gnss_synchro.PRN);
 
-    auto samples_per_code = static_cast<unsigned int>(floor(static_cast<double>(sampling_frequency_hz) / (GPS_L2_M_CODE_RATE_HZ / static_cast<double>(GPS_L2_M_CODE_LENGTH_CHIPS))));
+    auto samples_per_code = static_cast<unsigned int>(floor(static_cast<double>(sampling_frequency_hz) / (GPS_L2_M_CODE_RATE_CPS / static_cast<double>(GPS_L2_M_CODE_LENGTH_CHIPS))));
     Acquisition_Dump_Reader acq_dump(basename, sat, doppler_max, doppler_step, samples_per_code, 1);
     if (!acq_dump.read_binary_acq())
         {
-            std::cout << "Error reading files" << std::endl;
+            std::cout << "Error reading files\n";
         }
 
     std::vector<int> *doppler = &acq_dump.doppler;
@@ -207,13 +204,13 @@ void GpsL2MPcpsAcquisitionTest::plot_grid()
     const std::string gnuplot_executable(FLAGS_gnuplot_executable);
     if (gnuplot_executable.empty())
         {
-            std::cout << "WARNING: Although the flag plot_acq_grid has been set to TRUE," << std::endl;
-            std::cout << "gnuplot has not been found in your system." << std::endl;
-            std::cout << "Test results will not be plotted." << std::endl;
+            std::cout << "WARNING: Although the flag plot_acq_grid has been set to TRUE,\n";
+            std::cout << "gnuplot has not been found in your system.\n";
+            std::cout << "Test results will not be plotted.\n";
         }
     else
         {
-            std::cout << "Plotting the acquisition grid. This can take a while..." << std::endl;
+            std::cout << "Plotting the acquisition grid. This can take a while...\n";
             try
                 {
                     fs::path p(gnuplot_executable);
@@ -233,7 +230,7 @@ void GpsL2MPcpsAcquisitionTest::plot_grid()
                     g1.set_title("GPS L2CM signal acquisition for satellite PRN #" + std::to_string(gnss_synchro.PRN));
                     g1.set_xlabel("Doppler [Hz]");
                     g1.set_ylabel("Sample");
-                    //g1.cmd("set view 60, 105, 1, 1");
+                    // g1.cmd("set view 60, 105, 1, 1");
                     g1.plot_grid3d(*doppler, *samples, *mag);
 
                     g1.savetops("GPS_L2CM_acq_grid");
@@ -241,7 +238,7 @@ void GpsL2MPcpsAcquisitionTest::plot_grid()
                 }
             catch (const GnuplotException &ge)
                 {
-                    std::cout << ge.what() << std::endl;
+                    std::cout << ge.what() << '\n';
                 }
         }
     std::string data_str = "./tmp-acq-gps2";
@@ -272,11 +269,11 @@ TEST_F(GpsL2MPcpsAcquisitionTest, ConnectAndRun)
 
     ASSERT_NO_THROW({
         acquisition->connect(top_block);
-        boost::shared_ptr<gr::analog::sig_source_c> source = gr::analog::sig_source_c::make(sampling_frequency_hz, gr::analog::GR_SIN_WAVE, 2000, 1, gr_complex(0));
-        boost::shared_ptr<gr::block> valve = gnss_sdr_make_valve(sizeof(gr_complex), nsamples, queue);
+        auto source = gr::analog::sig_source_c::make(sampling_frequency_hz, gr::analog::GR_SIN_WAVE, 2000, 1, gr_complex(0));
+        auto valve = gnss_sdr_make_valve(sizeof(gr_complex), nsamples, queue.get());
         top_block->connect(source, 0, valve, 0);
         top_block->connect(valve, 0, acquisition->get_left_block(), 0);
-        boost::shared_ptr<GpsL2MPcpsAcquisitionTest_msg_rx> msg_rx = GpsL2MPcpsAcquisitionTest_msg_rx_make();
+        auto msg_rx = GpsL2MPcpsAcquisitionTest_msg_rx_make();
     }) << "Failure connecting the blocks of acquisition test.";
 
     EXPECT_NO_THROW({
@@ -286,7 +283,7 @@ TEST_F(GpsL2MPcpsAcquisitionTest, ConnectAndRun)
         elapsed_seconds = end - start;
     }) << "Failure running the top_block.";
 
-    std::cout << "Processed " << nsamples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds" << std::endl;
+    std::cout << "Processed " << nsamples << " samples in " << elapsed_seconds.count() * 1e6 << " microseconds\n";
 }
 
 
@@ -296,8 +293,8 @@ TEST_F(GpsL2MPcpsAcquisitionTest, ValidationOfResults)
     std::chrono::duration<double> elapsed_seconds(0);
     top_block = gr::make_top_block("Acquisition test");
     queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
-    double expected_delay_samples = 1;  //2004;
-    double expected_doppler_hz = 1200;  //3000;
+    double expected_delay_samples = 1;  // 2004;
+    double expected_doppler_hz = 1200;  // 3000;
 
     if (FLAGS_plot_acq_grid == true)
         {
@@ -311,7 +308,7 @@ TEST_F(GpsL2MPcpsAcquisitionTest, ValidationOfResults)
 
     init();
     std::shared_ptr<GpsL2MPcpsAcquisition> acquisition = std::make_shared<GpsL2MPcpsAcquisition>(config.get(), "Acquisition_2S", 1, 0);
-    boost::shared_ptr<GpsL2MPcpsAcquisitionTest_msg_rx> msg_rx = GpsL2MPcpsAcquisitionTest_msg_rx_make();
+    auto msg_rx = GpsL2MPcpsAcquisitionTest_msg_rx_make();
 
     ASSERT_NO_THROW({
         acquisition->set_channel(1);
@@ -339,16 +336,16 @@ TEST_F(GpsL2MPcpsAcquisitionTest, ValidationOfResults)
 
     ASSERT_NO_THROW({
         std::string path = std::string(TEST_PATH);
-        //std::string file = path + "signal_samples/GSoC_CTTC_capture_2012_07_26_4Msps_4ms.dat";
+        // std::string file = path + "signal_samples/GSoC_CTTC_capture_2012_07_26_4Msps_4ms.dat";
         std::string file = path + "signal_samples/gps_l2c_m_prn7_5msps.dat";
-        //std::string file = "/datalogger/signals/Fraunhofer/L125_III1b_210s_L2_resampled.bin";
+        // std::string file = "/datalogger/signals/Fraunhofer/L125_III1b_210s_L2_resampled.bin";
         const char *file_name = file.c_str();
         gr::blocks::file_source::sptr file_source = gr::blocks::file_source::make(sizeof(gr_complex), file_name, false);
-        //gr::blocks::interleaved_short_to_complex::sptr gr_interleaved_short_to_complex_ = gr::blocks::interleaved_short_to_complex::make();
-        //gr::blocks::char_to_short::sptr gr_char_to_short_ = gr::blocks::char_to_short::make();
-        boost::shared_ptr<gr::block> valve = gnss_sdr_make_valve(sizeof(gr_complex), nsamples, queue);
-        //top_block->connect(file_source, 0, gr_char_to_short_, 0);
-        //top_block->connect(gr_char_to_short_, 0, gr_interleaved_short_to_complex_ , 0);
+        // gr::blocks::interleaved_short_to_complex::sptr gr_interleaved_short_to_complex_ = gr::blocks::interleaved_short_to_complex::make();
+        // gr::blocks::char_to_short::sptr gr_char_to_short_ = gr::blocks::char_to_short::make();
+        auto valve = gnss_sdr_make_valve(sizeof(gr_complex), nsamples, queue.get());
+        // top_block->connect(file_source, 0, gr_char_to_short_, 0);
+        // top_block->connect(gr_char_to_short_, 0, gr_interleaved_short_to_complex_ , 0);
         top_block->connect(file_source, 0, valve, 0);
         top_block->connect(valve, 0, acquisition->get_left_block(), 0);
         top_block->msg_connect(acquisition->get_right_block(), pmt::mp("events"), msg_rx, pmt::mp("events"));
@@ -367,10 +364,10 @@ TEST_F(GpsL2MPcpsAcquisitionTest, ValidationOfResults)
         elapsed_seconds = end - start;
     }) << "Failure running the top_block.";
 
-    std::cout << "Acquisition process runtime duration: " << elapsed_seconds.count() * 1e6 << " microseconds" << std::endl;
+    std::cout << "Acquisition process runtime duration: " << elapsed_seconds.count() * 1e6 << " microseconds\n";
 
-    std::cout << "gnss_synchro.Acq_doppler_hz = " << gnss_synchro.Acq_doppler_hz << " Hz" << std::endl;
-    std::cout << "gnss_synchro.Acq_delay_samples = " << gnss_synchro.Acq_delay_samples << " Samples" << std::endl;
+    std::cout << "gnss_synchro.Acq_doppler_hz = " << gnss_synchro.Acq_doppler_hz << " Hz\n";
+    std::cout << "gnss_synchro.Acq_delay_samples = " << gnss_synchro.Acq_delay_samples << " Samples\n";
 
     ASSERT_EQ(1, msg_rx->rx_message) << "Acquisition failure. Expected message: 1=ACQ SUCCESS.";
 

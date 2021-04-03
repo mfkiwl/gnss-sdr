@@ -3,22 +3,12 @@
  * \brief Provide typedefs and operators for all complex types in C and C++.
  * \author Andres Cecilia, 2014. a.cecilia.luque(at)gmail.com
  *
- * Copyright (C) 2010-2019 (see AUTHORS file for a list of contributors)
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifndef INCLUDE_VOLK_COMPLEX_H
@@ -45,6 +35,9 @@
 
 #ifdef __cplusplus
 
+#ifdef _MSC_VER
+#include <complex.h>
+#endif
 #include <complex>
 #include <stdint.h>
 
@@ -99,7 +92,7 @@ typedef double complex lv_64fc_t;
 
 // When GNUC is available, use the complex extensions.
 // The extensions always return the correct value type.
-// http://gcc.gnu.org/onlinedocs/gcc/Complex.html
+// https://gcc.gnu.org/onlinedocs/gcc/Complex.html
 #ifdef __GNUC__
 
 #define lv_creal(x) (__real__(x))

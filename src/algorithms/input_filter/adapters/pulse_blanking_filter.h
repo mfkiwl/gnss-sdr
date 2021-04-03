@@ -4,33 +4,19 @@
  * \author Javier Arribas 2017
  *         Antonio Ramos  2017
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_PULSE_BLANKING_FILTER_H_
-#define GNSS_SDR_PULSE_BLANKING_FILTER_H_
+#ifndef GNSS_SDR_PULSE_BLANKING_FILTER_H
+#define GNSS_SDR_PULSE_BLANKING_FILTER_H
 
 #include "gnss_block_interface.h"
 #include "pulse_blanking_cc.h"
@@ -42,12 +28,18 @@
 #endif
 #include <string>
 
+/** \addtogroup Input_Filter
+ * \{ */
+/** \addtogroup Input_filter_adapters
+ * \{ */
+
+
 class ConfigurationInterface;
 
 class PulseBlankingFilter : public GNSSBlockInterface
 {
 public:
-    PulseBlankingFilter(ConfigurationInterface* configuration,
+    PulseBlankingFilter(const ConfigurationInterface* configuration,
         std::string role, unsigned int in_streams,
         unsigned int out_streams);
 
@@ -66,7 +58,7 @@ public:
 
     inline size_t item_size() override
     {
-        return 0;
+        return input_size_;
     }
 
     void connect(gr::top_block_sptr top_block) override;
@@ -75,19 +67,21 @@ public:
     gr::basic_block_sptr get_right_block() override;
 
 private:
-    ConfigurationInterface* config_;
-    bool dump_;
-    bool xlat_;
-    std::string dump_filename_;
-    std::string input_item_type_;
-    size_t input_size_;
-    std::string output_item_type_;
-    std::string role_;
-    unsigned int in_streams_;
-    unsigned int out_streams_;
-    gr::blocks::file_sink::sptr file_sink_;
     pulse_blanking_cc_sptr pulse_blanking_cc_;
     gr::filter::freq_xlating_fir_filter_ccf::sptr freq_xlating_;
+    gr::blocks::file_sink::sptr file_sink_;
+    std::string dump_filename_;
+    std::string input_item_type_;
+    std::string output_item_type_;
+    std::string role_;
+    size_t input_size_;
+    unsigned int in_streams_;
+    unsigned int out_streams_;
+    bool dump_;
+    bool xlat_;
 };
 
-#endif  // GNSS_SDR_PULSE_BLANKING_FILTER_H_
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_PULSE_BLANKING_FILTER_H

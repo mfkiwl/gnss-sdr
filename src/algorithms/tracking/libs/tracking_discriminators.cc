@@ -7,34 +7,19 @@
  *          <li> Luis Esteve, 2012. luis(at)epsilon-formacion.com
  *          </ul>
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "tracking_discriminators.h"
 #include "MATH_CONSTANTS.h"
-#include <cmath>
 
 //  All the outputs are in RADIANS
 
@@ -42,17 +27,19 @@ double phase_unwrap(double phase_rad)
 {
     if (phase_rad >= HALF_PI)
         {
-            return phase_rad - PI;
+            return phase_rad - GNSS_PI;
         }
     if (phase_rad <= -HALF_PI)
         {
-            return phase_rad + PI;
+            return phase_rad + GNSS_PI;
         }
     else
         {
             return phase_rad;
         }
 }
+
+
 /*
  * FLL four quadrant arctan discriminator:
  * \f{equation}
@@ -64,11 +51,11 @@ double phase_unwrap(double phase_rad)
  */
 double fll_four_quadrant_atan(gr_complex prompt_s1, gr_complex prompt_s2, double t1, double t2)
 {
-    double cross, dot;
-    dot = prompt_s1.real() * prompt_s2.real() + prompt_s1.imag() * prompt_s2.imag();
-    cross = prompt_s1.real() * prompt_s2.imag() - prompt_s2.real() * prompt_s1.imag();
-    return atan2(cross, dot) / (t2 - t1);
+    const float dot = prompt_s1.real() * prompt_s2.real() + prompt_s1.imag() * prompt_s2.imag();
+    const float cross = prompt_s1.real() * prompt_s2.imag() - prompt_s2.real() * prompt_s1.imag();
+    return std::atan2(cross, dot) / (t2 - t1);
 }
+
 
 /*
  * FLL differential arctan discriminator:
@@ -79,13 +66,14 @@ double fll_four_quadrant_atan(gr_complex prompt_s1, gr_complex prompt_s2, double
  */
 double fll_diff_atan(gr_complex prompt_s1, gr_complex prompt_s2, double t1, double t2)
 {
-    double diff_atan = atan(prompt_s2.imag() / prompt_s2.real()) - atan(prompt_s1.imag() / prompt_s1.real());
+    double diff_atan = std::atan(prompt_s2.imag() / prompt_s2.real()) - std::atan(prompt_s1.imag() / prompt_s1.real());
     if (std::isnan(diff_atan))
         {
             diff_atan = 0;
         }
     return phase_unwrap(diff_atan) / (t2 - t1);
 }
+
 
 /*
  * PLL four quadrant arctan discriminator:
@@ -120,21 +108,21 @@ double pll_cloop_two_quadrant_atan(gr_complex prompt_s1)
 /*
  * DLL Noncoherent Early minus Late envelope normalized discriminator:
  * \f{equation}
- *     error=\frac{1}{2}\frac{E-L}{E+L},
+ *     error = \frac{y_{intercept} - \text{slope} * \epsilon}{\text{slope}} \frac{E-L}{E+L},
  * \f}
  * where \f$E=\sqrt{I_{ES}^2+Q_{ES}^2}\f$ is the Early correlator output absolute value and
  * \f$L=\sqrt{I_{LS}^2+Q_{LS}^2}\f$ is the Late correlator output absolute value. The output is in [chips].
  */
-double dll_nc_e_minus_l_normalized(gr_complex early_s1, gr_complex late_s1)
+double dll_nc_e_minus_l_normalized(gr_complex early_s1, gr_complex late_s1, float spc, float slope, float y_intercept)
 {
-    double P_early = std::abs(early_s1);
-    double P_late = std::abs(late_s1);
-    double E_plus_L = P_early + P_late;
+    const double P_early = std::abs(early_s1);
+    const double P_late = std::abs(late_s1);
+    const double E_plus_L = P_early + P_late;
     if (E_plus_L == 0.0)
         {
             return 0.0;
         }
-    return 0.5 * (P_early - P_late) / E_plus_L;
+    return ((y_intercept - slope * spc) / slope) * (P_early - P_late) / E_plus_L;
 }
 
 
@@ -149,10 +137,9 @@ double dll_nc_e_minus_l_normalized(gr_complex early_s1, gr_complex late_s1)
  */
 double dll_nc_vemlp_normalized(gr_complex very_early_s1, gr_complex early_s1, gr_complex late_s1, gr_complex very_late_s1)
 {
-    double Early = std::sqrt(very_early_s1.real() * very_early_s1.real() + very_early_s1.imag() * very_early_s1.imag() + early_s1.real() * early_s1.real() + early_s1.imag() * early_s1.imag());
-    double Late = std::sqrt(late_s1.real() * late_s1.real() + late_s1.imag() * late_s1.imag() + very_late_s1.real() * very_late_s1.real() + very_late_s1.imag() * very_late_s1.imag());
-
-    double E_plus_L = Early + Late;
+    const double Early = std::sqrt(very_early_s1.real() * very_early_s1.real() + very_early_s1.imag() * very_early_s1.imag() + early_s1.real() * early_s1.real() + early_s1.imag() * early_s1.imag());
+    const double Late = std::sqrt(late_s1.real() * late_s1.real() + late_s1.imag() * late_s1.imag() + very_late_s1.real() * very_late_s1.real() + very_late_s1.imag() * very_late_s1.imag());
+    const double E_plus_L = Early + Late;
     if (E_plus_L == 0.0)
         {
             return 0.0;

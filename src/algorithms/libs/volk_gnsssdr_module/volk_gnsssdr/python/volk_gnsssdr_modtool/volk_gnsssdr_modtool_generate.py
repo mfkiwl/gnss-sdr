@@ -1,23 +1,9 @@
-#
-# Copyright (C) 2010-2019 (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3, or (at your option)
-# any later version.
-#
-# GNU Radio is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNU Radio; see the file COPYING.  If not, write to
-# the Free Software Foundation, Inc., 51 Franklin Street,
-# Boston, MA 02110-1301, USA.
-#
+# Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 from __future__ import print_function
 
 import os
@@ -28,7 +14,6 @@ class volk_gnsssdr_modtool(object):
     def __init__(self, cfg):
         self.volk_gnsssdr = re.compile('volk_gnsssdr');
         self.remove_after_underscore = re.compile("_.*");
-        self.volk_gnsssdr_run_tests = re.compile(r'^\s*VOLK_RUN_TESTS.*\n', re.MULTILINE);
         self.volk_gnsssdr_profile = re.compile(r'^\s*(VOLK_PROFILE|VOLK_PUPPET_PROFILE).*\n', re.MULTILINE);
         self.my_dict = cfg;
         self.lastline = re.compile(r'\s*char path\[1024\];.*');

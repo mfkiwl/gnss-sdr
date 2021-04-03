@@ -20,10 +20,11 @@ function [dphi, dlambda, h] = togeod(a, finv, X, Y, Z)
 %       dlambda     - longitude
 %       h           - height above reference ellipsoid
 
-%  Copyright (C) 1987 C. Goad, Columbus, Ohio
-%  Reprinted with permission of author, 1996
-%  Fortran code translated into MATLAB
-%  Kai Borre 03-30-96
+% GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
+% This file is part of GNSS-SDR.
+%
+% SPDX-FileCopyrightText: 1987 C. Goad, 1996 Kai Borre
+% SPDX-License-Identifier: GPL-3.0-or-later
 %==========================================================================
 
 h       = 0;
@@ -81,23 +82,23 @@ h = r - a*(1-sinphi*sinphi/finv);
 for i = 1:maxit
     sinphi  = sin(dphi);
     cosphi  = cos(dphi);
-    
+
     % compute radius of curvature in prime vertical direction
     N_phi   = a/sqrt(1-esq*sinphi*sinphi);
-    
+
     % compute residuals in P and Z
     dP      = P - (N_phi + h) * cosphi;
     dZ      = Z - (N_phi*oneesq + h) * sinphi;
-    
+
     % update height and latitude
     h       = h + (sinphi*dZ + cosphi*dP);
     dphi    = dphi + (cosphi*dZ - sinphi*dP)/(N_phi + h);
-    
+
     % test for convergence
     if (dP*dP + dZ*dZ < tolsq)
         break;
     end
-    
+
     % Not Converged--Warn user
     if i == maxit
         fprintf([' Problem in TOGEOD, did not converge in %2.0f',...

@@ -1,19 +1,8 @@
-# Copyright (C) 2011-2019 (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: 2011-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 
 # - Try to find Googletest source code
@@ -30,29 +19,44 @@ if(NOT COMMAND feature_summary)
     include(FeatureSummary)
 endif()
 
-set(PKG_CONFIG_USE_CMAKE_PREFIX_PATH TRUE)
-include(FindPkgConfig)
+if(NOT PKG_CONFIG_FOUND)
+    include(FindPkgConfig)
+endif()
+
 pkg_check_modules(PC_GTEST gtest)
+
+if(NOT GTEST_DIR)
+    set(GTEST_DIR_USER_PROVIDED /usr/local)
+else()
+    set(GTEST_DIR_USER_PROVIDED ${GTEST_DIR})
+endif()
+if(DEFINED ENV{GTEST_DIR})
+    set(GTEST_DIR_USER_PROVIDED
+        ${GTEST_DIR_USER_PROVIDED}
+        $ENV{GTEST_DIR}
+    )
+endif()
 
 find_path(LIBGTEST_DEV_DIR
     NAMES src/gtest-all.cc
     PATHS
-        ${GTEST_DIR}
-        ${GTEST_DIR}/googletest
+        ${GTEST_DIR_USER_PROVIDED}
+        ${GTEST_DIR_USER_PROVIDED}/googletest
         /usr/src/googletest/googletest
-        /usr/local/src/googletest/googletest
         /usr/src/gtest
         /usr/include/gtest
+        /usr/local/src/googletest/googletest
         /opt/local/src/gtest-1.7.0
 )
 
 find_path(GTEST_INCLUDE_DIRS
     NAMES gtest/gtest.h
+    HINTS ${PC_GTEST_INCLUDEDIR}
     PATHS
-        ${GTEST_DIR}/googletest/include
+        ${GTEST_DIR_USER_PROVIDED}/googletest/include
         /usr/include
+        /usr/local/include
         /opt/local/src/gtest-1.7.0/include
-        ${PC_GTEST_INCLUDEDIR}
 )
 
 include(FindPackageHandleStandardArgs)

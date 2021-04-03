@@ -7,29 +7,15 @@
  *          </ul>
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "MATH_CONSTANTS.h"
@@ -39,6 +25,7 @@
 #include "control_thread.h"
 #include "file_configuration.h"
 #include "geofunctions.h"
+#include "gnss_sdr_flags.h"
 #include "gnuplot_i.h"
 #include "in_memory_configuration.h"
 #include "position_test_flags.h"
@@ -46,7 +33,7 @@
 #include "signal_generator_flags.h"
 #include "spirent_motion_csv_dump_reader.h"
 #include "test_flags.h"
-#include "tracking_tests_flags.h"  //acquisition resampler
+#include "tracking_tests_flags.h"  // acquisition resampler
 #include <armadillo>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
@@ -65,6 +52,13 @@ namespace fs = std::filesystem;
 #else
 #include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
+#endif
+
+#if GFLAGS_OLD_NAMESPACE
+namespace gflags
+{
+using namespace google;
+}
 #endif
 
 // For GPS NAVIGATION (L1)
@@ -90,16 +84,20 @@ private:
     std::string p3;
     std::string p4;
     std::string p5;
+    std::string p6;
 
     const double baseband_sampling_freq = static_cast<double>(FLAGS_fs_gen_sps);
 
     std::string filename_rinex_obs = FLAGS_filename_rinex_obs;
     std::string filename_raw_data = FLAGS_filename_raw_data;
 
-    void print_results(const arma::mat& R_eb_enu);
+    void print_results(const arma::mat& R_eb_enu) const;
     std::shared_ptr<InMemoryConfiguration> config;
     std::shared_ptr<FileConfiguration> config_f;
     std::string generated_kml_file;
+
+    std::chrono::time_point<std::chrono::system_clock> start;
+    std::chrono::time_point<std::chrono::system_clock> end;
 };
 
 
@@ -114,7 +112,7 @@ int PositionSystemTest::configure_generator()
             p2 = std::string("-static_position=") + FLAGS_static_position + std::string(",") + std::to_string(std::min(FLAGS_duration * 10, 3000));
             if (FLAGS_duration > 300)
                 {
-                    std::cout << "WARNING: Duration has been set to its maximum value of 300 s" << std::endl;
+                    std::cout << "WARNING: Duration has been set to its maximum value of 300 s\n";
                 }
         }
     else
@@ -123,7 +121,15 @@ int PositionSystemTest::configure_generator()
         }
     p3 = std::string("-rinex_obs_file=") + FLAGS_filename_rinex_obs;               // RINEX 2.10 observation file output
     p4 = std::string("-sig_out_file=") + FLAGS_filename_raw_data;                  // Baseband signal output file. Will be stored in int8_t IQ multiplexed samples
-    p5 = std::string("-sampling_freq=") + std::to_string(baseband_sampling_freq);  //Baseband sampling frequency [MSps]
+    p5 = std::string("-sampling_freq=") + std::to_string(baseband_sampling_freq);  // Baseband sampling frequency [MSps]
+    if (FLAGS_CN0_dBHz > 100.0)
+        {
+            p6 = std::string("-CN0_dBHz=45");
+        }
+    else
+        {
+            p6 = std::string("-CN0_dBHz=") + std::to_string(FLAGS_CN0_dBHz);
+        }
     return 0;
 }
 
@@ -133,7 +139,7 @@ int PositionSystemTest::generate_signal()
     pid_t wait_result;
     int child_status;
 
-    char* const parmList[] = {&generator_binary[0], &generator_binary[0], &p1[0], &p2[0], &p3[0], &p4[0], &p5[0], nullptr};
+    char* const parmList[] = {&generator_binary[0], &generator_binary[0], &p1[0], &p2[0], &p3[0], &p4[0], &p5[0], &p6[0], nullptr};
 
     int pid;
     if ((pid = fork()) == -1)
@@ -143,7 +149,7 @@ int PositionSystemTest::generate_signal()
     else if (pid == 0)
         {
             execv(&generator_binary[0], parmList);
-            std::cout << "Return not expected. Must be an execv error." << std::endl;
+            std::cout << "Return not expected. Must be an execv error. Does " << generator_binary << " exist?\n";
             std::terminate();
         }
 
@@ -184,18 +190,18 @@ int PositionSystemTest::configure_receiver()
             const float threshold = 2.5;
             const float doppler_max = 5000.0;
             const float doppler_step = 250.0;
+            const float pfa = 0.0;
+            const float pfa_second_step = 0.0;
             const int max_dwells = 10;
-            const int tong_init_val = 2;
-            const int tong_max_val = 10;
-            const int tong_max_dwells = 30;
             const int coherent_integration_time_ms = 1;
 
             const float pll_bw_hz = 35.0;
             const float dll_bw_hz = 1.5;
             const float early_late_space_chips = 0.5;
-            const float pll_bw_narrow_hz = 1.0;
-            const float dll_bw_narrow_hz = 0.1;
-            const int extend_correlation_ms = 1;
+            const float early_late_space_narrow_chips = 0.1;
+            const float pll_bw_narrow_hz = 15.0;
+            const float dll_bw_narrow_hz = 1.5;
+            const int extend_correlation_symbols = FLAGS_extend_correlation_symbols;  // defaults to 1
 
             const int display_rate_ms = 500;
             const int output_rate_ms = 100;
@@ -266,13 +272,15 @@ int PositionSystemTest::configure_receiver()
             config->set_property("Acquisition_1C.item_type", "gr_complex");
             config->set_property("Acquisition_1C.coherent_integration_time_ms", std::to_string(coherent_integration_time_ms));
             config->set_property("Acquisition_1C.threshold", std::to_string(threshold));
+            config->set_property("Acquisition_1C.pfa", std::to_string(pfa));
+            config->set_property("Acquisition_1C.pfa_second_step", std::to_string(pfa_second_step));
             config->set_property("Acquisition_1C.doppler_max", std::to_string(doppler_max));
             config->set_property("Acquisition_1C.doppler_step", std::to_string(doppler_step));
             config->set_property("Acquisition_1C.bit_transition_flag", "false");
             config->set_property("Acquisition_1C.max_dwells", std::to_string(max_dwells));
-            config->set_property("Acquisition_1C.tong_init_val", std::to_string(tong_init_val));
-            config->set_property("Acquisition_1C.tong_max_val", std::to_string(tong_max_val));
-            config->set_property("Acquisition_1C.tong_max_dwells", std::to_string(tong_max_dwells));
+            config->set_property("Acquisition_1C.make_two_steps", "false");
+            config->set_property("Acquisition_1C.second_nbins", "8");
+            config->set_property("Acquisition_1C.second_doppler_step", "125");
             config->set_property("Acquisition_1C.dump", "false");
             config->set_property("Acquisition_1C.dump_filename", "./acquisition");
             config->set_property("Acquisition_1C.dump_channel", "1");
@@ -286,12 +294,12 @@ int PositionSystemTest::configure_receiver()
             config->set_property("Tracking_1C.pll_bw_hz", std::to_string(pll_bw_hz));
             config->set_property("Tracking_1C.dll_bw_hz", std::to_string(dll_bw_hz));
             config->set_property("Tracking_1C.early_late_space_chips", std::to_string(early_late_space_chips));
-
+            config->set_property("Tracking_1C.early_late_space_narrow_chips", std::to_string(early_late_space_narrow_chips));
             config->set_property("Tracking_1C.pll_bw_narrow_hz", std::to_string(pll_bw_narrow_hz));
             config->set_property("Tracking_1C.dll_bw_narrow_hz", std::to_string(dll_bw_narrow_hz));
-            config->set_property("Tracking_1C.extend_correlation_symbols", std::to_string(extend_correlation_ms));
-            //config->set_property("Tracking_1C.high_dyn", "true");
-            //config->set_property("Tracking_1C.smoother_length", "200");
+            config->set_property("Tracking_1C.extend_correlation_symbols", std::to_string(extend_correlation_symbols));
+            // config->set_property("Tracking_1C.high_dyn", "true");
+            // config->set_property("Tracking_1C.smoother_length", "200");
 
             // Set Telemetry
             config->set_property("TelemetryDecoder_1C.implementation", "GPS_L1_CA_Telemetry_Decoder");
@@ -299,6 +307,8 @@ int PositionSystemTest::configure_receiver()
 
             // Set Observables
             config->set_property("Observables.implementation", "Hybrid_Observables");
+            config->set_property("Observables.enable_carrier_smoothing", FLAGS_enable_carrier_smoothing ? "true" : "false");
+            config->set_property("Observables.smoothing_factor", std::to_string(FLAGS_carrier_smoothing_factor));
             config->set_property("Observables.dump", "false");
             config->set_property("Observables.dump_filename", "./observables.dat");
 
@@ -344,6 +354,7 @@ int PositionSystemTest::run_receiver()
             control_thread = std::make_shared<ControlThread>(config_f);
         }
 
+    start = std::chrono::system_clock::now();
     // start receiver
     try
         {
@@ -357,7 +368,7 @@ int PositionSystemTest::run_receiver()
         {
             std::cout << "STD exception: " << ex.what();
         }
-
+    end = std::chrono::system_clock::now();
     // Get the name of the KML file generated by the receiver
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     FILE* fp;
@@ -366,10 +377,10 @@ int PositionSystemTest::run_receiver()
     fp = popen(&argum2[0], "r");
     if (fp == nullptr)
         {
-            std::cout << "Failed to run command: " << argum2 << std::endl;
+            std::cout << "Failed to run command: " << argum2 << '\n';
             return -1;
         }
-    while (fgets(buffer.data(), sizeof(buffer), fp) != nullptr)
+    while (fgets(buffer.data(), buffer.size(), fp) != nullptr)
         {
             std::string aux = std::string(buffer.data());
             EXPECT_EQ(aux.empty(), false);
@@ -389,7 +400,7 @@ bool PositionSystemTest::save_mat_xy(std::vector<double>* x, std::vector<double>
             mat_t* matfp;
             matvar_t* matvar;
             filename.append(".mat");
-            std::cout << "save_mat_xy write " << filename << std::endl;
+            std::cout << "save_mat_xy write " << filename << '\n';
             matfp = Mat_CreateVer(filename.c_str(), nullptr, MAT_FT_MAT5);
             if (reinterpret_cast<int64_t*>(matfp) != nullptr)
                 {
@@ -404,14 +415,14 @@ bool PositionSystemTest::save_mat_xy(std::vector<double>* x, std::vector<double>
                 }
             else
                 {
-                    std::cout << "save_mat_xy: error creating file" << std::endl;
+                    std::cout << "save_mat_xy: error creating file\n";
                 }
             Mat_Close(matfp);
             return true;
         }
     catch (const std::exception& ex)
         {
-            std::cout << "save_mat_xy: " << ex.what() << std::endl;
+            std::cout << "save_mat_xy: " << ex.what() << '\n';
             return false;
         }
 }
@@ -425,7 +436,7 @@ bool PositionSystemTest::save_mat_x(std::vector<double>* x, std::string filename
             mat_t* matfp;
             matvar_t* matvar;
             filename.append(".mat");
-            std::cout << "save_mat_x write " << filename << std::endl;
+            std::cout << "save_mat_x write " << filename << '\n';
             matfp = Mat_CreateVer(filename.c_str(), nullptr, MAT_FT_MAT5);
             if (reinterpret_cast<int64_t*>(matfp) != nullptr)
                 {
@@ -436,14 +447,14 @@ bool PositionSystemTest::save_mat_x(std::vector<double>* x, std::string filename
                 }
             else
                 {
-                    std::cout << "save_mat_x: error creating file" << std::endl;
+                    std::cout << "save_mat_x: error creating file\n";
                 }
             Mat_Close(matfp);
             return true;
         }
     catch (const std::exception& ex)
         {
-            std::cout << "save_mat_x: " << ex.what() << std::endl;
+            std::cout << "save_mat_x: " << ex.what() << '\n';
             return false;
         }
 }
@@ -451,15 +462,15 @@ bool PositionSystemTest::save_mat_x(std::vector<double>* x, std::string filename
 
 void PositionSystemTest::check_results()
 {
-    arma::mat R_eb_e;    //ECEF position (x,y,z) estimation in the Earth frame (Nx3)
-    arma::mat R_eb_enu;  //ENU position (N,E,U) estimation in UTM (Nx3)
-    arma::mat V_eb_e;    //ECEF velocity (x,y,z) estimation in the Earth frame (Nx3)
-    arma::mat LLH;       //Geodetic coordinates (latitude, longitude, height) estimation in WGS84 datum
+    arma::mat R_eb_e;    // ECEF position (x,y,z) estimation in the Earth frame (Nx3)
+    arma::mat R_eb_enu;  // ENU position (N,E,U) estimation in UTM (Nx3)
+    arma::mat V_eb_e;    // ECEF velocity (x,y,z) estimation in the Earth frame (Nx3)
+    arma::mat LLH;       // Geodetic coordinates (latitude, longitude, height) estimation in WGS84 datum
     arma::vec receiver_time_s;
 
-    arma::mat ref_R_eb_e;  //ECEF position (x,y,z) reference in the Earth frame (Nx3)
-    arma::mat ref_V_eb_e;  //ECEF velocity (x,y,z) reference in the Earth frame (Nx3)
-    arma::mat ref_LLH;     //Geodetic coordinates (latitude, longitude, height) reference in WGS84 datum
+    arma::mat ref_R_eb_e;  // ECEF position (x,y,z) reference in the Earth frame (Nx3)
+    arma::mat ref_V_eb_e;  // ECEF velocity (x,y,z) reference in the Earth frame (Nx3)
+    arma::mat ref_LLH;     // Geodetic coordinates (latitude, longitude, height) reference in WGS84 datum
     arma::vec ref_time_s;
 
     std::istringstream iss2(FLAGS_static_position);
@@ -482,11 +493,11 @@ void PositionSystemTest::check_results()
 
     Rtklib_Solver_Dump_Reader pvt_reader;
     pvt_reader.open_obs_file(FLAGS_pvt_solver_dump_filename);
-    int64_t n_epochs = pvt_reader.num_epochs();
-    R_eb_e = arma::zeros(3, n_epochs);
-    V_eb_e = arma::zeros(3, n_epochs);
-    LLH = arma::zeros(3, n_epochs);
-    receiver_time_s = arma::zeros(n_epochs, 1);
+    int64_t n_epochs_pvt = pvt_reader.num_epochs();
+    R_eb_e = arma::zeros(3, n_epochs_pvt);
+    V_eb_e = arma::zeros(3, n_epochs_pvt);
+    LLH = arma::zeros(3, n_epochs_pvt);
+    receiver_time_s = arma::zeros(n_epochs_pvt, 1);
     int64_t current_epoch = 0;
     while (pvt_reader.read_binary_obs())
         {
@@ -506,9 +517,9 @@ void PositionSystemTest::check_results()
             R_eb_enu.insert_cols(current_epoch, tmp_r_enu);
 
             // debug check
-            // std::cout << "t1: " << pvt_reader.RX_time << std::endl;
-            // std::cout << "t2: " << pvt_reader.TOW_at_current_symbol_ms << std::endl;
-            // std::cout << "offset: " << pvt_reader.clk_offset_s << std::endl;
+            // std::cout << "t1: " << pvt_reader.RX_time << '\n';
+            // std::cout << "t2: " << pvt_reader.TOW_at_current_symbol_ms << '\n';
+            // std::cout << "offset: " << pvt_reader.clk_offset_s << '\n';
             // getchar();
             current_epoch++;
         }
@@ -552,33 +563,38 @@ void PositionSystemTest::check_results()
             double static_2D_error_m = sqrt(pow(arma::mean(error_east_m), 2.0) + pow(arma::mean(error_north_m), 2.0));
             double static_3D_error_m = sqrt(pow(arma::mean(error_east_m), 2.0) + pow(arma::mean(error_north_m), 2.0) + pow(arma::mean(error_up_m), 2.0));
 
+            std::chrono::duration<double> elapsed_seconds = end - start;
+
             std::stringstream stm;
             std::ofstream position_test_file;
             if (!FLAGS_config_file_ptest.empty())
                 {
-                    stm << "Configuration file: " << FLAGS_config_file_ptest << std::endl;
+                    stm << "Configuration file: " << FLAGS_config_file_ptest << '\n';
                 }
 
-            stm << "---- STATIC ACCURACY ----" << std::endl;
-            stm << "2DRMS = " << 2 * sqrt(sigma_E_2_accuracy + sigma_N_2_accuracy) << " [m]" << std::endl;
-            stm << "DRMS = " << sqrt(sigma_E_2_accuracy + sigma_N_2_accuracy) << " [m]" << std::endl;
-            stm << "CEP = " << 0.62 * sqrt(sigma_N_2_accuracy) + 0.56 * sqrt(sigma_E_2_accuracy) << " [m]" << std::endl;
-            stm << "99% SAS = " << 1.122 * (sigma_E_2_accuracy + sigma_N_2_accuracy + sigma_U_2_accuracy) << " [m]" << std::endl;
-            stm << "90% SAS = " << 0.833 * (sigma_E_2_accuracy + sigma_N_2_accuracy + sigma_U_2_accuracy) << " [m]" << std::endl;
-            stm << "MRSE = " << sqrt(sigma_E_2_accuracy + sigma_N_2_accuracy + sigma_U_2_accuracy) << " [m]" << std::endl;
-            stm << "SEP = " << 0.51 * (sigma_E_2_accuracy + sigma_N_2_accuracy + sigma_U_2_accuracy) << " [m]" << std::endl;
-            stm << "Static Bias 2D = " << static_2D_error_m << " [m]" << std::endl;
-            stm << "Static Bias 3D = " << static_3D_error_m << " [m]" << std::endl;
-            stm << std::endl;
+            stm << "---- STATIC ACCURACY ----\n";
+            stm << "2DRMS = " << 2 * sqrt(sigma_E_2_accuracy + sigma_N_2_accuracy) << " [m]\n";
+            stm << "DRMS = " << sqrt(sigma_E_2_accuracy + sigma_N_2_accuracy) << " [m]\n";
+            stm << "CEP = " << 0.62 * sqrt(sigma_N_2_accuracy) + 0.56 * sqrt(sigma_E_2_accuracy) << " [m]\n";
+            stm << "99% SAS = " << 1.122 * (sigma_E_2_accuracy + sigma_N_2_accuracy + sigma_U_2_accuracy) << " [m]\n";
+            stm << "90% SAS = " << 0.833 * (sigma_E_2_accuracy + sigma_N_2_accuracy + sigma_U_2_accuracy) << " [m]\n";
+            stm << "MRSE = " << sqrt(sigma_E_2_accuracy + sigma_N_2_accuracy + sigma_U_2_accuracy) << " [m]\n";
+            stm << "SEP = " << 0.51 * (sigma_E_2_accuracy + sigma_N_2_accuracy + sigma_U_2_accuracy) << " [m]\n";
+            stm << "Static Bias 2D = " << static_2D_error_m << " [m]\n";
+            stm << "Static Bias 3D = " << static_3D_error_m << " [m]\n";
+            stm << '\n';
 
-            stm << "---- STATIC PRECISION ----" << std::endl;
-            stm << "2DRMS = " << 2 * sqrt(sigma_E_2_precision + sigma_N_2_precision) << " [m]" << std::endl;
-            stm << "DRMS = " << sqrt(sigma_E_2_precision + sigma_N_2_precision) << " [m]" << std::endl;
-            stm << "CEP = " << 0.62 * sqrt(sigma_N_2_precision) + 0.56 * sqrt(sigma_E_2_precision) << " [m]" << std::endl;
-            stm << "99% SAS = " << 1.122 * (sigma_E_2_precision + sigma_N_2_precision + sigma_U_2_precision) << " [m]" << std::endl;
-            stm << "90% SAS = " << 0.833 * (sigma_E_2_precision + sigma_N_2_precision + sigma_U_2_precision) << " [m]" << std::endl;
-            stm << "MRSE = " << sqrt(sigma_E_2_precision + sigma_N_2_precision + sigma_U_2_precision) << " [m]" << std::endl;
-            stm << "SEP = " << 0.51 * (sigma_E_2_precision + sigma_N_2_precision + sigma_U_2_precision) << " [m]" << std::endl;
+            stm << "---- STATIC PRECISION ----\n";
+            stm << "2DRMS = " << 2 * sqrt(sigma_E_2_precision + sigma_N_2_precision) << " [m]\n";
+            stm << "DRMS = " << sqrt(sigma_E_2_precision + sigma_N_2_precision) << " [m]\n";
+            stm << "CEP = " << 0.62 * sqrt(sigma_N_2_precision) + 0.56 * sqrt(sigma_E_2_precision) << " [m]\n";
+            stm << "99% SAS = " << 1.122 * (sigma_E_2_precision + sigma_N_2_precision + sigma_U_2_precision) << " [m]\n";
+            stm << "90% SAS = " << 0.833 * (sigma_E_2_precision + sigma_N_2_precision + sigma_U_2_precision) << " [m]\n";
+            stm << "MRSE = " << sqrt(sigma_E_2_precision + sigma_N_2_precision + sigma_U_2_precision) << " [m]\n";
+            stm << "SEP = " << 0.51 * (sigma_E_2_precision + sigma_N_2_precision + sigma_U_2_precision) << " [m]\n";
+            stm << '\n';
+
+            stm << "Receiver runtime: " << elapsed_seconds.count() << " [seconds]\n";
 
             std::cout << stm.rdbuf();
             std::string output_filename = "position_test_output_" + PositionSystemTest::generated_kml_file.erase(PositionSystemTest::generated_kml_file.length() - 3, 3) + "txt";
@@ -594,7 +610,7 @@ void PositionSystemTest::check_results()
             double precision_SEP = 0.51 * (sigma_E_2_precision + sigma_N_2_precision + sigma_U_2_precision);
 
             EXPECT_LT(static_2D_error_m, FLAGS_static_2D_error_m);
-            EXPECT_LT(static_2D_error_m, FLAGS_static_2D_error_m);
+            EXPECT_LT(static_3D_error_m, FLAGS_static_3D_error_m);
             ASSERT_LT(accuracy_CEP, FLAGS_accuracy_CEP);
             ASSERT_LT(precision_SEP, FLAGS_precision_SEP);
 
@@ -605,30 +621,30 @@ void PositionSystemTest::check_results()
         }
     else
         {
-            //dynamic position
+            // dynamic position
             Spirent_Motion_Csv_Dump_Reader ref_reader;
             ref_reader.open_obs_file(FLAGS_ref_motion_filename);
-            int64_t n_epochs = ref_reader.num_epochs();
-            ref_R_eb_e = arma::zeros(3, n_epochs);
-            ref_V_eb_e = arma::zeros(3, n_epochs);
-            ref_LLH = arma::zeros(3, n_epochs);
-            ref_time_s = arma::zeros(n_epochs, 1);
-            int64_t current_epoch = 0;
+            int64_t n_epochs_ref = ref_reader.num_epochs();
+            ref_R_eb_e = arma::zeros(3, n_epochs_ref);
+            ref_V_eb_e = arma::zeros(3, n_epochs_ref);
+            ref_LLH = arma::zeros(3, n_epochs_ref);
+            ref_time_s = arma::zeros(n_epochs_ref, 1);
+            int64_t current_epoch_index = 0;
             while (ref_reader.read_csv_obs())
                 {
-                    ref_time_s(current_epoch) = ref_reader.TOW_ms / 1000.0;
-                    ref_R_eb_e(0, current_epoch) = ref_reader.Pos_X;
-                    ref_R_eb_e(1, current_epoch) = ref_reader.Pos_Y;
-                    ref_R_eb_e(2, current_epoch) = ref_reader.Pos_Z;
-                    ref_V_eb_e(0, current_epoch) = ref_reader.Vel_X;
-                    ref_V_eb_e(1, current_epoch) = ref_reader.Vel_Y;
-                    ref_V_eb_e(2, current_epoch) = ref_reader.Vel_Z;
-                    ref_LLH(0, current_epoch) = ref_reader.Lat;
-                    ref_LLH(1, current_epoch) = ref_reader.Long;
-                    ref_LLH(2, current_epoch) = ref_reader.Height;
-                    current_epoch++;
+                    ref_time_s(current_epoch_index) = ref_reader.TOW_ms / 1000.0;
+                    ref_R_eb_e(0, current_epoch_index) = ref_reader.Pos_X;
+                    ref_R_eb_e(1, current_epoch_index) = ref_reader.Pos_Y;
+                    ref_R_eb_e(2, current_epoch_index) = ref_reader.Pos_Z;
+                    ref_V_eb_e(0, current_epoch_index) = ref_reader.Vel_X;
+                    ref_V_eb_e(1, current_epoch_index) = ref_reader.Vel_Y;
+                    ref_V_eb_e(2, current_epoch_index) = ref_reader.Vel_Z;
+                    ref_LLH(0, current_epoch_index) = ref_reader.Lat;
+                    ref_LLH(1, current_epoch_index) = ref_reader.Long;
+                    ref_LLH(2, current_epoch_index) = ref_reader.Height;
+                    current_epoch_index++;
                 }
-            //interpolation of reference data to receiver epochs timestamps
+            // interpolation of reference data to receiver epochs timestamps
             arma::mat ref_interp_R_eb_e = arma::zeros(3, R_eb_e.n_cols);
             arma::mat ref_interp_V_eb_e = arma::zeros(3, V_eb_e.n_cols);
             arma::mat ref_interp_LLH = arma::zeros(3, LLH.n_cols);
@@ -643,7 +659,7 @@ void PositionSystemTest::check_results()
                     ref_interp_LLH.row(n) = tmp_vector.t();
                 }
 
-            //compute error vectors
+            // compute error vectors
             arma::mat error_R_eb_e = arma::zeros(3, R_eb_e.n_cols);
             arma::mat error_V_eb_e = arma::zeros(3, V_eb_e.n_cols);
             arma::mat error_LLH = arma::zeros(3, LLH.n_cols);
@@ -658,9 +674,9 @@ void PositionSystemTest::check_results()
                     error_module_V_eb_e(n) = arma::norm(error_V_eb_e.col(n));
                 }
 
-            //Error statistics
+            // Error statistics
             arma::vec tmp_vec;
-            //RMSE, Mean, Variance and peaks
+            // RMSE, Mean, Variance and peaks
             tmp_vec = arma::square(error_module_R_eb_e);
             double rmse_R_eb_e = sqrt(arma::mean(tmp_vec));
             double error_mean_R_eb_e = arma::mean(error_module_R_eb_e);
@@ -675,11 +691,11 @@ void PositionSystemTest::check_results()
             double max_error_V_eb_e = arma::max(error_module_V_eb_e);
             double min_error_V_eb_e = arma::min(error_module_V_eb_e);
 
-            //report
-            std::cout << "----- Position and Velocity 3D ECEF error statistics -----" << std::endl;
+            // report
+            std::cout << "----- Position and Velocity 3D ECEF error statistics -----\n";
             if (!FLAGS_config_file_ptest.empty())
                 {
-                    std::cout << "---- Configuration file: " << FLAGS_config_file_ptest << std::endl;
+                    std::cout << "---- Configuration file: " << FLAGS_config_file_ptest << '\n';
                 }
             std::streamsize ss = std::cout.precision();
             std::cout << std::setprecision(10) << "---- 3D ECEF Position RMSE = "
@@ -687,13 +703,13 @@ void PositionSystemTest::check_results()
                       << ", stdev = " << sqrt(error_var_R_eb_e)
                       << " (max,min) = " << max_error_R_eb_e
                       << "," << min_error_R_eb_e
-                      << " [m]" << std::endl;
+                      << " [m]\n";
             std::cout << "---- 3D ECEF Velocity RMSE = "
                       << rmse_V_eb_e << ", mean = " << error_mean_V_eb_e
                       << ", stdev = " << sqrt(error_var_V_eb_e)
                       << " (max,min) = " << max_error_V_eb_e
                       << "," << min_error_V_eb_e
-                      << " [m/s]" << std::endl;
+                      << " [m/s]\n";
             std::cout.precision(ss);
 
             // plots
@@ -713,7 +729,7 @@ void PositionSystemTest::check_results()
                                 }
                             g1.set_title("3D ECEF error coordinates");
                             g1.set_grid();
-                            //conversion between arma::vec and std:vector
+                            // conversion between arma::vec and std:vector
                             arma::rowvec arma_vec_error_x = error_R_eb_e.row(0);
                             arma::rowvec arma_vec_error_y = error_R_eb_e.row(1);
                             arma::rowvec arma_vec_error_z = error_R_eb_e.row(2);
@@ -747,7 +763,7 @@ void PositionSystemTest::check_results()
                             g3.set_grid();
                             g3.set_xlabel("Receiver epoch time from first valid PVT [s]");
                             g3.set_ylabel("3D Position error [m]");
-                            //conversion between arma::vec and std:vector
+                            // conversion between arma::vec and std:vector
                             std::vector<double> error_vec(error_module_R_eb_e.colptr(0), error_module_R_eb_e.colptr(0) + error_module_R_eb_e.n_rows);
                             g3.cmd("set key box opaque");
                             g3.plot_xy(time_vector_from_start_s, error_vec, "Position 3D error");
@@ -778,7 +794,7 @@ void PositionSystemTest::check_results()
                             g4.set_grid();
                             g4.set_xlabel("Receiver epoch time from first valid PVT [s]");
                             g4.set_ylabel("3D Velocity error [m/s]");
-                            //conversion between arma::vec and std:vector
+                            // conversion between arma::vec and std:vector
                             std::vector<double> error_vec2(error_module_V_eb_e.colptr(0), error_module_V_eb_e.colptr(0) + error_module_V_eb_e.n_rows);
                             g4.cmd("set key box opaque");
                             g4.plot_xy(time_vector_from_start_s, error_vec2, "Velocity 3D error");
@@ -798,22 +814,22 @@ void PositionSystemTest::check_results()
                         }
                 }
 
-            //ERROR CHECK
-            //todo: reduce the error tolerance or enable the option to pass the error tolerance by parameter
-            EXPECT_LT(rmse_R_eb_e, FLAGS_dynamic_3D_position_RMSE);  //3D RMS positioning error less than 10 meters
-            EXPECT_LT(rmse_V_eb_e, FLAGS_dynamic_3D_velocity_RMSE);  //3D RMS speed error less than 5 meters/s (18 km/h)
+            // ERROR CHECK
+            // todo: reduce the error tolerance or enable the option to pass the error tolerance by parameter
+            EXPECT_LT(rmse_R_eb_e, FLAGS_dynamic_3D_position_RMSE);  // 3D RMS positioning error less than 10 meters
+            EXPECT_LT(rmse_V_eb_e, FLAGS_dynamic_3D_velocity_RMSE);  // 3D RMS speed error less than 5 meters/s (18 km/h)
         }
 }
 
 
-void PositionSystemTest::print_results(const arma::mat& R_eb_enu)
+void PositionSystemTest::print_results(const arma::mat& R_eb_enu) const
 {
     const std::string gnuplot_executable(FLAGS_gnuplot_executable);
     if (gnuplot_executable.empty())
         {
-            std::cout << "WARNING: Although the flag plot_position_test has been set to TRUE," << std::endl;
-            std::cout << "gnuplot has not been found in your system." << std::endl;
-            std::cout << "Test results will not be plotted." << std::endl;
+            std::cout << "WARNING: Although the flag plot_position_test has been set to TRUE,\n";
+            std::cout << "gnuplot has not been found in your system.\n";
+            std::cout << "Test results will not be plotted.\n";
         }
     else
         {
@@ -874,7 +890,6 @@ void PositionSystemTest::print_results(const arma::mat& R_eb_enu)
                     g1.cmd("set xrange [-" + std::to_string(range) + ":" + std::to_string(range) + "]");
                     g1.cmd("set yrange [-" + std::to_string(range) + ":" + std::to_string(range) + "]");
 
-
                     g1.plot_xy(east, north, "2D Position Fixes");
                     g1.set_style("lines").plot_circle(mean_east, mean_north, two_drms, "2DRMS");
                     g1.set_style("lines").plot_circle(mean_east, mean_north, two_drms / 2.0, "DRMS");
@@ -914,7 +929,7 @@ void PositionSystemTest::print_results(const arma::mat& R_eb_enu)
 
                     g2.cmd("set style fill transparent solid 0.30 border\n set parametric\n set urange [0:2.0*pi]\n set vrange [-pi/2:pi/2]\n r = " +
                            std::to_string(ninty_sas) +
-                           "\n fx(v,u) = r*cos(v)*cos(u)\n fy(v,u) = r*cos(v)*sin(u)\n fz(v) = r*sin(v) \n splot fx(v,u),fy(v,u),fz(v) title \"90\%-SAS\" lt rgb \"gray\"\n");
+                           "\n fx(v,u) = r*cos(v)*cos(u)\n fy(v,u) = r*cos(v)*sin(u)\n fz(v) = r*sin(v) \n splot fx(v,u),fy(v,u),fz(v) title \"90%-SAS\" lt rgb \"gray\"\n");
                     g2.plot_xyz(east, north, up, "3D Position Fixes");
                     if (FLAGS_config_file_ptest.empty())
                         {
@@ -929,7 +944,7 @@ void PositionSystemTest::print_results(const arma::mat& R_eb_enu)
                 }
             catch (const GnuplotException& ge)
                 {
-                    std::cout << ge.what() << std::endl;
+                    std::cout << ge.what() << '\n';
                 }
         }
 }
@@ -967,7 +982,7 @@ TEST_F(PositionSystemTest /*unused*/, Position_system_test /*unused*/)
 
 int main(int argc, char** argv)
 {
-    std::cout << "Running Position precision test..." << std::endl;
+    std::cout << "Running Position precision test...\n";
     int res = 0;
     try
         {
@@ -977,7 +992,7 @@ int main(int argc, char** argv)
         {
         }  // catch the "testing::internal::<unnamed>::ClassUniqueToAlwaysTrue" from gtest
 
-    google::ParseCommandLineFlags(&argc, &argv, true);
+    gflags::ParseCommandLineFlags(&argc, &argv, true);
     google::InitGoogleLogging(argv[0]);
 
     // Run the Tests
@@ -989,6 +1004,6 @@ int main(int argc, char** argv)
         {
             LOG(WARNING) << "Unexpected catch";
         }
-    google::ShutDownCommandLineFlags();
+    gflags::ShutDownCommandLineFlags();
     return res;
 }

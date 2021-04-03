@@ -3,29 +3,16 @@
  *
  * \brief Unpacks 2 bit samples that have been packed into bytes or shorts
  * \author Cillian O'Driscoll cillian.odriscoll (at) gmail.com
- * -------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
+ * -----------------------------------------------------------------------------
  *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 
@@ -83,8 +70,8 @@ void swapEndianness(int8_t const *in, std::vector<int8_t> &out, size_t item_size
 
     for (i = 0; i < ninput_items; ++i)
         {
-            k = j + skip;
-            l = j;
+            k = static_cast<int>(j + skip);
+            l = static_cast<int>(j);
             while (k >= l)
                 {
                     out[j++] = in[k--];
@@ -114,8 +101,8 @@ unpack_2bit_samples::unpack_2bit_samples(bool big_endian_bytes,
           gr::io_signature::make(1, 1, item_size),
           gr::io_signature::make(1, 1, sizeof(char)),
           4 * item_size),  // we make 4 bytes out for every byte in
-      big_endian_bytes_(big_endian_bytes),
       item_size_(item_size),
+      big_endian_bytes_(big_endian_bytes),
       big_endian_items_(big_endian_items),
       swap_endian_items_(false),
       reverse_interleaving_(reverse_interleaving)
@@ -164,7 +151,7 @@ int unpack_2bit_samples::work(int noutput_items,
         {
             if (swap_endian_bytes_)
                 {
-                    for (unsigned int i = 0; i < ninput_bytes; ++i)
+                    for (size_t i = 0; i < ninput_bytes; ++i)
                         {
                             // Read packed input sample (1 byte = 4 samples)
                             raw_byte.byte = in[i];
@@ -177,7 +164,7 @@ int unpack_2bit_samples::work(int noutput_items,
                 }
             else
                 {
-                    for (unsigned int i = 0; i < ninput_bytes; ++i)
+                    for (size_t i = 0; i < ninput_bytes; ++i)
                         {
                             // Read packed input sample (1 byte = 4 samples)
                             raw_byte.byte = in[i];
@@ -193,7 +180,7 @@ int unpack_2bit_samples::work(int noutput_items,
         {
             if (swap_endian_bytes_)
                 {
-                    for (unsigned int i = 0; i < ninput_bytes; ++i)
+                    for (size_t i = 0; i < ninput_bytes; ++i)
                         {
                             // Read packed input sample (1 byte = 4 samples)
                             raw_byte.byte = in[i];
@@ -206,7 +193,7 @@ int unpack_2bit_samples::work(int noutput_items,
                 }
             else
                 {
-                    for (unsigned int i = 0; i < ninput_bytes; ++i)
+                    for (size_t i = 0; i < ninput_bytes; ++i)
                         {
                             // Read packed input sample (1 byte = 4 samples)
                             raw_byte.byte = in[i];

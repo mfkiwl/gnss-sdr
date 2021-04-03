@@ -3,53 +3,45 @@
  * \brief Interface of a SBAS telemetry data decoder block
  * \author Daniel Fehr 2013. daniel.co(at)bluewin.ch
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #ifndef GNSS_SDR_SBAS_L1_TELEMETRY_DECODER_GS_H
 #define GNSS_SDR_SBAS_L1_TELEMETRY_DECODER_GS_H
 
+#include "gnss_block_interface.h"
 #include "gnss_satellite.h"
-#include <boost/crc.hpp>         // for crc_optimal
-#include <boost/shared_ptr.hpp>  // for boost::shared_ptr
+#include <boost/crc.hpp>  // for crc_optimal
 #include <gnuradio/block.h>
 #include <gnuradio/types.h>  // for gr_vector_const_void_star
 #include <cstddef>           // for size_t
 #include <cstdint>
 #include <deque>
 #include <fstream>
-#include <memory>
+#include <memory>  // for std::shared_ptr
 #include <string>
 #include <utility>  // for pair
 #include <vector>
+
+/** \addtogroup Telemetry_Decoder
+ * \{ */
+/** \addtogroup Telemetry_Decoder_gnuradio_blocks
+ * \{ */
+
 
 class Viterbi_Decoder;
 
 class sbas_l1_telemetry_decoder_gs;
 
-using sbas_l1_telemetry_decoder_gs_sptr = boost::shared_ptr<sbas_l1_telemetry_decoder_gs>;
+using sbas_l1_telemetry_decoder_gs_sptr = gnss_shared_ptr<sbas_l1_telemetry_decoder_gs>;
 
 sbas_l1_telemetry_decoder_gs_sptr sbas_l1_make_telemetry_decoder_gs(
     const Gnss_Satellite &satellite,
@@ -169,4 +161,7 @@ private:
     } d_crc_verifier;
 };
 
-#endif
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_SBAS_L1_TELEMETRY_DECODER_GS_H

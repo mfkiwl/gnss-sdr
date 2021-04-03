@@ -8,36 +8,28 @@
  * Class that controls and executes a highly optimized acquisition HW
  * accelerator in the FPGA
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_FPGA_ACQUISITION_H_
-#define GNSS_SDR_FPGA_ACQUISITION_H_
+#ifndef GNSS_SDR_FPGA_ACQUISITION_H
+#define GNSS_SDR_FPGA_ACQUISITION_H
 
 #include <cstdint>
 #include <string>
+
+/** \addtogroup Acquisition
+ * \{ */
+/** \addtogroup acquisition_libs
+ * \{ */
+
 
 /*!
  * \brief Class that implements carrier wipe-off and correlators.
@@ -46,15 +38,14 @@ class Fpga_Acquisition
 {
 public:
     /*!
-	 * \brief Constructor
-	 */
+     * \brief Constructor
+     */
     Fpga_Acquisition(
         std::string device_name,
         uint32_t nsamples,
         uint32_t doppler_max,
         uint32_t nsamples_total,
         int64_t fs_in,
-        uint32_t sampled_ms,
         uint32_t select_queue,
         uint32_t *all_fft_codes,
         uint32_t excludelimit);
@@ -77,7 +68,7 @@ public:
     /*!
      * \brief Run the acquisition process in the FPGA
      */
-    void run_acquisition(void);
+    void run_acquisition();
 
     /*!
      * \brief Read the results of the acquisition process
@@ -112,7 +103,7 @@ public:
     /*!
      * \brief Reset the FPGA PL.
      */
-    void reset_acquisition(void);
+    void reset_acquisition();
 
     /*!
      * \brief Read the scaling factor that has been used by the FFT-IFFT
@@ -160,6 +151,12 @@ private:
     static const uint32_t SELECT_ALL_CODE_BITS = 0xFFFFFFFF;  // Select a 20 bit word
     static const uint32_t SHL_CODE_BITS = 65536;              // shift left by 10 bits
 
+    // FPGA private functions
+    void fpga_acquisition_test_register(void);
+    void read_result_valid(uint32_t *result_valid);
+
+    std::string d_device_name;  // HW device name
+
     int64_t d_fs_in;
     // data related to the hardware module and the driver
     int32_t d_fd;                   // driver descriptor
@@ -170,13 +167,12 @@ private:
     uint32_t d_nsamples_total;  // number of samples including padding
     uint32_t d_nsamples;        // number of samples not including padding
     uint32_t d_select_queue;    // queue selection
-    std::string d_device_name;  // HW device name
     uint32_t d_doppler_max;     // max doppler
     uint32_t d_doppler_step;    // doppler step
     uint32_t d_PRN;             // PRN
-    // FPGA private functions
-    void fpga_acquisition_test_register(void);
-    void read_result_valid(uint32_t *result_valid);
 };
 
-#endif /* GNSS_SDR_FPGA_ACQUISITION_H_ */
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_FPGA_ACQUISITION_H

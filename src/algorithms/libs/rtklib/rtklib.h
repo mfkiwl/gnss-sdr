@@ -19,39 +19,19 @@
  * Neither the executive binaries nor the shared libraries are required by, used
  * or included in GNSS-SDR.
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  * Copyright (C) 2007-2013, T. Takasu
  * Copyright (C) 2017, Javier Arribas
  * Copyright (C) 2017, Carles Fernandez
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *----------------------------------------------------------------------------*/
+ * -----------------------------------------------------------------------------
+ */
 
-#ifndef GNSS_SDR_RTKLIB_H_
-#define GNSS_SDR_RTKLIB_H_
+#ifndef GNSS_SDR_RTKLIB_H
+#define GNSS_SDR_RTKLIB_H
 
 #include "MATH_CONSTANTS.h"
 #include "gnss_frequencies.h"
@@ -63,6 +43,13 @@
 #include <cstdlib>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <string>
+
+/** \addtogroup PVT
+ * \{ */
+/** \addtogroup RTKLIB_Library algorithms_libs_rtklib
+ * Our version of the RTKLIB core library (see http://www.rtklib.com/)
+ * \{ */
 
 
 /* macros --------------------------------------------------------------------*/
@@ -339,6 +326,7 @@ const int MAXSTRMSG = 1024;   //!<  max length of stream message
 
 using fatalfunc_t = void(const char *);  //!<  fatal callback function type
 
+// clang-format off
 #define STR_MODE_R 0x1  /* stream mode: read */
 #define STR_MODE_W 0x2  /* stream mode: write */
 #define STR_MODE_RW 0x3 /* stream mode: read/write */
@@ -360,6 +348,7 @@ using fatalfunc_t = void(const char *);  //!<  fatal callback function type
 #define NR_PPP(opt) (IT_PPP(opt) + ((opt)->tropopt < TROPOPT_EST ? 0 : ((opt)->tropopt == TROPOPT_EST ? 1 : 3))) /* number of solutions */
 #define IB_PPP(s, opt) (NR_PPP(opt) + (s)-1)                                                                     /* state index of phase bias */
 #define NX_PPP(opt) (IB_PPP(MAXSAT, opt) + 1)                                                                    /* number of estimated states */
+// clang-format on
 
 #define NF_RTK(opt) ((opt)->ionoopt == IONOOPT_IFLC ? 1 : (opt)->nf)
 #define NP_RTK(opt) ((opt)->dynamics == 0 ? 3 : 9)
@@ -1314,8 +1303,8 @@ const double CHISQR[100] = {/* chi-sqr(n) (alpha=0.001) */
 
 
 const double LAM_CARR[MAXFREQ] = {/* carrier wave length (m) */
-    SPEED_OF_LIGHT / FREQ1, SPEED_OF_LIGHT / FREQ2, SPEED_OF_LIGHT / FREQ5, SPEED_OF_LIGHT / FREQ6, SPEED_OF_LIGHT / FREQ7,
-    SPEED_OF_LIGHT / FREQ8, SPEED_OF_LIGHT / FREQ9};
+    SPEED_OF_LIGHT_M_S / FREQ1, SPEED_OF_LIGHT_M_S / FREQ2, SPEED_OF_LIGHT_M_S / FREQ5, SPEED_OF_LIGHT_M_S / FREQ6, SPEED_OF_LIGHT_M_S / FREQ7,
+    SPEED_OF_LIGHT_M_S / FREQ8, SPEED_OF_LIGHT_M_S / FREQ9};
 
 const int STRFMT_RTCM2 = 0;   /* stream format: RTCM 2 */
 const int STRFMT_RTCM3 = 1;   /* stream format: RTCM 3 */
@@ -1323,9 +1312,10 @@ const int STRFMT_SP3 = 16;    /* stream format: SP3 */
 const int STRFMT_RNXCLK = 17; /* stream format: RINEX CLK */
 const int STRFMT_SBAS = 18;   /* stream format: SBAS messages */
 const int STRFMT_NMEA = 19;   /* stream format: NMEA 0183 */
-//const solopt_t solopt_default;   /* default solution output options */
+// const solopt_t solopt_default;   /* default solution output options */
 
 const int MAXSTRRTK = 8; /* max number of stream in RTK server */
 
-
-#endif
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_RTKLIB_H

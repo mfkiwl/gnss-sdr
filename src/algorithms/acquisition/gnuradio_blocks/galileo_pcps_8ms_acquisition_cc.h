@@ -4,33 +4,19 @@
  * Galileo E1 signals with coherent integration time = 8 ms (two codes)
  * \author Marc Molina, 2013. marc.molina.pena(at)gmail.com
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_PCPS_8MS_ACQUISITION_CC_H_
-#define GNSS_SDR_PCPS_8MS_ACQUISITION_CC_H_
+#ifndef GNSS_SDR_PCPS_8MS_ACQUISITION_CC_H
+#define GNSS_SDR_PCPS_8MS_ACQUISITION_CC_H
 
 #include "channel_fsm.h"
 #include "gnss_synchro.h"
@@ -43,9 +29,15 @@
 #include <utility>
 #include <vector>
 
+/** \addtogroup Acquisition
+ * \{ */
+/** \addtogroup Acq_gnuradio_blocks
+ * \{ */
+
+
 class galileo_pcps_8ms_acquisition_cc;
 
-using galileo_pcps_8ms_acquisition_cc_sptr = boost::shared_ptr<galileo_pcps_8ms_acquisition_cc>;
+using galileo_pcps_8ms_acquisition_cc_sptr = gnss_shared_ptr<galileo_pcps_8ms_acquisition_cc>;
 
 galileo_pcps_8ms_acquisition_cc_sptr
 galileo_pcps_8ms_make_acquisition_cc(uint32_t sampled_ms,
@@ -55,7 +47,8 @@ galileo_pcps_8ms_make_acquisition_cc(uint32_t sampled_ms,
     int32_t samples_per_ms,
     int32_t samples_per_code,
     bool dump,
-    std::string dump_filename);
+    const std::string& dump_filename,
+    bool enable_monitor_output);
 
 /*!
  * \brief This class implements a Parallel Code Phase Search Acquisition for
@@ -177,7 +170,8 @@ private:
         int32_t samples_per_ms,
         int32_t samples_per_code,
         bool dump,
-        std::string dump_filename);
+        const std::string& dump_filename,
+        bool enable_monitor_output);
 
     galileo_pcps_8ms_acquisition_cc(
         uint32_t sampled_ms,
@@ -187,46 +181,61 @@ private:
         int32_t samples_per_ms,
         int32_t samples_per_code,
         bool dump,
-        std::string dump_filename);
+        const std::string& dump_filename,
+        bool enable_monitor_output);
 
     void calculate_magnitudes(
         gr_complex* fft_begin,
         int32_t doppler_shift,
         int32_t doppler_offset);
 
+    std::weak_ptr<ChannelFsm> d_channel_fsm;
+#if GNURADIO_FFT_USES_TEMPLATES
+    std::unique_ptr<gr::fft::fft_complex_fwd> d_fft_if;
+    std::unique_ptr<gr::fft::fft_complex_rev> d_ifft;
+#else
+    std::unique_ptr<gr::fft::fft_complex> d_fft_if;
+    std::unique_ptr<gr::fft::fft_complex> d_ifft;
+#endif
+    std::vector<std::vector<gr_complex>> d_grid_doppler_wipeoffs;
+    std::vector<gr_complex> d_fft_code_A;
+    std::vector<gr_complex> d_fft_code_B;
+    std::vector<float> d_magnitude;
+
+    std::string d_satellite_str;
+    std::string d_dump_filename;
+    std::ofstream d_dump_file;
+
+    Gnss_Synchro* d_gnss_synchro;
+
     int64_t d_fs_in;
+    uint64_t d_sample_counter;
+
+    float d_threshold;
+    float d_doppler_freq;
+    float d_mag;
+    float d_input_power;
+    float d_test_statistics;
+    int32_t d_state;
     int32_t d_samples_per_ms;
     int32_t d_samples_per_code;
+    uint32_t d_channel;
     uint32_t d_doppler_resolution;
-    float d_threshold;
-    std::string d_satellite_str;
     uint32_t d_doppler_max;
     uint32_t d_doppler_step;
     uint32_t d_sampled_ms;
     uint32_t d_max_dwells;
     uint32_t d_well_count;
     uint32_t d_fft_size;
-    uint64_t d_sample_counter;
-    std::vector<std::vector<gr_complex>> d_grid_doppler_wipeoffs;
     uint32_t d_num_doppler_bins;
-    std::vector<gr_complex> d_fft_code_A;
-    std::vector<gr_complex> d_fft_code_B;
-    std::shared_ptr<gr::fft::fft_complex> d_fft_if;
-    std::shared_ptr<gr::fft::fft_complex> d_ifft;
-    Gnss_Synchro* d_gnss_synchro;
     uint32_t d_code_phase;
-    float d_doppler_freq;
-    float d_mag;
-    std::vector<float> d_magnitude;
-    float d_input_power;
-    float d_test_statistics;
-    std::ofstream d_dump_file;
+
     bool d_active;
-    int32_t d_state;
     bool d_dump;
-    uint32_t d_channel;
-    std::weak_ptr<ChannelFsm> d_channel_fsm;
-    std::string d_dump_filename;
+    bool d_enable_monitor_output;
 };
 
-#endif /* GNSS_SDR_PCPS_8MS_ACQUISITION_CC_H_ */
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_PCPS_8MS_ACQUISITION_CC_H

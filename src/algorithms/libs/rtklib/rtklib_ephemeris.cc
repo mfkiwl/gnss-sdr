@@ -19,43 +19,23 @@
  * Neither the executive binaries nor the shared libraries are required by, used
  * or included in GNSS-SDR.
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  * Copyright (C) 2007-2013, T. Takasu
  * Copyright (C) 2017, Javier Arribas
  * Copyright (C) 2017, Carles Fernandez
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *----------------------------------------------------------------------------*/
+ * -----------------------------------------------------------------------------
+ */
 
 #include "rtklib_ephemeris.h"
 #include "rtklib_preceph.h"
 #include "rtklib_rtkcmn.h"
 #include "rtklib_sbas.h"
 
-/* constants ------------------------------------------------------*/
+/* constants -----------------------------------------------------------------*/
 
 const double RE_GLO = 6378136.0;      /* radius of earth (m)            ref [2] */
 const double MU_GPS = 3.9860050e14;   /* gravitational constant         ref [1] */
@@ -64,9 +44,9 @@ const double MU_GAL = 3.986004418e14; /* earth gravitational constant   ref [7] 
 const double MU_BDS = 3.986004418e14; /* earth gravitational constant   ref [9] */
 const double J2_GLO = 1.0826257e-3;   /* 2nd zonal harmonic of geopot   ref [2] */
 
-const double OMGE_GLO = 7.292115e-5;     /* earth angular velocity (rad/s) ref [2] */
-const double OMGE_GAL = 7.2921151467e-5; /* earth angular velocity (rad/s) ref [7] */
-const double OMGE_BDS = 7.292115e-5;     /* earth angular velocity (rad/s) ref [9] */
+const double OMGE_GLO = GLONASS_OMEGA_EARTH_DOT; /* earth angular velocity (rad/s) ref [2] */
+const double OMGE_GAL = GNSS_OMEGA_EARTH_DOT;    /* earth angular velocity (rad/s) ref [7] */
+const double OMGE_BDS = BEIDOU_OMEGA_EARTH_DOT;  /* earth angular velocity (rad/s) ref [9] */
 
 const double SIN_5 = -0.0871557427476582; /* sin(-5.0 deg) */
 const double COS_5 = 0.9961946980917456;  /* cos(-5.0 deg) */
@@ -75,12 +55,12 @@ const double ERREPH_GLO = 5.0;    /* error of glonass ephemeris (m) */
 const double TSTEP = 60.0;        /* integration step glonass ephemeris (s) */
 const double RTOL_KEPLER = 1e-13; /* relative tolerance for Kepler equation */
 
-const double DEFURASSR = 0.15;                   /* default accuracy of ssr corr (m) */
-const double MAXECORSSR = 10.0;                  /* max orbit correction of ssr (m) */
-const double MAXCCORSSR = 1e-6 * SPEED_OF_LIGHT; /* max clock correction of ssr (m) */
-const double MAXAGESSR = 90.0;                   /* max age of ssr orbit and clock (s) */
-const double MAXAGESSR_HRCLK = 10.0;             /* max age of ssr high-rate clock (s) */
-const double STD_BRDCCLK = 30.0;                 /* error of broadcast clock (m) */
+const double DEFURASSR = 0.15;                       /* default accuracy of ssr corr (m) */
+const double MAXECORSSR = 10.0;                      /* max orbit correction of ssr (m) */
+const double MAXCCORSSR = 1e-6 * SPEED_OF_LIGHT_M_S; /* max clock correction of ssr (m) */
+const double MAXAGESSR = 90.0;                       /* max age of ssr orbit and clock (s) */
+const double MAXAGESSR_HRCLK = 10.0;                 /* max age of ssr high-rate clock (s) */
+const double STD_BRDCCLK = 30.0;                     /* error of broadcast clock (m) */
 
 const int MAX_ITER_KEPLER = 30; /* max number of iteration of Kelpler */
 
@@ -123,7 +103,22 @@ double var_urassr(int ura)
  *-----------------------------------------------------------------------------*/
 void alm2pos(gtime_t time, const alm_t *alm, double *rs, double *dts)
 {
-    double tk, M, E, Ek, sinE, cosE, u, r, i, O, x, y, sinO, cosO, cosi, mu;
+    double tk;
+    double M;
+    double E;
+    double Ek;
+    double sinE;
+    double cosE;
+    double u;
+    double r;
+    double i;
+    double O;
+    double x;
+    double y;
+    double sinO;
+    double cosO;
+    double cosi;
+    double mu;
     int n;
 
     trace(4, "alm2pos : time=%s sat=%2d\n", time_str(time, 3), alm->sat);
@@ -153,7 +148,7 @@ void alm2pos(gtime_t time, const alm_t *alm, double *rs, double *dts)
     u = atan2(sqrt(1.0 - alm->e * alm->e) * sinE, cosE - alm->e) + alm->omg;
     r = alm->A * (1.0 - alm->e * cosE);
     i = alm->i0;
-    O = alm->OMG0 + (alm->OMGd - DEFAULT_OMEGA_EARTH_DOT) * tk - DEFAULT_OMEGA_EARTH_DOT * alm->toas;
+    O = alm->OMG0 + (alm->OMGd - GNSS_OMEGA_EARTH_DOT) * tk - GNSS_OMEGA_EARTH_DOT * alm->toas;
     x = r * cos(u);
     y = r * sin(u);
     sinO = sin(O);
@@ -207,9 +202,33 @@ double eph2clk(gtime_t time, const eph_t *eph)
 void eph2pos(gtime_t time, const eph_t *eph, double *rs, double *dts,
     double *var)
 {
-    double tk, M, E, Ek, sinE, cosE, u, r, i, O, sin2u, cos2u, x, y, sinO, cosO, cosi, mu, omge;
-    double xg, yg, zg, sino, coso;
-    int n, sys, prn;
+    double tk;
+    double M;
+    double E;
+    double Ek;
+    double sinE;
+    double cosE;
+    double u;
+    double r;
+    double i;
+    double O;
+    double sin2u;
+    double cos2u;
+    double x;
+    double y;
+    double sinO;
+    double cosO;
+    double cosi;
+    double mu;
+    double omge;
+    double xg;
+    double yg;
+    double zg;
+    double sino;
+    double coso;
+    int n;
+    int sys;
+    int prn;
 
     trace(4, "eph2pos : time=%s sat=%2d\n", time_str(time, 3), eph->sat);
 
@@ -232,7 +251,7 @@ void eph2pos(gtime_t time, const eph_t *eph, double *rs, double *dts,
             break;
         default:
             mu = MU_GPS;
-            omge = DEFAULT_OMEGA_EARTH_DOT;
+            omge = GNSS_OMEGA_EARTH_DOT;
             break;
         }
     M = eph->M0 + (sqrt(mu / (eph->A * eph->A * eph->A)) + eph->deln) * tk;
@@ -292,7 +311,7 @@ void eph2pos(gtime_t time, const eph_t *eph, double *rs, double *dts,
     *dts = eph->f0 + eph->f1 * tk + eph->f2 * tk * tk;
 
     /* relativity correction */
-    *dts -= 2.0 * sqrt(mu * eph->A) * eph->e * sinE / std::pow(SPEED_OF_LIGHT, 2.0);
+    *dts -= 2.0 * sqrt(mu * eph->A) * eph->e * sinE / std::pow(SPEED_OF_LIGHT_M_S, 2.0);
 
     /* position and clock error variance */
     *var = var_uraeph(eph->sva);
@@ -302,7 +321,12 @@ void eph2pos(gtime_t time, const eph_t *eph, double *rs, double *dts,
 /* glonass orbit differential equations --------------------------------------*/
 void deq(const double *x, double *xdot, const double *acc)
 {
-    double a, b, c, r2 = dot(x, x, 3), r3 = r2 * sqrt(r2), omg2 = std::pow(OMGE_GLO, 2.0);
+    double a;
+    double b;
+    double c;
+    double r2 = dot(x, x, 3);
+    double r3 = r2 * sqrt(r2);
+    double omg2 = std::pow(OMGE_GLO, 2.0);
 
     if (r2 <= 0.0)
         {
@@ -325,7 +349,11 @@ void deq(const double *x, double *xdot, const double *acc)
 /* glonass position and velocity by numerical integration --------------------*/
 void glorbit(double t, double *x, const double *acc)
 {
-    double k1[6], k2[6], k3[6], k4[6], w[6];
+    double k1[6];
+    double k2[6];
+    double k3[6];
+    double k4[6];
+    double w[6];
     int i;
 
     deq(x, k1, acc);
@@ -388,7 +416,9 @@ double geph2clk(gtime_t time, const geph_t *geph)
 void geph2pos(gtime_t time, const geph_t *geph, double *rs, double *dts,
     double *var)
 {
-    double t, tt, x[6];
+    double t;
+    double tt;
+    double x[6];
     int i;
 
     trace(4, "geph2pos: time=%s sat=%2d\n", time_str(time, 3), geph->sat);
@@ -402,13 +432,15 @@ void geph2pos(gtime_t time, const geph_t *geph, double *rs, double *dts,
             x[i] = geph->pos[i];
             x[i + 3] = geph->vel[i];
         }
-    for (tt = t < 0.0 ? -TSTEP : TSTEP; fabs(t) > 1e-9; t -= tt)
+    tt = t < 0.0 ? -TSTEP : TSTEP;
+    while (fabs(t) > 1e-9)
         {
             if (fabs(t) < TSTEP)
                 {
                     tt = t;
                 }
             glorbit(tt, x, geph->acc);
+            t -= tt;
         }
     for (i = 0; i < 3; i++)
         {
@@ -476,8 +508,11 @@ void seph2pos(gtime_t time, const seph_t *seph, double *rs, double *dts,
 /* select ephemeris --------------------------------------------------------*/
 eph_t *seleph(gtime_t time, int sat, int iode, const nav_t *nav)
 {
-    double t, tmax, tmin;
-    int i, j = -1;
+    double t;
+    double tmax;
+    double tmin;
+    int i;
+    int j = -1;
 
     trace(4, "seleph  : time=%s sat=%2d iode=%d\n", time_str(time, 3), sat, iode);
 
@@ -535,8 +570,11 @@ eph_t *seleph(gtime_t time, int sat, int iode, const nav_t *nav)
 /* select glonass ephemeris ------------------------------------------------*/
 geph_t *selgeph(gtime_t time, int sat, int iode, const nav_t *nav)
 {
-    double t, tmax = MAXDTOE_GLO, tmin = tmax + 1.0;
-    int i, j = -1;
+    double t;
+    double tmax = MAXDTOE_GLO;
+    double tmin = tmax + 1.0;
+    int i;
+    int j = -1;
 
     trace(4, "selgeph : time=%s sat=%2d iode=%2d\n", time_str(time, 3), sat, iode);
 
@@ -577,8 +615,11 @@ geph_t *selgeph(gtime_t time, int sat, int iode, const nav_t *nav)
 /* select sbas ephemeris ---------------------------------------------------*/
 seph_t *selseph(gtime_t time, int sat, const nav_t *nav)
 {
-    double t, tmax = MAXDTOE_SBS, tmin = tmax + 1.0;
-    int i, j = -1;
+    double t;
+    double tmax = MAXDTOE_SBS;
+    double tmin = tmax + 1.0;
+    int i;
+    int j = -1;
 
     trace(4, "selseph : time=%s sat=%2d\n", time_str(time, 3), sat);
 
@@ -660,8 +701,11 @@ int ephpos(gtime_t time, gtime_t teph, int sat, const nav_t *nav,
     eph_t *eph;
     geph_t *geph;
     seph_t *seph;
-    double rst[3], dtst[1], tt = 1e-3;
-    int i, sys;
+    double rst[3];
+    double dtst[1];
+    double tt = 1e-3;
+    int i;
+    int sys;
 
     trace(4, "ephpos  : time=%s sat=%2d iode=%d\n", time_str(time, 3), sat, iode);
 
@@ -767,8 +811,19 @@ int satpos_ssr(gtime_t time, gtime_t teph, int sat, const nav_t *nav,
 {
     const ssr_t *ssr;
     eph_t *eph;
-    double t1, t2, t3, er[3], ea[3], ec[3], rc[3], deph[3], dclk, dant[3] = {0}, tk;
-    int i, sys;
+    double t1;
+    double t2;
+    double t3;
+    double er[3];
+    double ea[3];
+    double ec[3];
+    double rc[3];
+    double deph[3];
+    double dclk;
+    double dant[3] = {0};
+    double tk;
+    int i;
+    int sys;
 
     trace(4, "satpos_ssr: time=%s sat=%2d\n", time_str(time, 3), sat);
 
@@ -852,7 +907,7 @@ int satpos_ssr(gtime_t time, gtime_t teph, int sat, const nav_t *nav,
             dts[1] = eph->f1 + 2.0 * eph->f2 * tk;
 
             /* relativity correction */
-            dts[0] -= 2.0 * dot(rs, rs + 3, 3) / SPEED_OF_LIGHT / SPEED_OF_LIGHT;
+            dts[0] -= 2.0 * dot(rs, rs + 3, 3) / SPEED_OF_LIGHT_M_S / SPEED_OF_LIGHT_M_S;
         }
     /* radial-along-cross directions in ecef */
     if (!normv3(rs + 3, ea))
@@ -876,8 +931,8 @@ int satpos_ssr(gtime_t time, gtime_t teph, int sat, const nav_t *nav,
         {
             rs[i] += -(er[i] * deph[0] + ea[i] * deph[1] + ec[i] * deph[2]) + dant[i];
         }
-    /* t_corr = t_sv - (dts(brdc) + dclk(ssr) / SPEED_OF_LIGHT) (ref [10] eq.3.12-7) */
-    dts[0] += dclk / SPEED_OF_LIGHT;
+    /* t_corr = t_sv - (dts(brdc) + dclk(ssr) / SPEED_OF_LIGHT_M_S) (ref [10] eq.3.12-7) */
+    dts[0] += dclk / SPEED_OF_LIGHT_M_S;
 
     /* variance by ssr ura */
     *var = var_urassr(ssr->ura);
@@ -932,8 +987,8 @@ int satpos(gtime_t time, gtime_t teph, int sat, int ephopt,
                 {
                     return 1;
                 }
-            //TODO: enable lex
-            //case EPHOPT_LEX   :
+            // TODO: enable lex
+            // case EPHOPT_LEX   :
             //    if (!lexeph2pos(time, sat, nav, rs, dts, var)) break; else return 1;
         }
     *svh = -1;
@@ -969,8 +1024,10 @@ void satposs(gtime_t teph, const obsd_t *obs, int n, const nav_t *nav,
     int ephopt, double *rs, double *dts, double *var, int *svh)
 {
     gtime_t time[MAXOBS] = {};
-    double dt, pr;
-    int i, j;
+    double dt;
+    double pr;
+    int i;
+    int j;
 
     trace(3, "satposs : teph=%s n=%d ephopt=%d\n", time_str(teph, 3), n, ephopt);
 
@@ -1002,7 +1059,7 @@ void satposs(gtime_t teph, const obsd_t *obs, int n, const nav_t *nav,
                     continue;
                 }
             /* transmission time by satellite clock */
-            time[i] = timeadd(obs[i].time, -pr / SPEED_OF_LIGHT);
+            time[i] = timeadd(obs[i].time, -pr / SPEED_OF_LIGHT_M_S);
 
             /* satellite clock bias by broadcast ephemeris */
             if (!ephclk(time[i], teph, obs[i].sat, nav, &dt))

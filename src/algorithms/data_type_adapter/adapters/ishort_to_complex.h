@@ -3,39 +3,32 @@
  * \brief Adapts an I/Q interleaved short integer sample stream to a gr_complex (float) stream
  * \author Javier Arribas, jarribas(at)cttc.es
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_ISHORT_TO_COMPLEX_H_
-#define GNSS_SDR_ISHORT_TO_COMPLEX_H_
+#ifndef GNSS_SDR_ISHORT_TO_COMPLEX_H
+#define GNSS_SDR_ISHORT_TO_COMPLEX_H
 
 #include "conjugate_cc.h"
 #include "gnss_block_interface.h"
 #include <gnuradio/blocks/file_sink.h>
 #include <gnuradio/blocks/interleaved_short_to_complex.h>
+#include <cstdint>
 #include <string>
+
+/** \addtogroup Data_Type
+ * \{ */
+/** \addtogroup Data_type_adapters
+ * \{ */
+
 
 class ConfigurationInterface;
 
@@ -46,7 +39,7 @@ class ConfigurationInterface;
 class IshortToComplex : public GNSSBlockInterface
 {
 public:
-    IshortToComplex(ConfigurationInterface* configuration,
+    IshortToComplex(const ConfigurationInterface* configuration,
         const std::string& role, unsigned int in_streams,
         unsigned int out_streams);
 
@@ -65,7 +58,7 @@ public:
 
     inline size_t item_size() override
     {
-        return 0;
+        return 2 * sizeof(int16_t);
     }
 
     void connect(gr::top_block_sptr top_block) override;
@@ -75,17 +68,19 @@ public:
 
 private:
     gr::blocks::interleaved_short_to_complex::sptr gr_interleaved_short_to_complex_;
-    ConfigurationInterface* config_;
-    bool dump_;
+    conjugate_cc_sptr conjugate_cc_;
+    gr::blocks::file_sink::sptr file_sink_;
     std::string dump_filename_;
     std::string input_item_type_;
     std::string output_item_type_;
     std::string role_;
     unsigned int in_streams_;
     unsigned int out_streams_;
-    gr::blocks::file_sink::sptr file_sink_;
-    conjugate_cc_sptr conjugate_cc_;
     bool inverted_spectrum;
+    bool dump_;
 };
 
-#endif
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_ISHORT_TO_COMPLEX_H

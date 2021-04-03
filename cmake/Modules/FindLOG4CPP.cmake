@@ -1,19 +1,8 @@
-# Copyright (C) 2011-2019 (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: 2011-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
 
 # - Find Log4cpp
 # Find the native LOG4CPP includes and library
@@ -30,8 +19,10 @@ if(NOT COMMAND feature_summary)
     include(FeatureSummary)
 endif()
 
-set(PKG_CONFIG_USE_CMAKE_PREFIX_PATH TRUE)
-include(FindPkgConfig)
+if(NOT PKG_CONFIG_FOUND)
+    include(FindPkgConfig)
+endif()
+
 pkg_check_modules(PC_LOG4CPP log4cpp QUIET)
 
 if(LOG4CPP_INCLUDE_DIR)
@@ -39,13 +30,28 @@ if(LOG4CPP_INCLUDE_DIR)
   set(LOG4CPP_FIND_QUIETLY TRUE)
 endif()
 
+if(LOG4CPP_ROOT)
+    set(LOG4CPP_ROOT_USER_PROVIDED ${LOG4CPP_ROOT})
+else()
+    set(LOG4CPP_ROOT_USER_PROVIDED /usr)
+endif()
+if(DEFINED ENV{LOG4CPP_ROOT})
+    set(LOG4CPP_ROOT_USER_PROVIDED
+        ${LOG4CPP_ROOT_USER_PROVIDED}
+        $ENV{LOG4CPP_ROOT}
+    )
+endif()
+set(LOG4CPP_ROOT_USER_PROVIDED
+    ${LOG4CPP_ROOT_USER_PROVIDED}
+    ${CMAKE_INSTALL_PREFIX}
+)
+
 find_path(LOG4CPP_INCLUDE_DIR log4cpp/Category.hh
-  /opt/local/include
-  /usr/local/include
-  /usr/include
-  ${LOG4CPP_ROOT}/include
-  $ENV{LOG4CPP_ROOT}/include
-  ${PC_LOG4CPP_INCLUDEDIR}
+    ${LOG4CPP_ROOT_USER_PROVIDED}/include
+    /usr/include
+    /usr/local/include
+    /opt/local/include
+    ${PC_LOG4CPP_INCLUDEDIR}
 )
 
 if(LOG4CPP_INCLUDE_DIR)
@@ -64,11 +70,12 @@ endif()
 
 set(LOG4CPP_NAMES log4cpp)
 find_library(LOG4CPP_LIBRARY
-  NAMES ${LOG4CPP_NAMES}
-  HINTS $ENV{GNURADIO_RUNTIME_DIR}/lib
-        ${PC_LOG4CPP_LIBDIR}
-        ${CMAKE_INSTALL_PREFIX}/lib/
-  PATHS /usr/local/lib
+    NAMES ${LOG4CPP_NAMES}
+    HINTS ${PC_LOG4CPP_LIBDIR}
+    PATHS ${LOG4CPP_ROOT_USER_PROVIDED}/lib
+        ${LOG4CPP_ROOT_USER_PROVIDED}/lib64
+        /usr/lib
+        /usr/lib64
         /usr/lib/x86_64-linux-gnu
         /usr/lib/i386-linux-gnu
         /usr/lib/arm-linux-gnueabihf
@@ -92,25 +99,22 @@ find_library(LOG4CPP_LIBRARY
         /usr/lib/sparc64-linux-gnu
         /usr/lib/x86_64-linux-gnux32
         /usr/lib/alpha-linux-gnu
-        /usr/lib64
-        /usr/lib
+        /usr/lib/riscv64-linux-gnu
+        /usr/local/lib
+        /usr/local/lib64
         /opt/local/lib
-        ${LOG4CPP_ROOT}/lib
-        $ENV{LOG4CPP_ROOT}/lib
-        ${LOG4CPP_ROOT}/lib64
-        $ENV{LOG4CPP_ROOT}/lib64
 )
 
 if(LOG4CPP_INCLUDE_DIR AND LOG4CPP_LIBRARY)
-  set(LOG4CPP_FOUND TRUE)
-  set(LOG4CPP_LIBRARIES ${LOG4CPP_LIBRARY} CACHE INTERNAL "" FORCE)
-  set(LOG4CPP_INCLUDE_DIRS ${LOG4CPP_INCLUDE_DIR} CACHE INTERNAL "" FORCE)
+    set(LOG4CPP_FOUND TRUE)
+    set(LOG4CPP_LIBRARIES ${LOG4CPP_LIBRARY} CACHE INTERNAL "" FORCE)
+    set(LOG4CPP_INCLUDE_DIRS ${LOG4CPP_INCLUDE_DIR} CACHE INTERNAL "" FORCE)
 else()
-  set(LOG4CPP_FOUND FALSE CACHE INTERNAL "" FORCE)
-  set(LOG4CPP_LIBRARY "" CACHE INTERNAL "" FORCE)
-  set(LOG4CPP_LIBRARIES "" CACHE INTERNAL "" FORCE)
-  set(LOG4CPP_INCLUDE_DIR "" CACHE INTERNAL "" FORCE)
-  set(LOG4CPP_INCLUDE_DIRS "" CACHE INTERNAL "" FORCE)
+    set(LOG4CPP_FOUND FALSE CACHE INTERNAL "" FORCE)
+    set(LOG4CPP_LIBRARY "" CACHE INTERNAL "" FORCE)
+    set(LOG4CPP_LIBRARIES "" CACHE INTERNAL "" FORCE)
+    set(LOG4CPP_INCLUDE_DIR "" CACHE INTERNAL "" FORCE)
+    set(LOG4CPP_INCLUDE_DIRS "" CACHE INTERNAL "" FORCE)
 endif()
 
 include(FindPackageHandleStandardArgs)
@@ -140,17 +144,14 @@ else()
     )
 endif()
 
-if (LOG4CPP_FOUND AND NOT TARGET Log4cpp::log4cpp)
-  add_library(Log4cpp::log4cpp SHARED IMPORTED)
-  set_target_properties(Log4cpp::log4cpp PROPERTIES
-      IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
-      IMPORTED_LOCATION "${LOG4CPP_LIBRARIES}"
-      INTERFACE_INCLUDE_DIRECTORIES "${LOG4CPP_INCLUDE_DIRS}"
-      INTERFACE_LINK_LIBRARIES "${LOG4CPP_LIBRARIES}"
-  )
+if(LOG4CPP_FOUND AND NOT TARGET Log4cpp::log4cpp)
+    add_library(Log4cpp::log4cpp SHARED IMPORTED)
+    set_target_properties(Log4cpp::log4cpp PROPERTIES
+        IMPORTED_LINK_INTERFACE_LANGUAGES "CXX"
+        IMPORTED_LOCATION "${LOG4CPP_LIBRARIES}"
+        INTERFACE_INCLUDE_DIRECTORIES "${LOG4CPP_INCLUDE_DIRS}"
+        INTERFACE_LINK_LIBRARIES "${LOG4CPP_LIBRARIES}"
+    )
 endif()
 
-mark_as_advanced(
-  LOG4CPP_LIBRARIES
-  LOG4CPP_INCLUDE_DIRS
-)
+mark_as_advanced(LOG4CPP_LIBRARIES LOG4CPP_INCLUDE_DIRS)

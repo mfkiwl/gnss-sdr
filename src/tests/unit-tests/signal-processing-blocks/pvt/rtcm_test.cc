@@ -4,32 +4,19 @@
  * \author Carles Fernandez-Prades, 2015. cfernandez(at)cttc.es
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#include "Galileo_E1.h"
+
+#include "Galileo_INAV.h"
 #include "rtcm.h"
 #include <memory>
 #include <thread>
@@ -262,14 +249,14 @@ TEST(RtcmTest, MT1019)
 
     gps_eph.i_satellite_PRN = 3;
     gps_eph.d_IODC = 4;
-    gps_eph.d_e_eccentricity = 2.0 * E_LSB;
+    gps_eph.d_e_eccentricity = 2.0 * ECCENTRICITY_LSB;
     gps_eph.b_fit_interval_flag = true;
     std::string tx_msg = rtcm->print_MT1019(gps_eph);
 
     EXPECT_EQ(0, rtcm->read_MT1019(tx_msg, gps_eph_read));
     EXPECT_EQ(static_cast<unsigned int>(3), gps_eph_read.i_satellite_PRN);
     EXPECT_DOUBLE_EQ(4, gps_eph_read.d_IODC);
-    EXPECT_DOUBLE_EQ(2.0 * E_LSB, gps_eph_read.d_e_eccentricity);
+    EXPECT_DOUBLE_EQ(2.0 * ECCENTRICITY_LSB, gps_eph_read.d_e_eccentricity);
     EXPECT_EQ(expected_true, gps_eph_read.b_fit_interval_flag);
     EXPECT_EQ(1, rtcm->read_MT1019(rtcm->bin_to_binary_data(rtcm->hex_to_bin("FFFFFFFFFFF")), gps_eph_read));
 }
@@ -354,7 +341,7 @@ TEST(RtcmTest, MSMCell)
     auto rtcm = std::make_shared<Rtcm>();
     Gps_Ephemeris gps_eph = Gps_Ephemeris();
     Galileo_Ephemeris gal_eph = Galileo_Ephemeris();
-    //Glonass_Gnav_Ephemeris glo_gnav_eph = Glonass_Gnav_Ephemeris();
+    // Glonass_Gnav_Ephemeris glo_gnav_eph = Glonass_Gnav_Ephemeris();
     std::map<int, Gnss_Synchro> pseudoranges;
 
     Gnss_Synchro gnss_synchro;
@@ -386,12 +373,12 @@ TEST(RtcmTest, MSMCell)
     gnss_synchro5.System = *gps.c_str();
     gnss_synchro6.System = *glo.c_str();
 
-    std::memcpy((void*)gnss_synchro.Signal, x5.c_str(), 3);
-    std::memcpy((void*)gnss_synchro2.Signal, s2.c_str(), 3);
-    std::memcpy((void*)gnss_synchro3.Signal, c1.c_str(), 3);
-    std::memcpy((void*)gnss_synchro4.Signal, x5.c_str(), 3);
-    std::memcpy((void*)gnss_synchro5.Signal, c1.c_str(), 3);
-    std::memcpy((void*)gnss_synchro6.Signal, c1.c_str(), 3);
+    std::memcpy(reinterpret_cast<void*>(gnss_synchro.Signal), x5.c_str(), 3);
+    std::memcpy(reinterpret_cast<void*>(gnss_synchro2.Signal), s2.c_str(), 3);
+    std::memcpy(reinterpret_cast<void*>(gnss_synchro3.Signal), c1.c_str(), 3);
+    std::memcpy(reinterpret_cast<void*>(gnss_synchro4.Signal), x5.c_str(), 3);
+    std::memcpy(reinterpret_cast<void*>(gnss_synchro5.Signal), c1.c_str(), 3);
+    std::memcpy(reinterpret_cast<void*>(gnss_synchro6.Signal), c1.c_str(), 3);
 
     gnss_synchro.Pseudorange_m = 20000000.0;
     gnss_synchro2.Pseudorange_m = 20001010.0;
@@ -417,7 +404,7 @@ TEST(RtcmTest, MSMCell)
 
     gps_eph.i_satellite_PRN = gnss_synchro2.PRN;
     gal_eph.i_satellite_PRN = gnss_synchro.PRN;
-    //glo_gnav_eph.i_satellite_PRN = gnss_synchro.PRN;
+    // glo_gnav_eph.i_satellite_PRN = gnss_synchro.PRN;
 
     std::string MSM1 = rtcm->print_MSM_1(gps_eph,
         {},
@@ -465,7 +452,7 @@ TEST(RtcmTest, MSMCell)
     Gnss_Synchro gnss_synchro7;
     gnss_synchro7.PRN = 10;
     gnss_synchro7.System = *gps.c_str();
-    std::memcpy((void*)gnss_synchro7.Signal, s2.c_str(), 3);
+    std::memcpy(reinterpret_cast<void*>(gnss_synchro7.Signal), s2.c_str(), 3);
     gnss_synchro7.Pseudorange_m = 24000000.0;
 
     std::map<int, Gnss_Synchro> pseudoranges3;
@@ -570,7 +557,7 @@ TEST(RtcmTest, MSM1)
     EXPECT_EQ(ref_id, rtcm->bin_to_uint(MSM1_bin.substr(size_header + size_msg_length + 12, 12)));
     EXPECT_EQ(0, MSM1_bin.substr(size_header + size_msg_length + 169, Nsat * Nsig).compare("101101"));  // check cell mask
 
-    double meters_to_miliseconds = GPS_C_M_S * 0.001;
+    double meters_to_miliseconds = SPEED_OF_LIGHT_M_S * 0.001;
     unsigned int rough_range_1 = static_cast<unsigned int>(std::floor(std::round(gnss_synchro.Pseudorange_m / meters_to_miliseconds / TWO_N10)) + 0.5) & 0x3FFu;
     unsigned int rough_range_2 = static_cast<unsigned int>(std::floor(std::round(gnss_synchro2.Pseudorange_m / meters_to_miliseconds / TWO_N10)) + 0.5) & 0x3FFu;
     unsigned int rough_range_4 = static_cast<unsigned int>(std::floor(std::round(gnss_synchro3.Pseudorange_m / meters_to_miliseconds / TWO_N10)) + 0.5) & 0x3FFu;

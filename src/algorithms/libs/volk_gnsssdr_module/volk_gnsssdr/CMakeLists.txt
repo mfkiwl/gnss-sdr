@@ -1,26 +1,17 @@
-#
-# Copyright (C) 2010-2019 (see AUTHORS file for a list of contributors)
-#
+# GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# GNSS-SDR is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# GNSS-SDR is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
-#
+# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-License-Identifier: BSD-3-Clause
+
 
 ########################################################################
 # Project setup
 ########################################################################
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 2.8.12...3.19)
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release")
+endif()
 set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "Choose build type: None Debug Release RelWithDebInfo MinSizeRel")
 project(volk_gnsssdr)
 enable_language(CXX)
@@ -83,6 +74,7 @@ else()
     find_package(FILESYSTEM COMPONENTS Final Experimental)
 endif()
 
+set(MY_CXX_FLAGS "")
 if((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") AND NOT WIN32)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "6.1.1")
         if(CMAKE_VERSION VERSION_LESS "3.1")
@@ -106,7 +98,7 @@ if((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") AND NOT WIN32)
             endif()
         endif()
     endif()
-    set(MY_CXX_FLAGS "${MY_CXX_FLAGS} -Wall -Wextra")  # Add warning flags: For "-Wall" see http://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
+    set(MY_CXX_FLAGS "${MY_CXX_FLAGS} -Wall -Wextra")  # Add warning flags: For "-Wall" see https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -159,10 +151,42 @@ if(NOT ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") AND NOT WIN32) AND NOT (CMAKE_CXX
     endif()
 endif()
 
+########################################################################
+# Common compile flags
+########################################################################
+
+# Disable complex math NaN/INFO range checking for performance
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag(-fcx-limited-range HAVE_CX_LIMITED_RANGE)
+if(HAVE_CX_LIMITED_RANGE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcx-limited-range")
+endif()
+
+include(CheckCCompilerFlag)
+check_c_compiler_flag(-fcx-limited-range HAVE_C_LIMITED_RANGE)
+if(HAVE_C_LIMITED_RANGE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcx-limited-range")
+endif()
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${MY_CXX_FLAGS} -Wall")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
-option(ENABLE_STRIP "Create a stripped volk_gnsssdr_profile binary (without shared libraries)" OFF)
+if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+    # Abort compilation if kernel implementations have inconsistent function
+    # prototypes, i.e. if
+    #
+    #     kernel_foo_sse(uint32_t *dst, lv32fc_t *src)
+    #     kernel_foo_avx(uint16_t *dst, lv32fc_t *src)
+    #
+    # are defined. Note the different data type of the first argument). By
+    # default 'incompatible-pointer-types' is a warning only and 'pointer-sign'
+    # is a warning enabled by '-Wall'. These warnings are only applicable to C.
+    if(NOT (CMAKE_C_COMPILER_ID MATCHES "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_LESS "5.0"))
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror=incompatible-pointer-types -Werror=pointer-sign")
+    endif()
+endif()
+
+option(ENABLE_STRIP "Create a stripped volk_gnsssdr_profile binary (without debugging symbols)" OFF)
 if(ENABLE_STRIP)
     set(CMAKE_VERBOSE_MAKEFILE ON)
 endif()
@@ -179,7 +203,7 @@ message(STATUS "Build type set to ${CMAKE_BUILD_TYPE}.")
 
 set(VERSION_INFO_MAJOR_VERSION 0)
 set(VERSION_INFO_MINOR_VERSION 0)
-set(VERSION_INFO_MAINT_VERSION 11)
+set(VERSION_INFO_MAINT_VERSION 14)
 include(VolkVersion) # setup version info
 
 
@@ -219,24 +243,54 @@ endif()
 # Dependencies setup
 ########################################################################
 
+# cpu_features
+set(SUPPORTED_CPU_FEATURES_ARCH FALSE)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^mips")
+  set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+  set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+  set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)|(AMD64|amd64)|(^i.86$)")
+  set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(powerpc|ppc)")
+  set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
+endif()
+
+if(CMAKE_VERSION VERSION_GREATER 3.0 AND SUPPORTED_CPU_FEATURES_ARCH)
+    set(BUILD_PIC ON CACHE BOOL
+        "Build cpu_features with Position Independent Code (PIC)."
+        FORCE
+    )
+    set(USE_CPU_FEATURES ON)
+    set(BUILD_SHARED_LIBS_SAVED "${BUILD_SHARED_LIBS}")
+    set(BUILD_SHARED_LIBS OFF)
+    add_subdirectory(cpu_features)
+    set(BUILD_SHARED_LIBS "${BUILD_SHARED_LIBS_SAVED}")
+endif()
+
 # Python
-include(VolkPython) # sets PYTHON_EXECUTABLE and PYTHON_DASH_B
+include(VolkPython) # sets PYTHON_EXECUTABLE
 volk_python_check_module("python >= 2.7" sys "sys.version.split()[0] >= '2.7'" PYTHON_MIN_VER_FOUND)
 volk_python_check_module("mako >= 0.4.2" mako "mako.__version__ >= '0.4.2'" MAKO_FOUND)
-volk_python_check_module("six - python 2 and 3 compatibility library" six "True" SIX_FOUND)
-
+if(Python2_VERSION OR (PYTHON_VERSION_STRING VERSION_LESS "3.0"))
+    volk_python_check_module("six - python 2 and 3 compatibility library" six "True" SIX_FOUND)
+endif()
 
 if(NOT PYTHON_MIN_VER_FOUND)
     message(FATAL_ERROR "Python 2.7 or greater required to build VOLK_GNSSSDR")
 endif()
 
-#  Mako
+# Mako
 if(NOT MAKO_FOUND)
     message(FATAL_ERROR "Mako templates required to build VOLK_GNSSSDR")
 endif()
+
 # Six
-if(NOT SIX_FOUND)
-    message(FATAL_ERROR "six - python 2 and 3 compatibility library required to build VOLK")
+if(Python2_VERSION OR (PYTHON_VERSION_STRING VERSION_LESS "3.0"))
+    if(NOT SIX_FOUND)
+        message(FATAL_ERROR "six - python 2 and 3 compatibility library required to build VOLK_GNSSSDR")
+    endif()
 endif()
 
 
@@ -252,23 +306,36 @@ if(MSVC)
         unset(BOOST_REQUIRED_COMPONENTS) # empty components list for static link
     endif()
 endif()
-if(${FILESYSTEM_FOUND})
-    set(Boost_LIBRARIES "")
-    set(Boost_INCLUDE_DIRS "")
-    set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH})
-else()
+if(NOT ${FILESYSTEM_FOUND})
     include(VolkBoost)
     if(NOT Boost_FOUND)
         message(FATAL_ERROR "VOLK-GNSSSDR requires Boost to build")
     endif()
 endif()
 
-# Orc
+
+########################################################################
+# check for aligned_alloc, since some compilers lack this C11 feature.
+# For Apple-clang use `posix_memalign`
+# For MSVC use `_aligned_malloc`.
+########################################################################
+include(CheckSymbolExists)
+if(NOT (${CMAKE_SYSTEM_NAME} MATCHES "Darwin"))
+    check_symbol_exists(aligned_alloc stdlib.h USE_ALIGNED_ALLOC)
+endif()
+if(NOT USE_ALIGNED_ALLOC)
+    check_symbol_exists(posix_memalign stdlib.h HAVE_POSIX_MEMALIGN)
+endif()
+
+
+########################################################################
+# Check if Orc is available
+########################################################################
 option(ENABLE_ORC "Enable Orc" TRUE)
 if(ENABLE_ORC)
-  find_package(ORC)
+    find_package(ORC)
 else()
-  message(STATUS "Disabling use of ORC")
+    message(STATUS "Disabling use of ORC")
 endif()
 
 
@@ -280,8 +347,8 @@ if(DOXYGEN_FOUND)
     configure_file(
         ${PROJECT_SOURCE_DIR}/Doxyfile.in
         ${PROJECT_BINARY_DIR}/Doxyfile
-    @ONLY)
-
+        @ONLY
+    )
     add_custom_target(doc
         ${DOXYGEN_EXECUTABLE} ${PROJECT_BINARY_DIR}/Doxyfile
         WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
@@ -291,9 +358,20 @@ endif()
 
 
 ########################################################################
+# Detect /lib versus /lib64
+########################################################################
+if(${CMAKE_INSTALL_LIBDIR} MATCHES lib64)
+    set(LIB_SUFFIX 64)
+endif()
+
+
+########################################################################
 # Setup the package config file
 ########################################################################
 # set variables found in the pc.in file
+if(NOT LIB_SUFFIX)
+    set(LIB_SUFFIX "")
+endif()
 set(prefix ${CMAKE_INSTALL_PREFIX})
 set(exec_prefix "\${prefix}")
 set(libdir "\${exec_prefix}/lib${LIB_SUFFIX}")
@@ -314,9 +392,9 @@ install(
 ########################################################################
 # Install all headers in the include directories
 ########################################################################
-set(VOLK_RUNTIME_DIR   bin)
-set(VOLK_LIBRARY_DIR   lib${LIB_SUFFIX})
-set(VOLK_INCLUDE_DIR   include)
+set(VOLK_RUNTIME_DIR bin)
+set(VOLK_LIBRARY_DIR lib${LIB_SUFFIX})
+set(VOLK_INCLUDE_DIR include)
 
 install(
     DIRECTORY ${PROJECT_SOURCE_DIR}/kernels/volk_gnsssdr
@@ -325,6 +403,7 @@ install(
 )
 
 install(FILES
+    ${PROJECT_SOURCE_DIR}/include/volk_gnsssdr/volk_gnsssdr_alloc.h
     ${PROJECT_SOURCE_DIR}/include/volk_gnsssdr/volk_gnsssdr_prefs.h
     ${PROJECT_SOURCE_DIR}/include/volk_gnsssdr/volk_gnsssdr_complex.h
     ${PROJECT_SOURCE_DIR}/include/volk_gnsssdr/volk_gnsssdr_common.h
@@ -339,6 +418,7 @@ install(FILES
     ${PROJECT_BINARY_DIR}/include/volk_gnsssdr/volk_gnsssdr_typedefs.h
     ${PROJECT_SOURCE_DIR}/include/volk_gnsssdr/volk_gnsssdr_malloc.h
     ${PROJECT_SOURCE_DIR}/include/volk_gnsssdr/volk_gnsssdr_sine_table.h
+    ${PROJECT_SOURCE_DIR}/include/volk_gnsssdr/constants.h
     DESTINATION include/volk_gnsssdr
     COMPONENT "volk_gnsssdr_devel"
 )
@@ -351,16 +431,19 @@ if(APPLE)
     if(NOT CMAKE_INSTALL_NAME_DIR)
         set(CMAKE_INSTALL_NAME_DIR
             ${CMAKE_INSTALL_PREFIX}/${VOLK_LIBRARY_DIR} CACHE
-            PATH "Library Install Name Destination Directory" FORCE)
+            PATH "Library Install Name Destination Directory" FORCE
+        )
     endif()
     if(NOT CMAKE_INSTALL_RPATH)
         set(CMAKE_INSTALL_RPATH
             ${CMAKE_INSTALL_PREFIX}/${VOLK_LIBRARY_DIR} CACHE
-            PATH "Library Install RPath" FORCE)
+            PATH "Library Install RPath" FORCE
+        )
     endif()
     if(NOT CMAKE_BUILD_WITH_INSTALL_RPATH)
         set(CMAKE_BUILD_WITH_INSTALL_RPATH ON CACHE
-            BOOL "Do Build Using Library Install RPath" FORCE)
+            BOOL "Do Build Using Library Install RPath" FORCE
+        )
     endif()
 endif()
 
@@ -371,7 +454,8 @@ endif()
 configure_file(
     ${PROJECT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
-@ONLY)
+    @ONLY
+)
 
 # Only add the target if there isn't one defined already
 if(NOT TARGET uninstall)
@@ -385,18 +469,20 @@ endif()
 ########################################################################
 # Install our Cmake modules into $prefix/lib/cmake/volk_gnsssdr
 # See "Package Configuration Files" on page:
-#    http://www.cmake.org/Wiki/CMake/Tutorials/Packaging
+#    https://www.cmake.org/Wiki/CMake/Tutorials/Packaging
 ########################################################################
 
 configure_file(
-  ${CMAKE_SOURCE_DIR}/cmake/Modules/VolkGnsssdrConfig.cmake.in
-  ${CMAKE_BINARY_DIR}/cmake/Modules/VolkGnsssdrConfig.cmake
-@ONLY)
+    ${CMAKE_SOURCE_DIR}/cmake/Modules/VolkGnsssdrConfig.cmake.in
+    ${CMAKE_BINARY_DIR}/cmake/Modules/VolkGnsssdrConfig.cmake
+    @ONLY
+)
 
 configure_file(
-  ${PROJECT_SOURCE_DIR}/cmake/Modules/VolkGnsssdrConfigVersion.cmake.in
-  ${PROJECT_BINARY_DIR}/cmake/Modules/VolkGnsssdrConfigVersion.cmake
-@ONLY)
+    ${PROJECT_SOURCE_DIR}/cmake/Modules/VolkGnsssdrConfigVersion.cmake.in
+    ${PROJECT_BINARY_DIR}/cmake/Modules/VolkGnsssdrConfigVersion.cmake
+    @ONLY
+)
 
 
 ########################################################################
@@ -424,9 +510,9 @@ install(EXPORT VOLK_GNSSSDR-export FILE VolkGnsssdrTargets.cmake
 ########################################################################
 option(ENABLE_TESTING "Enable QA testing" ON)
 if(ENABLE_TESTING)
-  message(STATUS "QA Testing is enabled.")
+    message(STATUS "QA Testing is enabled.")
 else()
-  message(STATUS "QA Testing is disabled.")
+    message(STATUS "QA Testing is disabled.")
 endif()
 message(STATUS "  Modify using: -DENABLE_TESTING=ON/OFF")
 
@@ -436,24 +522,24 @@ message(STATUS "  Modify using: -DENABLE_TESTING=ON/OFF")
 ########################################################################
 option(ENABLE_PROFILING "Launch system profiler after build" OFF)
 if(ENABLE_PROFILING)
-  set(ENABLE_STATIC_LIBS ON)
-  if(DEFINED VOLK_CONFIGPATH)
-    get_filename_component(VOLK_CONFIGPATH ${VOLK_CONFIGPATH} ABSOLUTE)
-    set(VOLK_CONFIGPATH "${VOLK_CONFIGPATH}/volk_gnsssdr")
-    message(STATUS "System profiling is enabled, using path: ${VOLK_CONFIGPATH}")
-  elseif(DEFINED ENV{VOLK_CONFIGPATH})
-    set(VOLK_CONFIGPATH "$ENV{VOLK_CONFIGPATH}/volk_gnsssdr")
-    message(STATUS "System profiling is enabled, using env path: $ENV{VOLK_CONFIGPATH}")
-  else()
-    message(STATUS "System profiling is enabled with default paths.")
-    if(DEFINED ENV{HOME})
-        set(VOLK_CONFIGPATH "$ENV{HOME}/.volk_gnsssdr")
-    elseif(DEFINED ENV{APPDATA})
-        set(VOLK_CONFIGPATH "$ENV{APPDATA}/.volk_gnsssdr")
+    set(ENABLE_STATIC_LIBS ON)
+    if(DEFINED VOLK_CONFIGPATH)
+        get_filename_component(VOLK_CONFIGPATH ${VOLK_CONFIGPATH} ABSOLUTE)
+        set(VOLK_CONFIGPATH "${VOLK_CONFIGPATH}/volk_gnsssdr")
+        message(STATUS "System profiling is enabled, using path: ${VOLK_CONFIGPATH}")
+    elseif(DEFINED ENV{VOLK_CONFIGPATH})
+        set(VOLK_CONFIGPATH "$ENV{VOLK_CONFIGPATH}/volk_gnsssdr")
+        message(STATUS "System profiling is enabled, using env path: $ENV{VOLK_CONFIGPATH}")
+    else()
+        message(STATUS "System profiling is enabled with default paths.")
+        if(DEFINED ENV{HOME})
+            set(VOLK_CONFIGPATH "$ENV{HOME}/.volk_gnsssdr")
+        elseif(DEFINED ENV{APPDATA})
+            set(VOLK_CONFIGPATH "$ENV{APPDATA}/.volk_gnsssdr")
+        endif()
     endif()
-  endif()
 else()
-  message(STATUS "System profiling is disabled.")
+    message(STATUS "System profiling is disabled.")
 endif()
 message(STATUS "  Modify using: -DENABLE_PROFILING=ON/OFF")
 ########################################################################

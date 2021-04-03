@@ -5,15 +5,17 @@ function [phi, lambda, h] = cart2geo(X, Y, Z, i)
 % [phi, lambda, h] = cart2geo(X, Y, Z, i);
 %
 %   Choices i of Reference Ellipsoid for Geographical Coordinates
-%          	  1. International Ellipsoid 1924
-%	          2. International Ellipsoid 1967
-%	          3. World Geodetic System 1972
-%	          4. Geodetic Reference System 1980
-%	          5. World Geodetic System 1984
+%              1. International Ellipsoid 1924
+%              2. International Ellipsoid 1967
+%              3. World Geodetic System 1972
+%              4. Geodetic Reference System 1980
+%              5. World Geodetic System 1984
 
-% Kai Borre 10-13-98
-% Copyright (c) by Kai Borre
-% Revision: 1.0   Date: 1998/10/23
+% GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
+% This file is part of GNSS-SDR.
+%
+% SPDX-FileCopyrightText: Kai Borre
+% SPDX-License-Identifier: GPL-3.0-or-later
 %==========================================================================
 
 a = [6378388 6378160 6378135 6378137 6378137];
@@ -31,7 +33,7 @@ while abs(h-oldh) > 1.e-12
     N = c/sqrt(1+ex2*cos(phi)^2);
     phi = atan(Z/((sqrt(X^2+Y^2)*(1-(2-f(i))*f(i)*N/(N+h)))));
     h = sqrt(X^2+Y^2)/cos(phi)-N;
-    
+
     iterations = iterations + 1;
     if iterations > 100
         fprintf('Failed to approximate h with desired precision. h-oldh: %e.\n', h-oldh);

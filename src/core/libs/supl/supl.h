@@ -1,16 +1,22 @@
-/*
-** SUPL library
-**
-** Copyright (c) 2007 Tatu Mannisto <tatu a-t tajuma d-o-t com>
-** All rights reserved.
-** Redistribution and modifications are permitted subject to BSD license.
-** Modifified by Carles Fernandez <carles d-o-t fernandez a-t cttc d-o-t es>
-** to make use of the gnutls library.
-**
-*/
+/*!
+ * \file supl.h
+ * \brief SUPL library with some RRLP
+ * \author Carles Fernandez, 2017 cfernandez(at)cttc.es
+ *
+ * -----------------------------------------------------------------------------
+ *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
+ * This file is part of GNSS-SDR.
+ *
+ * Copyright (c) 2007 Tatu Mannisto <tatu a-t tajuma d-o-t com>
+ * SPDX-License-Identifier: BSD-1-Clause
+ *
+ * -----------------------------------------------------------------------------
+ */
 
-#ifndef SUPL_H
-#define SUPL_H
+
+#ifndef GNSS_SDR_SUPL_H
+#define GNSS_SDR_SUPL_H
 
 #ifdef USE_EXPORT
 #define EXPORT __attribute__((visibility("default")))
@@ -34,6 +40,13 @@
 // clang-format on
 #include <PDU.h>
 #include <ULP-PDU.h>
+
+
+/** \addtogroup Core
+ * \{ */
+/** \addtogroup SUPL_Library core_libs_supl
+ * \{ */
+
 
 #define SUPL_PORT "7275"
 
@@ -191,7 +204,6 @@ typedef struct supl_rrlp_ctx_s
     int cnt_acq;
     int acq_time;
     struct supl_acquis_s acq[MAX_EPHEMERIS];
-
 } supl_assist_t;
 
 typedef struct supl_param_s
@@ -232,7 +244,6 @@ typedef struct supl_ctx_s
         void *buf;
         size_t size;
     } slp_session_id;
-
 } supl_ctx_t;
 
 int supl_ctx_new(supl_ctx_t *ctx);
@@ -279,4 +290,7 @@ void supl_close(supl_ctx_t *ctx);
 int supl_ulp_send(supl_ctx_t *ctx, supl_ulp_t *pdu);
 int supl_ulp_recv(supl_ctx_t *ctx, supl_ulp_t *pdu);
 
-#endif
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_SUPL_H

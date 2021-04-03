@@ -4,34 +4,21 @@
  * \author Carles Fernandez-Prades, 2012. cfernandez(at)cttc.es
  *
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include <armadillo>
 #include <volk/volk.h>
 #include <volk_gnsssdr/volk_gnsssdr.h>
+#include <volk_gnsssdr/volk_gnsssdr_alloc.h>
 #include <algorithm>
 #include <chrono>
 #include <complex>
@@ -57,7 +44,7 @@ TEST(ConjugateTest, StandardCComplexImplementation)
     std::chrono::duration<double> elapsed_seconds = end - start;
     std::cout << "Conjugate of a " << FLAGS_size_conjugate_test
               << "-length complex float vector in standard C finished in " << elapsed_seconds.count() * 1e6
-              << " microseconds" << std::endl;
+              << " microseconds\n";
 
     delete[] input;
     delete[] output;
@@ -80,7 +67,7 @@ TEST(ConjugateTest, C11ComplexImplementation)
     std::chrono::duration<double> elapsed_seconds = end - start;
     std::cout << "Conjugate of a " << FLAGS_size_conjugate_test
               << " complex<float> vector (C++11-style) finished in " << elapsed_seconds.count() * 1e6
-              << " microseconds" << std::endl;
+              << " microseconds\n";
     ASSERT_LE(0, elapsed_seconds.count() * 1e6);
 
     std::complex<float> expected(0, 0);
@@ -107,7 +94,7 @@ TEST(ConjugateTest, ArmadilloComplexImplementation)
     std::chrono::duration<double> elapsed_seconds = end - start;
     std::cout << "Conjugate of a " << FLAGS_size_conjugate_test
               << "-length complex float Armadillo vector finished in " << elapsed_seconds.count() * 1e6
-              << " microseconds" << std::endl;
+              << " microseconds\n";
     ASSERT_LE(0, elapsed_seconds.count() * 1e6);
 }
 
@@ -127,8 +114,27 @@ TEST(ConjugateTest, VolkComplexImplementation)
     std::chrono::duration<double> elapsed_seconds = end - start;
     std::cout << "Conjugate of a " << FLAGS_size_conjugate_test
               << "-length complex float vector using VOLK finished in " << elapsed_seconds.count() * 1e6
-              << " microseconds" << std::endl;
+              << " microseconds\n";
     ASSERT_LE(0, elapsed_seconds.count() * 1e6);
     volk_gnsssdr_free(input);
     volk_gnsssdr_free(output);
+}
+
+
+TEST(ConjugateTest, VolkComplexImplementationAlloc)
+{
+    volk_gnsssdr::vector<std::complex<float>> input(FLAGS_size_conjugate_test, std::complex<float>(0.0, 0.0));
+    volk_gnsssdr::vector<std::complex<float>> output(FLAGS_size_conjugate_test);
+
+    std::chrono::time_point<std::chrono::system_clock> start, end;
+    start = std::chrono::system_clock::now();
+
+    volk_32fc_conjugate_32fc(output.data(), input.data(), FLAGS_size_conjugate_test);
+
+    end = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed_seconds = end - start;
+    std::cout << "Conjugate of a " << FLAGS_size_conjugate_test
+              << "-length complex float vector using VOLK ALLOC finished in " << elapsed_seconds.count() * 1e6
+              << " microseconds\n";
+    ASSERT_LE(0, elapsed_seconds.count() * 1e6);
 }

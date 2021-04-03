@@ -3,35 +3,23 @@
  * \brief Create a directory
  * \author Carles Fernandez-Prades, 2018. cfernandez(at)cttc.es
  *
- * -------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
+ * -----------------------------------------------------------------------------
  *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 #include "gnss_sdr_create_directory.h"
 #include <exception>  // for exception
 #include <fstream>    // for ofstream
 
+// clang-format off
 #if HAS_STD_FILESYSTEM
 #include <system_error>
 namespace errorlib = std;
@@ -50,11 +38,12 @@ namespace fs = std::filesystem;
 namespace fs = boost::filesystem;
 namespace errorlib = boost::system;
 #endif
+// clang-format on
 
 bool gnss_sdr_create_directory(const std::string& foldername)
 {
     std::string new_folder;
-    for (auto& folder : fs::path(foldername))
+    for (const auto& folder : fs::path(foldername))
         {
             new_folder += folder.string();
             errorlib::error_code ec;

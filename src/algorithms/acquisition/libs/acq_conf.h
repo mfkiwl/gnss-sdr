@@ -4,52 +4,66 @@
  * acquisition block based on the PCPS algorithm.
  * \author Carles Fernandez, 2018. cfernandez(at)cttc.es
  *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  *
- * Copyright (C) 2010-2019  (see AUTHORS file for a list of contributors)
- *
- * GNSS-SDR is a software defined Global Navigation
- *          Satellite Systems receiver
- *
+ * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * GNSS-SDR is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * GNSS-SDR is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNSS-SDR. If not, see <https://www.gnu.org/licenses/>.
- *
- * -------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
-#ifndef GNSS_SDR_ACQ_CONF_H_
-#define GNSS_SDR_ACQ_CONF_H_
+#ifndef GNSS_SDR_ACQ_CONF_H
+#define GNSS_SDR_ACQ_CONF_H
 
-#include <cstddef>
+#include "configuration_interface.h"
 #include <cstdint>
 #include <string>
+
+/** \addtogroup Acquisition
+ * \{ */
+/** \addtogroup acquisition_libs acquisition_libs
+ * Library with utilities for GNSS signal acquisition
+ * \{ */
+
 
 class Acq_Conf
 {
 public:
+    Acq_Conf();
+
+    void SetFromConfiguration(const ConfigurationInterface *configuration, const std::string &role, double chip_rate, double opt_freq);
+
     /* PCPS Acquisition configuration */
+    std::string item_type;
+    std::string dump_filename;
+
+    int64_t fs_in;
+    int64_t resampled_fs;
+
+    size_t it_size;
+
+    float doppler_step;
+    float samples_per_ms;
+    float doppler_step2;
+    float pfa;
+    float pfa2;
+    float samples_per_code;
+    float resampler_ratio;
+
     uint32_t sampled_ms;
     uint32_t ms_per_code;
     uint32_t samples_per_chip;
+    uint32_t chips_per_second;
     uint32_t max_dwells;
-    uint32_t doppler_max;
     uint32_t num_doppler_bins_step2;
-    float doppler_step2;
-    int64_t fs_in;
-    float samples_per_ms;
-    float samples_per_code;
+    uint32_t resampler_latency_samples;
+    uint32_t dump_channel;
+    int32_t doppler_max;
+    int32_t doppler_min;
+
     bool bit_transition_flag;
     bool use_CFAR_algorithm_flag;
     bool dump;
@@ -57,14 +71,15 @@ public:
     bool blocking_on_standby;  // enable it only for unit testing to avoid sample consume on idle status
     bool make_2_steps;
     bool use_automatic_resampler;
-    float resampler_ratio;
-    int64_t resampled_fs;
-    uint32_t resampler_latency_samples;
-    std::string dump_filename;
-    uint32_t dump_channel;
-    size_t it_size;
+    bool enable_monitor_output;
 
-    Acq_Conf();
+private:
+    void SetDerivedParams();
+
+    void ConfigureAutomaticResampler(double opt_freq);
 };
 
-#endif
+
+/** \} */
+/** \} */
+#endif  // GNSS_SDR_ACQ_CONF_H
