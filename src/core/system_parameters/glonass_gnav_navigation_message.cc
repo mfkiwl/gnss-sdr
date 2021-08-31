@@ -36,7 +36,7 @@ Glonass_Gnav_Navigation_Message::Glonass_Gnav_Navigation_Message()
 }
 
 
-bool Glonass_Gnav_Navigation_Message::CRC_test(std::bitset<GLONASS_GNAV_STRING_BITS> bits) const
+bool Glonass_Gnav_Navigation_Message::CRC_test(const std::bitset<GLONASS_GNAV_STRING_BITS>& bits) const
 {
     uint32_t sum_bits = 0;
     int32_t sum_hamming = 0;
@@ -133,7 +133,7 @@ bool Glonass_Gnav_Navigation_Message::CRC_test(std::bitset<GLONASS_GNAV_STRING_B
 }
 
 
-bool Glonass_Gnav_Navigation_Message::read_navigation_bool(std::bitset<GLONASS_GNAV_STRING_BITS> bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const
+bool Glonass_Gnav_Navigation_Message::read_navigation_bool(const std::bitset<GLONASS_GNAV_STRING_BITS>& bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const
 {
     bool value;
 
@@ -149,7 +149,7 @@ bool Glonass_Gnav_Navigation_Message::read_navigation_bool(std::bitset<GLONASS_G
 }
 
 
-uint64_t Glonass_Gnav_Navigation_Message::read_navigation_unsigned(std::bitset<GLONASS_GNAV_STRING_BITS> bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const
+uint64_t Glonass_Gnav_Navigation_Message::read_navigation_unsigned(const std::bitset<GLONASS_GNAV_STRING_BITS>& bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const
 {
     uint64_t value = 0ULL;
     const int32_t num_of_slices = parameter.size();
@@ -168,7 +168,7 @@ uint64_t Glonass_Gnav_Navigation_Message::read_navigation_unsigned(std::bitset<G
 }
 
 
-int64_t Glonass_Gnav_Navigation_Message::read_navigation_signed(std::bitset<GLONASS_GNAV_STRING_BITS> bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const
+int64_t Glonass_Gnav_Navigation_Message::read_navigation_signed(const std::bitset<GLONASS_GNAV_STRING_BITS>& bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const
 {
     int64_t value = 0LL;
     int64_t sign = 0LL;
@@ -314,7 +314,7 @@ int32_t Glonass_Gnav_Navigation_Message::string_decoder(const std::string& frame
                     // Fill in ephemeris deliverables in the code
                     flag_update_slot_number = true;
                     gnav_ephemeris.i_satellite_slot_number = static_cast<uint32_t>(gnav_ephemeris.d_n);
-                    gnav_ephemeris.i_satellite_PRN = static_cast<uint32_t>(gnav_ephemeris.d_n);
+                    gnav_ephemeris.PRN = static_cast<uint32_t>(gnav_ephemeris.d_n);
 
                     flag_ephemeris_str_4 = true;
                 }
@@ -408,7 +408,7 @@ int32_t Glonass_Gnav_Navigation_Message::string_decoder(const std::string& frame
                             gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_freq_channel = gnav_almanac[i_alm_satellite_slot_number - 1].d_H_n_A - 32.0;
                         }
                     gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_slot_number = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
-                    gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_PRN = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
+                    gnav_almanac[i_alm_satellite_slot_number - 1].PRN = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
 
                     if (i_alm_satellite_slot_number == gnav_ephemeris.i_satellite_slot_number)
                         {
@@ -458,7 +458,7 @@ int32_t Glonass_Gnav_Navigation_Message::string_decoder(const std::string& frame
                             gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_freq_channel = gnav_almanac[i_alm_satellite_slot_number - 1].d_H_n_A - 32.0;
                         }
                     gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_slot_number = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
-                    gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_PRN = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
+                    gnav_almanac[i_alm_satellite_slot_number - 1].PRN = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
 
                     flag_almanac_str_9 = true;
                 }
@@ -503,7 +503,7 @@ int32_t Glonass_Gnav_Navigation_Message::string_decoder(const std::string& frame
                             gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_freq_channel = gnav_almanac[i_alm_satellite_slot_number - 1].d_H_n_A - 32.0;
                         }
                     gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_slot_number = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
-                    gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_PRN = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
+                    gnav_almanac[i_alm_satellite_slot_number - 1].PRN = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
 
                     flag_almanac_str_11 = true;
                 }
@@ -547,7 +547,7 @@ int32_t Glonass_Gnav_Navigation_Message::string_decoder(const std::string& frame
                             gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_freq_channel = gnav_almanac[i_alm_satellite_slot_number - 1].d_H_n_A - 32.0;
                         }
                     gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_slot_number = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
-                    gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_PRN = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
+                    gnav_almanac[i_alm_satellite_slot_number - 1].PRN = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
 
                     flag_almanac_str_13 = true;
                 }
@@ -598,7 +598,7 @@ int32_t Glonass_Gnav_Navigation_Message::string_decoder(const std::string& frame
                             gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_freq_channel = gnav_almanac[i_alm_satellite_slot_number - 1].d_H_n_A - 32.0;
                         }
                     gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_slot_number = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
-                    gnav_almanac[i_alm_satellite_slot_number - 1].i_satellite_PRN = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
+                    gnav_almanac[i_alm_satellite_slot_number - 1].PRN = gnav_almanac[i_alm_satellite_slot_number - 1].d_n_A;
 
                     flag_almanac_str_15 = true;
                 }

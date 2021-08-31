@@ -25,6 +25,7 @@
 #include "control_thread.h"
 #include "file_configuration.h"
 #include "geofunctions.h"
+#include "gnss_sdr_filesystem.h"
 #include "gnss_sdr_flags.h"
 #include "gnuplot_i.h"
 #include "in_memory_configuration.h"
@@ -46,20 +47,14 @@
 #include <numeric>
 #include <thread>
 
-#if HAS_STD_FILESYSTEM
-#include <filesystem>
-namespace fs = std::filesystem;
-#else
-#include <boost/filesystem.hpp>
-namespace fs = boost::filesystem;
-#endif
-
 #if GFLAGS_OLD_NAMESPACE
 namespace gflags
 {
 using namespace google;
 }
 #endif
+
+DEFINE_int32(num_channels, 11, "Number of channels");
 
 // For GPS NAVIGATION (L1)
 Concurrent_Queue<Gps_Acq_Assist> global_gps_acq_assist_queue;
@@ -184,7 +179,7 @@ int PositionSystemTest::configure_receiver()
             const int grid_density = 16;
 
             const float zero = 0.0;
-            const int number_of_channels = 11;
+            const int number_of_channels = FLAGS_num_channels;
             const int in_acquisition = 1;
 
             const float threshold = 2.5;
@@ -212,7 +207,7 @@ int PositionSystemTest::configure_receiver()
                 {
                     config->set_property("GNSS-SDR.use_acquisition_resampler", "true");
                 }
-
+            config->set_property("GNSS-SDR.GPS_banned_prns", std::to_string(1));
             // Set the assistance system parameters
             config->set_property("GNSS-SDR.SUPL_read_gps_assistance_xml", "false");
             config->set_property("GNSS-SDR.SUPL_gps_enabled", "false");
@@ -329,7 +324,7 @@ int PositionSystemTest::configure_receiver()
             config->set_property("PVT.iono_model", "OFF");
             config->set_property("PVT.trop_model", "OFF");
             config->set_property("PVT.AR_GPS", "PPP-AR");
-            config->set_property("PVT.elevation_mask", std::to_string(15));
+            config->set_property("PVT.elevation_mask", std::to_string(5));
 
             config_f = nullptr;
         }

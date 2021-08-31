@@ -42,19 +42,6 @@ if(ENABLE_AD9361)
 endif()
 
 
-if(ENABLE_GN3S)
-    ##############################################
-    # GN3S (USB dongle)
-    ##############################################
-    if(NOT GRGN3S_FOUND)
-        message(" gr-gn3s not found, install it from https://github.com/gnss-sdr/gr-gn3s")
-        message(FATAL_ERROR "gr-gn3s required for building gnss-sdr with this option enabled")
-    endif()
-    set(OPT_DRIVER_SOURCES ${OPT_DRIVER_SOURCES} gn3s_signal_source.cc)
-    set(OPT_DRIVER_HEADERS ${OPT_DRIVER_HEADERS} gn3s_signal_source.h)
-endif()
-
-
 if(ENABLE_FLEXIBAND AND TELEORBIT_FOUND)
     set(OPT_DRIVER_SOURCES ${OPT_DRIVER_SOURCES} flexiband_signal_source.cc)
     set(OPT_DRIVER_HEADERS ${OPT_DRIVER_HEADERS} flexiband_signal_source.h)
@@ -92,7 +79,10 @@ endif()
 
 
 set(SIGNAL_SOURCE_ADAPTER_SOURCES
+    signal_source_base.cc
+    file_source_base.cc
     file_signal_source.cc
+    fifo_signal_source.cc
     multichannel_file_signal_source.cc
     gen_signal_source.cc
     nsr_file_signal_source.cc
@@ -106,7 +96,10 @@ set(SIGNAL_SOURCE_ADAPTER_SOURCES
 )
 
 set(SIGNAL_SOURCE_ADAPTER_HEADERS
+    signal_source_base.h
+    file_source_base.h
     file_signal_source.h
+    fifo_signal_source.h
     multichannel_file_signal_source.h
     gen_signal_source.h
     nsr_file_signal_source.h
@@ -145,6 +138,8 @@ target_include_directories(signal_source_adapters
 
 if(ENABLE_FPGA OR ENABLE_AD9361)
     target_link_libraries(signal_source_adapters
+        PUBLIC
+            signal_source_libs
         PRIVATE
             core_libs
     )
@@ -156,6 +151,7 @@ target_link_libraries(signal_source_adapters
         Gnuradio::blocks
         signal_source_gr_blocks
     PRIVATE
+        algorithms_libs
         gnss_sdr_flags
         core_system_parameters
         Glog::glog
@@ -179,8 +175,7 @@ if(ENABLE_UHD)
     target_link_libraries(signal_source_adapters
         PUBLIC
             Gnuradio::uhd
-        PRIVATE
-            Uhd::uhd
+            Uhd::uhd  # for uhd/config.hpp in gnuradio/uhd/usrp_source.h
     )
 endif()
 
@@ -212,13 +207,6 @@ if(ENABLE_FLEXIBAND AND TELEORBIT_FOUND)
     target_link_libraries(signal_source_adapters
         PRIVATE
             Gnuradio::teleorbit
-    )
-endif()
-
-if(ENABLE_GN3S AND GRGN3S_FOUND)
-    target_link_libraries(signal_source_adapters
-        PRIVATE
-            Gnuradio::gn3s
     )
 endif()
 

@@ -52,6 +52,7 @@ class Gps_Ephemeris;
 class Gpx_Printer;
 class Kml_Printer;
 class Monitor_Pvt_Udp_Sink;
+class Monitor_Ephemeris_Udp_Sink;
 class Nmea_Printer;
 class Pvt_Conf;
 class Rinex_Printer;
@@ -132,6 +133,8 @@ private:
 
     void msg_handler_telemetry(const pmt::pmt_t& msg);
 
+    void msg_handler_has_data(const pmt::pmt_t& msg) const;
+
     void initialize_and_apply_carrier_phase_offset();
 
     void apply_rx_clock_offset(std::map<int, Gnss_Synchro>& observables_map,
@@ -168,6 +171,7 @@ private:
     std::unique_ptr<GeoJSON_Printer> d_geojson_printer;
     std::unique_ptr<Rtcm_Printer> d_rtcm_printer;
     std::unique_ptr<Monitor_Pvt_Udp_Sink> d_udp_sink_ptr;
+    std::unique_ptr<Monitor_Ephemeris_Udp_Sink> d_eph_udp_sink_ptr;
 
     std::chrono::time_point<std::chrono::system_clock> d_start;
     std::chrono::time_point<std::chrono::system_clock> d_end;
@@ -214,6 +218,7 @@ private:
     size_t d_galileo_utc_model_sptr_type_hash_code;
     size_t d_galileo_almanac_helper_sptr_type_hash_code;
     size_t d_galileo_almanac_sptr_type_hash_code;
+    size_t d_galileo_has_message_sptr_type_hash_code;
     size_t d_glonass_gnav_ephemeris_sptr_type_hash_code;
     size_t d_glonass_gnav_utc_model_sptr_type_hash_code;
     size_t d_glonass_gnav_almanac_sptr_type_hash_code;
@@ -221,6 +226,7 @@ private:
     size_t d_beidou_dnav_iono_sptr_type_hash_code;
     size_t d_beidou_dnav_utc_model_sptr_type_hash_code;
     size_t d_beidou_dnav_almanac_sptr_type_hash_code;
+    size_t d_galileo_has_data_sptr_type_hash_code;
 
     double d_rinex_version;
     double d_rx_time;
@@ -248,6 +254,7 @@ private:
 
     uint32_t d_nchannels;
     uint32_t d_type_of_rx;
+    uint32_t d_observable_interval_ms;
 
     bool d_dump;
     bool d_dump_mat;
@@ -260,6 +267,7 @@ private:
     bool d_first_fix;
     bool d_xml_storage;
     bool d_flag_monitor_pvt_enabled;
+    bool d_flag_monitor_ephemeris_enabled;
     bool d_show_local_time_zone;
     bool d_waiting_obs_block_rx_clock_offset_correction_msg;
     bool d_enable_rx_clock_correction;

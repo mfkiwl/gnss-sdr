@@ -12,17 +12,6 @@ else()
     add_executable(gnss-sdr main.cc)
 endif()
 
-
-if(${FILESYSTEM_FOUND})
-    target_compile_definitions(gnss-sdr PRIVATE -DHAS_STD_FILESYSTEM=1)
-    if(${find_experimental})
-        target_compile_definitions(gnss-sdr PRIVATE -DHAS_STD_FILESYSTEM_EXPERIMENTAL=1)
-    endif()
-    target_link_libraries(gnss-sdr PRIVATE std::filesystem)
-else()
-    target_link_libraries(gnss-sdr PRIVATE Boost::filesystem Boost::system)
-endif()
-
 target_link_libraries(gnss-sdr
     PRIVATE
         algorithms_libs
@@ -136,7 +125,7 @@ if(NOT GZIP_NOTFOUND)
         DESTINATION share/man/man1
     )
 
-    execute_process(COMMAND gzip -9 -c ${CMAKE_SOURCE_DIR}/docs/changelog.md
+    execute_process(COMMAND gzip -9 -c ${CMAKE_SOURCE_DIR}/docs/CHANGELOG.md
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         OUTPUT_FILE "${CMAKE_BINARY_DIR}/changelog.gz"
     )

@@ -15,6 +15,7 @@ set(CORE_LIBS_SOURCES
     channel_status_msg_receiver.cc
     channel_event.cc
     command_event.cc
+    galileo_e6_has_msg_receiver.cc
 )
 
 set(CORE_LIBS_HEADERS
@@ -123,15 +124,7 @@ if(USE_BOOST_BIND_PLACEHOLDERS)
 endif()
 
 if(ENABLE_FPGA OR ENABLE_AD9361)
-    if(FILESYSTEM_FOUND)
-        target_compile_definitions(core_libs PRIVATE -DHAS_STD_FILESYSTEM=1)
-        if(find_experimental)
-            target_compile_definitions(core_libs PRIVATE -DHAS_STD_FILESYSTEM_EXPERIMENTAL=1)
-        endif()
-        target_link_libraries(core_libs PRIVATE std::filesystem)
-    else()
-        target_link_libraries(core_libs PRIVATE Boost::filesystem Boost::system)
-    endif()
+    target_link_libraries(core_libs PRIVATE algorithms_libs)
 endif()
 
 if(ENABLE_CLANG_TIDY)

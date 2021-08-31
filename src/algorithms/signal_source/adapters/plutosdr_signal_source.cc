@@ -18,15 +18,20 @@
 #include "plutosdr_signal_source.h"
 #include "GPS_L1_CA.h"
 #include "configuration_interface.h"
+#include "gnss_sdr_string_literals.h"
 #include "gnss_sdr_valve.h"
 #include <glog/logging.h>
 #include <iostream>
 #include <utility>
 
 
+using namespace std::string_literals;
+
+
 PlutosdrSignalSource::PlutosdrSignalSource(const ConfigurationInterface* configuration,
     const std::string& role, unsigned int in_stream, unsigned int out_stream,
-    Concurrent_Queue<pmt::pmt_t>* queue) : role_(role), in_stream_(in_stream), out_stream_(out_stream)
+    Concurrent_Queue<pmt::pmt_t>* queue)
+    : SignalSourceBase(configuration, role, "Plutosdr_Signal_Source"s), in_stream_(in_stream), out_stream_(out_stream)
 {
     const std::string default_item_type("gr_complex");
     const std::string default_dump_file("./data/signal_source.dat");
@@ -116,15 +121,20 @@ PlutosdrSignalSource::PlutosdrSignalSource(const ConfigurationInterface* configu
 
     std::cout << "device address: " << uri_ << '\n';
     std::cout << "frequency : " << freq_ << " Hz\n";
-    std::cout << "sample rate: " << sample_rate_ << " Hz\n";
+    std::cout << "sample rate: " << sample_rate_ << " Sps\n";
     std::cout << "gain mode: " << gain_mode_ << '\n';
     std::cout << "item type: " << item_type_ << '\n';
 
 #if GNURADIO_API_IIO
-    plutosdr_source_ = gr::iio::pluto_source::make(uri_, freq_, sample_rate_,
-        bandwidth_, buffer_size_, quadrature_, rf_dc_, bb_dc_,
-        gain_mode_.c_str(), rf_gain_, filter_source_.c_str(),
-        filter_filename_.c_str(), Fpass_, Fstop_);
+    plutosdr_source_ = gr::iio::pluto_source::make(uri_, buffer_size_);
+    plutosdr_source_->set_frequency(freq_);
+    plutosdr_source_->set_samplerate(sample_rate_);
+    plutosdr_source_->set_gain_mode(gain_mode_);
+    plutosdr_source_->set_gain(rf_gain_);
+    plutosdr_source_->set_quadrature(quadrature_);
+    plutosdr_source_->set_rfdc(rf_dc_);
+    plutosdr_source_->set_bbdc(bb_dc_);
+    plutosdr_source_->set_filter_params(filter_source_, filter_filename_, Fpass_, Fstop_);
 #else
     plutosdr_source_ = gr::iio::pluto_source::make(uri_, freq_, sample_rate_,
         bandwidth_, buffer_size_, quadrature_, rf_dc_, bb_dc_,

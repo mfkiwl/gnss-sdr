@@ -20,11 +20,13 @@
 #include "gnss_circular_deque.h"
 #include "gnss_frequencies.h"
 #include "gnss_sdr_create_directory.h"
+#include "gnss_sdr_filesystem.h"
 #include "gnss_sdr_make_unique.h"
 #include "gnss_synchro.h"
 #include <glog/logging.h>
 #include <gnuradio/io_signature.h>
 #include <matio.h>
+#include <algorithm>  // for std::min
 #include <array>
 #include <cmath>      // for round
 #include <cstdlib>    // for size_t, llabs
@@ -37,27 +39,6 @@
 #else
 #include <boost/bind/bind.hpp>
 #endif
-
-// clang-format off
-#if HAS_STD_FILESYSTEM
-#include <system_error>
-namespace errorlib = std;
-#if HAS_STD_FILESYSTEM_EXPERIMENTAL
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#else
-#include <filesystem>
-namespace fs = std::filesystem;
-#endif
-#else
-#include <boost/filesystem/operations.hpp>   // for create_directories, exists
-#include <boost/filesystem/path.hpp>         // for path, operator<<
-#include <boost/filesystem/path_traits.hpp>  // for filesystem
-#include <boost/system/error_code.hpp>       // for error_code
-namespace fs = boost::filesystem;
-namespace errorlib = boost::system;
-#endif
-// clang-format on
 
 
 hybrid_observables_gs_sptr hybrid_observables_gs_make(const Obs_Conf &conf_)
@@ -137,12 +118,12 @@ hybrid_observables_gs::hybrid_observables_gs(const Obs_Conf &conf_) : gr::block(
                 }
         }
     d_T_rx_TOW_ms = 0U;
-    d_T_rx_step_ms = 20;  // read from config at the adapter GNSS-SDR.observable_interval_ms!!
+    d_T_rx_step_ms = conf_.observable_interval_ms;
+    d_T_rx_step_s = static_cast<double>(d_T_rx_step_ms) / 1000.0;
     d_T_rx_TOW_set = false;
     d_T_status_report_timer_ms = 0;
-    // rework
-    d_Rx_clock_buffer.set_capacity(10);  // 10*20 ms = 200 ms of data in buffer
-    d_Rx_clock_buffer.clear();           // Clear all the elements in the buffer
+    d_Rx_clock_buffer.set_capacity(std::min(std::max(200U / d_T_rx_step_ms, 3U), 10U));
+    d_Rx_clock_buffer.clear();
 
     d_channel_last_pll_lock = std::vector<bool>(d_nchannels_out, false);
     d_channel_last_pseudorange_smooth = std::vector<double>(d_nchannels_out, 0.0);
@@ -211,10 +192,10 @@ void hybrid_observables_gs::msg_handler_pvt_to_observables(const pmt::pmt_t &msg
                 {
                     const auto new_rx_clock_offset_s = boost::any_cast<double>(pmt::any_ref(msg));
                     d_T_rx_TOW_ms = d_T_rx_TOW_ms - static_cast<int>(round(new_rx_clock_offset_s * 1000.0));
-                    // align the receiver clock to integer multiple of 20 ms
-                    if (d_T_rx_TOW_ms % 20)
+                    // align the receiver clock to integer multiple of d_T_rx_step_ms
+                    if (d_T_rx_TOW_ms % d_T_rx_step_ms)
                         {
-                            d_T_rx_TOW_ms += 20 - d_T_rx_TOW_ms % 20;
+                            d_T_rx_TOW_ms += d_T_rx_step_ms - d_T_rx_TOW_ms % d_T_rx_step_ms;
                         }
                     // d_Rx_clock_buffer.clear();  // Clear all the elements in the buffer
                     for (uint32_t n = 0; n < d_nchannels_out; n++)
@@ -391,7 +372,7 @@ bool hybrid_observables_gs::interp_trk_obs(Gnss_Synchro &interpolated_obs, uint3
 
     if (nearest_element != -1 and nearest_element != static_cast<int32_t>(d_gnss_synchro_history->size(ch)))
         {
-            if ((static_cast<double>(old_abs_diff) / static_cast<double>(d_gnss_synchro_history->get(ch, nearest_element).fs)) < 0.02)
+            if ((static_cast<double>(old_abs_diff) / static_cast<double>(d_gnss_synchro_history->get(ch, nearest_element).fs)) < d_T_rx_step_s)
                 {
                     int32_t neighbor_element;
                     if (rx_clock > d_gnss_synchro_history->get(ch, nearest_element).Tracking_sample_counter)
@@ -503,10 +484,10 @@ void hybrid_observables_gs::update_TOW(const std::vector<Gnss_Synchro> &data)
                         }
                 }
             d_T_rx_TOW_ms = TOW_ref;
-            // align the receiver clock to integer multiple of 20 ms
-            if (d_T_rx_TOW_ms % 20)
+            // align the receiver clock to integer multiple of d_T_rx_step_ms
+            if (d_T_rx_TOW_ms % d_T_rx_step_ms)
                 {
-                    d_T_rx_TOW_ms += 20 - d_T_rx_TOW_ms % 20;
+                    d_T_rx_TOW_ms += d_T_rx_step_ms - d_T_rx_TOW_ms % d_T_rx_step_ms;
                 }
         }
     else

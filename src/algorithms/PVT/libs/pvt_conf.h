@@ -48,8 +48,11 @@ public:
     std::string xml_output_path;
     std::string rtcm_output_file_path;
     std::string udp_addresses;
+    std::string udp_eph_addresses;
 
     uint32_t type_of_receiver;
+    uint32_t observable_interval_ms;
+
     int32_t output_rate_ms;
     int32_t display_rate_ms;
     int32_t kml_rate_ms;
@@ -60,6 +63,7 @@ public:
     int32_t rinexobs_rate_ms;
     int32_t max_obs_block_rx_clock_offset_ms;
     int udp_port;
+    int udp_eph_port;
 
     uint16_t rtcm_tcp_port;
     uint16_t rtcm_station_id;
@@ -76,6 +80,7 @@ public:
     bool xml_output_enabled;
     bool rtcm_output_file_enabled;
     bool monitor_enabled;
+    bool monitor_ephemeris_enabled;
     bool protobuf_enabled;
     bool enable_rx_clock_correction;
     bool show_local_time_zone;

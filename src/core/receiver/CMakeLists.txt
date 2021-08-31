@@ -100,10 +100,6 @@ if(ENABLE_OSMOSDR)
     endif()
 endif()
 
-if(ENABLE_GN3S)
-    target_compile_definitions(core_receiver PRIVATE -DGN3S_DRIVER=1)
-endif()
-
 if(ENABLE_ARRAY)
     target_compile_definitions(core_receiver PRIVATE -DRAW_ARRAY_DRIVER=1)
 endif()
@@ -151,6 +147,7 @@ target_link_libraries(core_receiver
     PUBLIC
         core_libs
     PRIVATE
+        algorithms_libs
         core_monitor
         signal_source_adapters
         data_type_adapters
@@ -168,8 +165,6 @@ target_link_libraries(core_receiver
         Glog::glog
         Armadillo::armadillo
 )
-
-target_include_directories(core_receiver PRIVATE ${CMAKE_SOURCE_DIR}/src/algorithms/libs)
 
 if(ENABLE_ARMA_NO_DEBUG)
     target_compile_definitions(core_receiver
@@ -222,13 +217,6 @@ if(ENABLE_FLEXIBAND AND TELEORBIT_FOUND)
     target_link_libraries(core_receiver
         PRIVATE
             Gnuradio::teleorbit
-    )
-endif()
-
-if(ENABLE_GN3S AND GRGN3S_FOUND)
-    target_link_libraries(core_receiver
-        PRIVATE
-            Gnuradio::gn3s
     )
 endif()
 

@@ -38,9 +38,9 @@
 
 
 /*!
- * \brief This class decodes a GPS NAV Data message as described in IS-GPS-200K
+ * \brief This class decodes a GPS NAV Data message as described in IS-GPS-200M
  *
- * See https://www.gps.gov/technical/icwg/IS-GPS-200K.pdf Appendix II
+ * See https://www.gps.gov/technical/icwg/IS-GPS-200M.pdf Appendix II
  */
 class Gps_Navigation_Message
 {
@@ -72,7 +72,7 @@ public:
 
     /*!
      * \brief Computes the Coordinated Universal Time (UTC) and
-     * returns it in [s] (IS-GPS-200K, 20.3.3.5.2.4)
+     * returns it in [s] (IS-GPS-200M, 20.3.3.5.2.4)
      */
     double utc_time(const double gpstime_corrected) const;
 
@@ -135,9 +135,9 @@ public:
     bool satellite_validation();
 
 private:
-    uint64_t read_navigation_unsigned(std::bitset<GPS_SUBFRAME_BITS> bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const;
-    int64_t read_navigation_signed(std::bitset<GPS_SUBFRAME_BITS> bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const;
-    bool read_navigation_bool(std::bitset<GPS_SUBFRAME_BITS> bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const;
+    uint64_t read_navigation_unsigned(const std::bitset<GPS_SUBFRAME_BITS>& bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const;
+    int64_t read_navigation_signed(const std::bitset<GPS_SUBFRAME_BITS>& bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const;
+    bool read_navigation_bool(const std::bitset<GPS_SUBFRAME_BITS>& bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const;
     void print_gps_word_bytes(uint32_t GPS_word) const;
 
     std::map<int32_t, int32_t> almanacHealth;  //!< Map that stores the health information stored in the almanac
@@ -162,8 +162,8 @@ private:
     double d_Cus{};             // Amplitude of the Sine Harmonic Correction Term to the Argument of Latitude [rad]
     double d_sqrt_A{};          // Square Root of the Semi-Major Axis [sqrt(m)]
     // broadcast orbit 3
-    int32_t d_Toe{};    // Ephemeris data reference time of week (Ref. 20.3.3.4.3 IS-GPS-200K) [s]
-    int32_t d_Toc{};    // clock data reference time (Ref. 20.3.3.3.3.1 IS-GPS-200K) [s]
+    int32_t d_Toe{};    // Ephemeris data reference time of week (Ref. 20.3.3.4.3 IS-GPS-200M) [s]
+    int32_t d_Toc{};    // clock data reference time (Ref. 20.3.3.3.3.1 IS-GPS-200M) [s]
     double d_Cic{};     // Amplitude of the Cosine Harmonic Correction Term to the Angle of Inclination [rad]
     double d_OMEGA0{};  // Longitude of Ascending Node of Orbit Plane at Weekly Epoch [semi-circles]
     double d_Cis{};     // Amplitude of the Sine Harmonic Correction Term to the Angle of Inclination [rad]
@@ -178,7 +178,7 @@ private:
     int32_t i_GPS_week{};     // GPS week number, aka WN [week]
     bool b_L2_P_data_flag{};  // When true, indicates that the NAV data stream was commanded OFF on the P-code of the L2 channel
     // broadcast orbit 6
-    int32_t i_SV_accuracy{};  // User Range Accuracy (URA) index of the SV (reference paragraph 6.2.1) for the standard positioning service user (Ref 20.3.3.3.1.3 IS-GPS-200K)
+    int32_t i_SV_accuracy{};  // User Range Accuracy (URA) index of the SV (reference paragraph 6.2.1) for the standard positioning service user (Ref 20.3.3.3.1.3 IS-GPS-200M)
     int32_t i_SV_health{};
     double d_TGD{};    // Estimated Group Delay Differential: L1-L2 correction term only for the benefit of "L1 P(Y)" or "L2 P(Y)" s users [s]
     int32_t d_IODC{};  // Issue of Data, Clock
@@ -226,10 +226,10 @@ private:
     double d_beta3{};   // Coefficient 3 of a cubic equation representing the period of the model [s(semi-circle)^3]
 
     // UTC parameters
-    double d_A0{};  // Constant of a model that relates GPS and UTC time (ref. 20.3.3.5.2.4 IS-GPS-200K) [s]
-    double d_A1{};  // 1st order term of a model that relates GPS and UTC time (ref. 20.3.3.5.2.4 IS-GPS-200K) [s/s]
+    double d_A0{};  // Constant of a model that relates GPS and UTC time (ref. 20.3.3.5.2.4 IS-GPS-200M) [s]
+    double d_A1{};  // 1st order term of a model that relates GPS and UTC time (ref. 20.3.3.5.2.4 IS-GPS-200M) [s/s]
 
-    int32_t d_t_OT{};        // Reference time for UTC data (reference 20.3.4.5 and 20.3.3.5.2.4 IS-GPS-200K) [s]
+    int32_t d_t_OT{};        // Reference time for UTC data (reference 20.3.4.5 and 20.3.3.5.2.4 IS-GPS-200M) [s]
     int32_t i_WN_T{};        // UTC reference week number [weeks]
     int32_t d_DeltaT_LS{};   // delta time due to leap seconds [s]. Number of leap seconds since 6-Jan-1980 as transmitted by the GPS almanac.
     int32_t i_WN_LSF{};      // Week number at the end of which the leap second becomes effective [weeks]

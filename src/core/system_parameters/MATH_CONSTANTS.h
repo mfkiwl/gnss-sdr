@@ -28,12 +28,12 @@ constexpr double SPEED_OF_LIGHT_M_S = 299792458.0;        //!< Speed of light in
 constexpr double SPEED_OF_LIGHT_M_MS = 299792.4580;       //!< Speed of light in vacuum [m/ms]
 
 // Physical constants for GPS
-constexpr double GPS_GM = 3.986005e14;      //!< Universal gravitational constant times the mass of the Earth, [m^3/s^2] IS-GPS-200K, pag 92
-constexpr double GPS_F = -4.442807633e-10;  //!< Constant, [s/(m)^(1/2)], IS-GPS-200K, pag. 92
+constexpr double GPS_GM = 3.986005e14;      //!< Universal gravitational constant times the mass of the Earth, [m^3/s^2] IS-GPS-200M, 20.3.3.3.3.1
+constexpr double GPS_F = -4.442807633e-10;  //!< Constant, [s/(m)^(1/2)], IS-GPS-200M, 20.3.3.3.3.1
 
 // Physical constants for Galileo
-constexpr double GALILEO_GM = 3.986004418e14;   //!< Geocentric gravitational constant[m^3/s^2], OS SIS ICD v1.3, pag. 44
-constexpr double GALILEO_F = -4.442807309e-10;  //!< Constant, [s/(m)^(1/2)]. OS SIS ICD v1.3, pag. 47
+constexpr double GALILEO_GM = 3.986004418e14;   //!< Geocentric gravitational constant[m^3/s^2], OS SIS ICD v2.0, pag. 44
+constexpr double GALILEO_F = -4.442807309e-10;  //!< Constant, [s/(m)^(1/2)]. OS SIS ICD v2.0, pag. 47
 
 // Physical constants for GLONASS
 constexpr double GLONASS_OMEGA_EARTH_DOT = 7.292115e-5;  //!< Earth rotation rate, [rad/s] ICD L1, L2 GLONASS Edition 5.1 2008 pag. 55
@@ -58,6 +58,7 @@ constexpr double TWO_PI = 2.0 * GNSS_PI;     //!< 2 * pi
 
 constexpr double TWO_P3 = 8.0;                      //!< 2^3
 constexpr double TWO_P4 = 16.0;                     //!< 2^4
+constexpr double TWO_P8 = 256.0;                    //!< 2^8
 constexpr double TWO_P11 = 2048.0;                  //!< 2^11
 constexpr double TWO_P12 = 4096.0;                  //!< 2^12
 constexpr double TWO_P14 = 16384.0;                 //!< 2^14
@@ -83,9 +84,11 @@ constexpr double TWO_N18 = 3.814697265625000e-006;  //!< 2^-18
 constexpr double TWO_N19 = 1.907348632812500e-006;  //!< 2^-19
 constexpr double TWO_N20 = 9.536743164062500e-007;  //!< 2^-20
 constexpr double TWO_N21 = 4.768371582031250e-007;  //!< 2^-21
+constexpr double TWO_N22 = 2.384185791015625e-007;  //!< 2^-22
 constexpr double TWO_N23 = 1.192092895507810e-007;  //!< 2^-23
 constexpr double TWO_N24 = 5.960464477539063e-008;  //!< 2^-24
 constexpr double TWO_N25 = 2.980232238769531e-008;  //!< 2^-25
+constexpr double TWO_N26 = 1.490116119384765e-009;  //!< 2^-26
 constexpr double TWO_N27 = 7.450580596923828e-009;  //!< 2^-27
 constexpr double TWO_N29 = 1.862645149230957e-009;  //!< 2^-29
 constexpr double TWO_N30 = 9.313225746154785e-010;  //!< 2^-30

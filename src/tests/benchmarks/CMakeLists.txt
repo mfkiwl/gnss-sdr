@@ -25,9 +25,6 @@ if(NOT benchmark_FOUND)
         "--build" "${CMAKE_BINARY_DIR}/benchmark-${GNSSSDR_BENCHMARK_LOCAL_VERSION}"
         "--config" $<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo>$<$<CONFIG:MinSizeRel>:MinSizeRel>$<$<CONFIG:NoOptWithASM>:Debug>$<$<CONFIG:Coverage>:Debug>$<$<CONFIG:O2WithASM>:RelWithDebInfo>$<$<CONFIG:O3WithASM>:RelWithDebInfo>$<$<CONFIG:ASAN>:Debug>
     )
-    if(CMAKE_GENERATOR STREQUAL Xcode)
-        set(BENCHMARK_BUILD_COMMAND "xcodebuild" "-configuration" $<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo>$<$<CONFIG:MinSizeRel>:MinSizeRel> "-target" "benchmark_main")
-    endif()
 
     if((CMAKE_VERSION VERSION_GREATER 3.12.0) AND NOT (CMAKE_GENERATOR STREQUAL Xcode))
         set(BENCHMARK_PARALLEL_BUILD "--parallel 2")
@@ -39,7 +36,7 @@ if(NOT benchmark_FOUND)
         SOURCE_DIR ${CMAKE_BINARY_DIR}/thirdparty/benchmark
         BINARY_DIR ${CMAKE_BINARY_DIR}/benchmark-${GNSSSDR_BENCHMARK_LOCAL_VERSION}
         CMAKE_ARGS ${BENCHMARK_COMPILER}
-            -DBENCHMARK_ENABLE_GTEST_TESTS=OFF
+            -DBENCHMARK_ENABLE_TESTING=OFF
             ${BENCHMARK_TOOLCHAIN_ARG}
             -DCMAKE_BUILD_TYPE=$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo>$<$<CONFIG:MinSizeRel>:MinSizeRel>$<$<CONFIG:NoOptWithASM>:Debug>$<$<CONFIG:Coverage>:Debug>$<$<CONFIG:O2WithASM>:RelWithDebInfo>$<$<CONFIG:O3WithASM>:RelWithDebInfo>$<$<CONFIG:ASAN>:Debug>
         BUILD_COMMAND "${BENCHMARK_BUILD_COMMAND} ${BENCHMARK_PARALLEL_BUILD}"
@@ -89,7 +86,7 @@ macro(add_benchmark)
     target_link_libraries(${ARGV0} PRIVATE benchmark::benchmark)
     if(${ARGC} GREATER 1)
         set(list_dependencies "${ARGN}")
-        list(REMOVE_AT list_dependencies 0 list_dependencies)
+        list(REMOVE_AT list_dependencies 0)
         foreach(dependency IN LISTS list_dependencies)
             target_link_libraries(${ARGV0} PRIVATE ${dependency})
         endforeach()
@@ -103,6 +100,7 @@ endmacro()
 add_benchmark(benchmark_copy)
 add_benchmark(benchmark_preamble core_system_parameters)
 add_benchmark(benchmark_detector core_system_parameters)
+add_benchmark(benchmark_reed_solomon core_system_parameters)
 
 if(has_std_plus_void)
     target_compile_definitions(benchmark_detector PRIVATE -DCOMPILER_HAS_STD_PLUS_VOID=1)

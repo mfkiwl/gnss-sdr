@@ -311,7 +311,7 @@ std::string Gnss_Satellite::what_block(const std::string& system_, uint32_t PRN_
                 case 7:
                     block_ = std::string("IIR-M");  // Plane A
                     break;
-                case 8:
+                case 8:                           // NOLINT(bugprone-branch-clone)
                     block_ = std::string("IIF");  // Plane C
                     break;
                 case 9:
@@ -321,7 +321,7 @@ std::string Gnss_Satellite::what_block(const std::string& system_, uint32_t PRN_
                     block_ = std::string("IIF");  // Plane E
                     break;
                 case 11:
-                    block_ = std::string("IIR");  // Plane D
+                    block_ = std::string("III");  // Plane D
                     break;
                 case 12:
                     block_ = std::string("IIR-M");  // Plane B
@@ -330,7 +330,7 @@ std::string Gnss_Satellite::what_block(const std::string& system_, uint32_t PRN_
                     block_ = std::string("IIR");  // Plane F
                     break;
                 case 14:
-                    block_ = std::string("Decommissioned");  // Plane F
+                    block_ = std::string("III");  // Plane B
                     break;
                 case 15:
                     block_ = std::string("IIR-M");  // Plane F
@@ -344,7 +344,7 @@ std::string Gnss_Satellite::what_block(const std::string& system_, uint32_t PRN_
                 case 18:
                     block_ = std::string("III");  // Plane D
                     break;
-                case 19:
+                case 19:                          // NOLINT(bugprone-branch-clone)
                     block_ = std::string("IIR");  // Plane D
                     break;
                 case 20:
@@ -359,7 +359,7 @@ std::string Gnss_Satellite::what_block(const std::string& system_, uint32_t PRN_
                 case 23:
                     block_ = std::string("III");  // Plane E
                     break;
-                case 24:
+                case 24:                          // NOLINT(bugprone-branch-clone)
                     block_ = std::string("IIF");  // Plane A
                     break;
                 case 25:
@@ -507,7 +507,7 @@ std::string Gnss_Satellite::what_block(const std::string& system_, uint32_t PRN_
                 case 123:
                     block_ = std::string("EGNOS");  // EGNOS Operational Platform. Astra 5B
                     break;
-                case 131:
+                case 131:                          // NOLINT(bugprone-branch-clone)
                     block_ = std::string("WAAS");  // WAAS Eutelsat 117 West B
                     break;
                 case 135:

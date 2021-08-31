@@ -6,6 +6,7 @@
 
 
 set(SYSTEM_PARAMETERS_SOURCES
+    gnss_ephemeris.cc
     gnss_satellite.cc
     gnss_signal.cc
     gps_navigation_message.cc
@@ -16,17 +17,20 @@ set(SYSTEM_PARAMETERS_SOURCES
     galileo_cnav_message.cc
     galileo_fnav_message.cc
     galileo_inav_message.cc
+    galileo_reduced_ced.cc
     beidou_dnav_navigation_message.cc
     beidou_dnav_ephemeris.cc
     sbas_ephemeris.cc
-    gps_cnav_ephemeris.cc
     gps_cnav_navigation_message.cc
     glonass_gnav_ephemeris.cc
     glonass_gnav_utc_model.cc
     glonass_gnav_navigation_message.cc
+    reed_solomon.cc
 )
 
 set(SYSTEM_PARAMETERS_HEADERS
+    gnss_almanac.h
+    gnss_ephemeris.h
     gnss_satellite.h
     gnss_signal.h
     gps_navigation_message.h
@@ -49,6 +53,7 @@ set(SYSTEM_PARAMETERS_HEADERS
     galileo_fnav_message.h
     galileo_has_data.h
     galileo_inav_message.h
+    galileo_reduced_ced.h
     sbas_ephemeris.h
     gps_cnav_ephemeris.h
     gps_cnav_navigation_message.h
@@ -80,6 +85,8 @@ set(SYSTEM_PARAMETERS_HEADERS
     Beidou_B3I.h
     Beidou_DNAV.h
     MATH_CONSTANTS.h
+    reed_solomon.h
+    galileo_has_page.h
 )
 
 list(SORT SYSTEM_PARAMETERS_HEADERS)
@@ -108,6 +115,12 @@ target_link_libraries(core_system_parameters
     PRIVATE
         Gflags::gflags
         Glog::glog
+)
+
+# for gnss_sdr_make_unique.h
+target_include_directories(core_system_parameters
+    PUBLIC
+        ${CMAKE_SOURCE_DIR}/src/algorithms/libs
 )
 
 if(ENABLE_CLANG_TIDY)

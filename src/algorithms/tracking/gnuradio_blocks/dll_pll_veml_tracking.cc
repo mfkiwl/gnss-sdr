@@ -38,6 +38,7 @@
 #include "galileo_e6_signal_replica.h"
 #include "gnss_satellite.h"
 #include "gnss_sdr_create_directory.h"
+#include "gnss_sdr_filesystem.h"
 #include "gnss_synchro.h"
 #include "gps_l2c_signal_replica.h"
 #include "gps_l5_signal_replica.h"
@@ -62,19 +63,6 @@
 #if HAS_GENERIC_LAMBDA
 #else
 #include <boost/bind/bind.hpp>
-#endif
-
-#if HAS_STD_FILESYSTEM
-#if HAS_STD_FILESYSTEM_EXPERIMENTAL
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#else
-#include <filesystem>
-namespace fs = std::filesystem;
-#endif
-#else
-#include <boost/filesystem/path.hpp>
-namespace fs = boost::filesystem;
 #endif
 
 
@@ -742,7 +730,7 @@ void dll_pll_veml_tracking::start_tracking()
         {
             if (d_trk_parameters.track_pilot)
                 {
-                    d_secondary_code_string = galileo_e6_c_secondary_code(d_acquisition_gnss_synchro->PRN - 1);
+                    d_secondary_code_string = galileo_e6_c_secondary_code(d_acquisition_gnss_synchro->PRN);
                     galileo_e6_b_code_gen_float_primary(d_data_code, d_acquisition_gnss_synchro->PRN);
                     galileo_e6_c_code_gen_float_primary(d_tracking_code, d_acquisition_gnss_synchro->PRN);
                     d_Prompt_Data[0] = gr_complex(0.0, 0.0);
@@ -1993,6 +1981,7 @@ int dll_pll_veml_tracking::general_work(int noutput_items __attribute__((unused)
                     }
             }
         }
+
     consume_each(d_current_prn_length_samples);
     d_sample_counter += static_cast<uint64_t>(d_current_prn_length_samples);
     if (current_synchro_data.Flag_valid_symbol_output || loss_of_lock)

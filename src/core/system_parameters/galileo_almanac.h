@@ -18,8 +18,8 @@
 #ifndef GNSS_SDR_GALILEO_ALMANAC_H
 #define GNSS_SDR_GALILEO_ALMANAC_H
 
+#include "gnss_almanac.h"
 #include <boost/serialization/nvp.hpp>
-#include <cstdint>
 
 /** \addtogroup Core
  * \{ */
@@ -30,7 +30,7 @@
 /*!
  * \brief This class is a storage for the Galileo SV ALMANAC data
  */
-class Galileo_Almanac
+class Galileo_Almanac : public Gnss_Almanac
 {
 public:
     /*!
@@ -38,19 +38,7 @@ public:
      */
     Galileo_Almanac() = default;
 
-    uint32_t i_satellite_PRN{};  //!< SV PRN NUMBER
-    int32_t i_Toa{};
-    int32_t i_WNa{};
-    int32_t i_IODa{};
-    double d_Delta_i{};         //!< Inclination at reference time relative to i0 = 56º [semi-circles]
-    double d_M_0{};             //!< Mean Anomaly at Reference Time [semi-circles]
-    double d_e_eccentricity{};  //!< Eccentricity [dimensionless]
-    double d_Delta_sqrt_A{};    //!< Square Root of the Semi-Major Axis [sqrt(m)]
-    double d_OMEGA0{};          //!< Longitude of Ascending Node of Orbit Plane at Weekly Epoch [semi-circles]
-    double d_OMEGA{};           //!< Argument of Perigee [semi-cicles]
-    double d_OMEGA_DOT{};       //!< Rate of Right Ascension [semi-circles/s]
-    double d_A_f0{};            //!< Coefficient 0 of code phase offset model [s]
-    double d_A_f1{};            //!< Coefficient 1 of code phase offset model [s/s]
+    int32_t IODa{};
     int32_t E5b_HS{};
     int32_t E1B_HS{};
     int32_t E5a_HS{};
@@ -62,19 +50,19 @@ public:
         if (version)
             {
             };
-        ar& BOOST_SERIALIZATION_NVP(i_satellite_PRN);
-        ar& BOOST_SERIALIZATION_NVP(i_Toa);
-        ar& BOOST_SERIALIZATION_NVP(i_WNa);
-        ar& BOOST_SERIALIZATION_NVP(i_IODa);
-        ar& BOOST_SERIALIZATION_NVP(d_Delta_i);
-        ar& BOOST_SERIALIZATION_NVP(d_M_0);
-        ar& BOOST_SERIALIZATION_NVP(d_e_eccentricity);
-        ar& BOOST_SERIALIZATION_NVP(d_Delta_sqrt_A);
-        ar& BOOST_SERIALIZATION_NVP(d_OMEGA0);
-        ar& BOOST_SERIALIZATION_NVP(d_OMEGA);
-        ar& BOOST_SERIALIZATION_NVP(d_OMEGA_DOT);
-        ar& BOOST_SERIALIZATION_NVP(d_A_f0);
-        ar& BOOST_SERIALIZATION_NVP(d_A_f1);
+        ar& BOOST_SERIALIZATION_NVP(PRN);
+        ar& BOOST_SERIALIZATION_NVP(delta_i);
+        ar& BOOST_SERIALIZATION_NVP(toa);
+        ar& BOOST_SERIALIZATION_NVP(WNa);
+        ar& BOOST_SERIALIZATION_NVP(M_0);
+        ar& BOOST_SERIALIZATION_NVP(ecc);
+        ar& BOOST_SERIALIZATION_NVP(sqrtA);
+        ar& BOOST_SERIALIZATION_NVP(OMEGA_0);
+        ar& BOOST_SERIALIZATION_NVP(omega);
+        ar& BOOST_SERIALIZATION_NVP(OMEGAdot);
+        ar& BOOST_SERIALIZATION_NVP(af0);
+        ar& BOOST_SERIALIZATION_NVP(af1);
+        ar& BOOST_SERIALIZATION_NVP(IODa);
         ar& BOOST_SERIALIZATION_NVP(E5b_HS);
         ar& BOOST_SERIALIZATION_NVP(E1B_HS);
         ar& BOOST_SERIALIZATION_NVP(E5a_HS);

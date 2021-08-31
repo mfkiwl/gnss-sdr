@@ -44,7 +44,7 @@ instructions) at runtime.
 
 ## Code samples
 
-**Note:** For C++ code, the library functions are defined in the `CpuFeatures`
+**Note:** For C++ code, the library functions are defined in the `cpu_features`
 namespace.
 
 ### Checking features at runtime
@@ -55,7 +55,7 @@ AES and the SSE4.2 instruction sets:
 ```c
 #include "cpuinfo_x86.h"
 
-// For C++, add `using namespace CpuFeatures;`
+// For C++, add `using namespace cpu_features;`
 static const X86Features features = GetX86Info().features;
 
 void Compute(void) {
@@ -77,7 +77,7 @@ features and then check whether AES and NEON are supported.
 #include <stdbool.h>
 #include "cpuinfo_arm.h"
 
-// For C++, add `using namespace CpuFeatures;`
+// For C++, add `using namespace cpu_features;`
 static const ArmFeatures features = GetArmInfo().features;
 static const bool has_aes_and_neon = features.aes && features.neon;
 
@@ -97,7 +97,7 @@ instruction set (e.g., `g++ -mavx`) and sets `has_avx` accordingly.
 #include <stdbool.h>
 #include "cpuinfo_x86.h"
 
-// For C++, add `using namespace CpuFeatures;`
+// For C++, add `using namespace cpu_features;`
 static const X86Features features = GetX86Info().features;
 static const bool has_avx = CPU_FEATURES_COMPILED_X86_AVX || features.avx;
 
@@ -120,7 +120,7 @@ set&mdash;but only if it's not Sandy Bridge.
 #include <stdbool.h>
 #include "cpuinfo_x86.h"
 
-// For C++, add `using namespace CpuFeatures;`
+// For C++, add `using namespace cpu_features;`
 static const X86Info info = GetX86Info();
 static const X86Microarchitecture uarch = GetX86Microarchitecture(&info);
 static const bool has_fast_avx = info.features.avx && uarch != INTEL_SNB;
@@ -157,13 +157,14 @@ flags           : aes,avx,cx16,smx,sse4_1,sse4_2,ssse3
 
 ## What's supported
 
-|         | x86³ |   ARM   | AArch64 | MIPS⁴ | POWER |
-| ------- | :--: | :-----: | :-----: | :---: | :---: |
-| Android | yes² |  yes¹   |  yes¹   | yes¹  |  N/A  |
-| iOS     | N/A  | not yet | not yet |  N/A  |  N/A  |
-| Linux   | yes² |  yes¹   |  yes¹   | yes¹  | yes¹  |
-| MacOs   | yes² |   N/A   | not yet |  N/A  |  no   |
-| Windows | yes² | not yet | not yet |  N/A  |  N/A  |
+|         | x86³ |   ARM   | AArch64 |  MIPS⁴  |  POWER  |
+| ------- | :--: | :-----: | :-----: | :-----: | :-----: |
+| Android | yes² |  yes¹   |  yes¹   |  yes¹   |   N/A   |
+| iOS     | N/A  | not yet | not yet |   N/A   |   N/A   |
+| Linux   | yes² |  yes¹   |  yes¹   |  yes¹   |  yes¹   |
+| MacOS   | yes² |   N/A   |  yes²   |   N/A   |   no    |
+| Windows | yes² | not yet | not yet |   N/A   |   N/A   |
+| FreeBSD | yes² | not yet | not yet | not yet | not yet |
 
 1.  **Features revealed from Linux.** We gather data from several sources
     depending on availability:
@@ -193,7 +194,7 @@ supporting Android and offers a drop in replacement of for the NDK's
 ## License
 
 The cpu_features library is licensed under the terms of the Apache license. See
-[LICENSE](LICENSE) for more information.
+[LICENSE](https://www.apache.org/licenses/LICENSE-2.0.txt) for more information.
 
 <a name="cmake"></a>
 

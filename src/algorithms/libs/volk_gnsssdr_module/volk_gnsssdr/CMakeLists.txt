@@ -1,14 +1,14 @@
 # GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-FileCopyrightText: 2010-2021 C. Fernandez-Prades cfernandez(at)cttc.es
 # SPDX-License-Identifier: BSD-3-Clause
 
 
 ########################################################################
 # Project setup
 ########################################################################
-cmake_minimum_required(VERSION 2.8.12...3.19)
+cmake_minimum_required(VERSION 2.8.12...3.21)
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif()
@@ -134,6 +134,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
                         set(CMAKE_CXX_STANDARD 17)
                     else()
                         set(CMAKE_CXX_STANDARD 20)
+                        if(CMAKE_VERSION VERSION_GREATER 3.20.99)
+                            if(((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.0.0")) OR
+                                ((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "12.0")))
+                                set(CMAKE_CXX_STANDARD 23)
+                            endif()
+                        endif()
                     endif()
                     set(CMAKE_CXX_STANDARD_REQUIRED ON)
                 else()
@@ -203,8 +209,8 @@ message(STATUS "Build type set to ${CMAKE_BUILD_TYPE}.")
 
 set(VERSION_INFO_MAJOR_VERSION 0)
 set(VERSION_INFO_MINOR_VERSION 0)
-set(VERSION_INFO_MAINT_VERSION 14)
-include(VolkVersion) # setup version info
+set(VERSION_INFO_MAINT_VERSION 15)
+include(VolkGnsssdrVersion) # setup version info
 
 
 
@@ -244,17 +250,23 @@ endif()
 ########################################################################
 
 # cpu_features
+option(ENABLE_OWN_CPUFEATURES "Force the building of the cpu_features library even if it is already installed" OFF)
+
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^cortex")
+    set(CMAKE_SYSTEM_PROCESSOR arm-${CMAKE_SYSTEM_PROCESSOR})
+endif()
+
 set(SUPPORTED_CPU_FEATURES_ARCH FALSE)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^mips")
-  set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
+    set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(^aarch64)|(arm64)")
+    set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
-  set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
-  set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
+    set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)|(AMD64|amd64)|(^i.86$)")
-  set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
+    set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(powerpc|ppc)")
-  set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
+    set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
 endif()
 
 if(CMAKE_VERSION VERSION_GREATER 3.0 AND SUPPORTED_CPU_FEATURES_ARCH)
@@ -265,7 +277,14 @@ if(CMAKE_VERSION VERSION_GREATER 3.0 AND SUPPORTED_CPU_FEATURES_ARCH)
     set(USE_CPU_FEATURES ON)
     set(BUILD_SHARED_LIBS_SAVED "${BUILD_SHARED_LIBS}")
     set(BUILD_SHARED_LIBS OFF)
-    add_subdirectory(cpu_features)
+    if(NOT ENABLE_OWN_CPUFEATURES)
+        find_package(CPUFEATURES QUIET)
+    endif()
+    if(CPUFEATURES_FOUND)
+        message(STATUS "Found CpuFeatures: (found version ${CPUFEATURES_VERSION})")
+    else()
+        add_subdirectory(cpu_features)
+    endif()
     set(BUILD_SHARED_LIBS "${BUILD_SHARED_LIBS_SAVED}")
 endif()
 

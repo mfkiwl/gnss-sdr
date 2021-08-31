@@ -1,7 +1,7 @@
 /*!
  * \file galileo_inav_message.h
  * \brief  Implementation of a Galileo I/NAV Data message
- *         as described in Galileo OS SIS ICD Issue 1.2 (Nov. 2015)
+ *         as described in Galileo OS SIS ICD Issue 2.0 (Jan. 2021)
  * \author Mara Branzanti 2013. mara.branzanti(at)gmail.com
  * \author Javier Arribas, 2013. jarribas(at)cttc.es
  *
@@ -10,7 +10,7 @@
  * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * Copyright (C) 2010-2020  (see AUTHORS file for a list of contributors)
+ * Copyright (C) 2010-2021  (see AUTHORS file for a list of contributors)
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * -----------------------------------------------------------------------------
@@ -24,11 +24,15 @@
 #include "galileo_ephemeris.h"
 #include "galileo_iono.h"
 #include "galileo_utc_model.h"
+#include "gnss_sdr_make_unique.h"  // for std::unique_ptr in C++11
 #include <bitset>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
+
+class ReedSolomon;  // Forward declaration of the ReedSolomon class
 
 /** \addtogroup Core
  * \{ */
@@ -38,13 +42,15 @@
 
 /*!
  * \brief This class handles the Galileo I/NAV Data message, as described in the
- * Galileo Open Service Signal in Space Interface Control Document (OS SIS ICD), Issue 1.2 (Nov 2015).
- * See https://www.gsc-europa.eu/sites/default/files/sites/all/files/Galileo-OS-SIS-ICD.pdf
+ * Galileo Open Service Signal in Space Interface Control Document (OS SIS ICD), Issue 2.0 (Jan. 2021).
+ * See https://www.gsc-europa.eu/sites/default/files/sites/all/files/Galileo_OS_SIS_ICD_v2.0.pdf
  */
 class Galileo_Inav_Message
 {
 public:
-    Galileo_Inav_Message() = default;
+    Galileo_Inav_Message();
+
+    ~Galileo_Inav_Message();
 
     /*
      * \brief Takes in input a page (Odd or Even) of 120 bit, split it according ICD 4.3.2.3 and join Data_k with Data_j
@@ -79,6 +85,11 @@ public:
     bool have_new_almanac();
 
     /*
+     * \brief Returns true if new Reduced CED parameters have arrived. The flag is set to false when the function is executed
+     */
+    bool have_new_reduced_ced();
+
+    /*
      * \brief Returns a Galileo_Ephemeris object filled with the latest navigation data received
      */
     Galileo_Ephemeris get_ephemeris() const;
@@ -97,6 +108,11 @@ public:
      * \brief Returns a Galileo_Almanac_Helper object filled with the latest navigation data received
      */
     Galileo_Almanac_Helper get_almanac() const;
+
+    /*
+     * \brief Returns a Galileo_Ephemeris object filled with the latest reduced CED received
+     */
+    Galileo_Ephemeris get_reduced_ced() const;
 
     inline bool get_flag_CRC_test() const
     {
@@ -148,6 +164,21 @@ public:
         flag_TOW_6 = flag_tow6;
     }
 
+    inline int32_t get_TOW0() const
+    {
+        return TOW_0;
+    }
+
+    inline bool is_TOW0_set() const
+    {
+        return flag_TOW_0;
+    }
+
+    inline void set_TOW0_flag(bool flag_tow0)
+    {
+        flag_TOW_0 = flag_tow0;
+    }
+
     inline bool get_flag_GGTO() const
     {
         return (flag_GGTO_1 == true and flag_GGTO_2 == true and flag_GGTO_3 == true and flag_GGTO_4 == true);
@@ -173,12 +204,37 @@ public:
         return WN_0G_10;
     }
 
+    /*
+     * \brief Initialize PRN field so we do not need to wait for page 4.
+     */
+    inline void init_PRN(uint32_t prn)
+    {
+        SV_ID_PRN_4 = prn;
+    }
+
+    /*
+     * \brief Enable Reed-Solomon in Galileo E1B
+     */
+    inline void enable_reed_solomon()
+    {
+        enable_rs = true;
+    }
+
 private:
-    bool CRC_test(std::bitset<GALILEO_DATA_FRAME_BITS> bits, uint32_t checksum) const;
-    bool read_navigation_bool(std::bitset<GALILEO_DATA_JK_BITS> bits, const std::vector<std::pair<int32_t, int32_t> >& parameter) const;
-    uint64_t read_navigation_unsigned(std::bitset<GALILEO_DATA_JK_BITS> bits, const std::vector<std::pair<int32_t, int32_t> >& parameter) const;
-    uint64_t read_page_type_unsigned(std::bitset<GALILEO_PAGE_TYPE_BITS> bits, const std::vector<std::pair<int32_t, int32_t> >& parameter) const;
-    int64_t read_navigation_signed(std::bitset<GALILEO_DATA_JK_BITS> bits, const std::vector<std::pair<int32_t, int32_t> >& parameter) const;
+    bool CRC_test(const std::bitset<GALILEO_DATA_FRAME_BITS>& bits, uint32_t checksum) const;
+    bool read_navigation_bool(const std::bitset<GALILEO_DATA_JK_BITS>& bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const;
+    uint64_t read_navigation_unsigned(const std::bitset<GALILEO_DATA_JK_BITS>& bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const;
+    uint64_t read_page_type_unsigned(const std::bitset<GALILEO_PAGE_TYPE_BITS>& bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const;
+    int64_t read_navigation_signed(const std::bitset<GALILEO_DATA_JK_BITS>& bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const;
+    uint8_t read_octet_unsigned(const std::bitset<GALILEO_DATA_JK_BITS>& bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const;
+    void read_page_1(const std::bitset<GALILEO_DATA_JK_BITS>& data_bits);
+    void read_page_2(const std::bitset<GALILEO_DATA_JK_BITS>& data_bits);
+    void read_page_3(const std::bitset<GALILEO_DATA_JK_BITS>& data_bits);
+    void read_page_4(const std::bitset<GALILEO_DATA_JK_BITS>& data_bits);
+    std::bitset<GALILEO_DATA_JK_BITS> regenerate_page_1(const std::vector<uint8_t>& decoded) const;
+    std::bitset<GALILEO_DATA_JK_BITS> regenerate_page_2(const std::vector<uint8_t>& decoded) const;
+    std::bitset<GALILEO_DATA_JK_BITS> regenerate_page_3(const std::vector<uint8_t>& decoded) const;
+    std::bitset<GALILEO_DATA_JK_BITS> regenerate_page_4(const std::vector<uint8_t>& decoded) const;
 
     std::string page_Even{};
 
@@ -321,7 +377,28 @@ private:
     int32_t WN_0{};
     int32_t TOW_0{};
 
+    // Word type 16: Reduced Clock and Ephemeris Data (CED) parameters
+    double ced_DeltaAred{};
+    double ced_exred{};
+    double ced_eyred{};
+    double ced_Deltai0red{};
+    double ced_Omega0red{};
+    double ced_lambda0red{};
+    double ced_af0red{};
+    double ced_af1red{};
+
     double Galileo_satClkDrift{};
+
+    int32_t current_IODnav{};
+
+    std::vector<uint8_t> rs_buffer;   // Reed-Solomon buffer
+    std::unique_ptr<ReedSolomon> rs;  // The Reed-Solomon decoder
+    std::vector<int> inav_rs_pages;   // Pages 1,2,3,4,17,18,19,20. Holds 1 if the page has arrived, 0 otherwise.
+
+    uint8_t IODnav_LSB17{};
+    uint8_t IODnav_LSB18{};
+    uint8_t IODnav_LSB19{};
+    uint8_t IODnav_LSB20{};
 
     bool flag_CRC_test{};
     bool flag_all_ephemeris{};  // Flag indicating that all words containing ephemeris have been received
@@ -333,6 +410,7 @@ private:
     bool flag_iono_and_GST{};  // Flag indicating that ionospheric and GST parameters (word 5) have been received
     bool flag_TOW_5{};
     bool flag_TOW_6{};
+    bool flag_TOW_0{};
     bool flag_TOW_set{};    // it is true when page 5 or page 6 arrives
     bool flag_utc_model{};  // Flag indicating that utc model parameters (word 6) have been received
 
@@ -346,6 +424,9 @@ private:
     bool flag_GGTO_2{};
     bool flag_GGTO_3{};
     bool flag_GGTO_4{};
+
+    bool flag_CED{};
+    bool enable_rs{};
 };
 
 
