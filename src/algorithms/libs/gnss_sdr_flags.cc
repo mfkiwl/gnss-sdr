@@ -33,6 +33,9 @@ DEFINE_string(s, "-",
 DEFINE_string(signal_source, "-",
     "If defined, path to the file containing the signal samples (overrides the configuration file).");
 
+DEFINE_string(timestamp_source, "-",
+    "If defined, path to the file containing the signal timestamp data (overrides the configuration file).");
+
 DEFINE_bool(rf_shutdown, true, "If set to false, AD9361 RF channels are not shut down when exiting the program. Useful to leave the AD9361 configured and running.");
 
 DEFINE_int32(doppler_max, 0, "If defined, sets the maximum Doppler value in the search grid, in Hz (overrides the configuration file).");
@@ -59,6 +62,8 @@ DEFINE_int32(carrier_smoothing_factor, DEFAULT_CARRIER_SMOOTHING_FACTOR, "Sets c
 DEFINE_string(RINEX_version, "-", "If defined, specifies the RINEX version (2.11 or 3.02). Overrides the configuration file.");
 
 DEFINE_string(RINEX_name, "-", "If defined, specifies the RINEX files base name");
+
+DEFINE_bool(keyboard, true, "If set to false, it disables the keyboard listener (so the receiver cannot be stopped with q+[Enter])");
 
 #if GFLAGS_GREATER_2_0
 

@@ -64,20 +64,42 @@ galileo_e5a_noncoherentIQ_acquisition_caf_cc::galileo_e5a_noncoherentIQ_acquisit
     bool both_signal_components_,
     int CAF_window_hz_,
     int Zero_padding_,
-    bool enable_monitor_output) : gr::block("galileo_e5a_noncoherentIQ_acquisition_caf_cc",
-                                      gr::io_signature::make(1, 1, sizeof(gr_complex)),
-                                      gr::io_signature::make(0, 1, sizeof(Gnss_Synchro)))
+    bool enable_monitor_output)
+    : gr::block("galileo_e5a_noncoherentIQ_acquisition_caf_cc",
+          gr::io_signature::make(1, 1, sizeof(gr_complex)),
+          gr::io_signature::make(0, 1, sizeof(Gnss_Synchro))),
+      d_dump_filename(dump_filename),
+      d_gnss_synchro(nullptr),
+      d_fs_in(fs_in),
+      d_sample_counter(0ULL),
+      d_threshold(0),
+      d_doppler_freq(0),
+      d_mag(0),
+      d_input_power(0.0),
+      d_test_statistics(0),
+      d_state(0),
+      d_samples_per_ms(samples_per_ms),
+      d_samples_per_code(samples_per_code),
+      d_CAF_window_hz(CAF_window_hz_),
+      d_buffer_count(0),
+      d_doppler_resolution(0),
+      d_doppler_max(static_cast<int>(doppler_max)),
+      d_doppler_step(250),
+      d_fft_size(static_cast<int>(sampled_ms) * d_samples_per_ms),
+      d_num_doppler_bins(0),
+      d_gr_stream_buffer(0),
+      d_channel(0),
+      d_max_dwells(max_dwells),
+      d_well_count(0),
+      d_code_phase(0),
+      d_bit_transition_flag(bit_transition_flag),
+      d_active(false),
+      d_dump(dump),
+      d_both_signal_components(both_signal_components_),
+      d_enable_monitor_output(enable_monitor_output)
 {
     this->message_port_register_out(pmt::mp("events"));
-    d_sample_counter = 0ULL;  // SAMPLE COUNTER
-    d_active = false;
-    d_state = 0;
-    d_fs_in = fs_in;
-    d_samples_per_ms = samples_per_ms;
-    d_samples_per_code = samples_per_code;
-    d_max_dwells = max_dwells;
-    d_well_count = 0;
-    d_doppler_max = static_cast<int>(doppler_max);
+
     if (Zero_padding_ > 0)
         {
             d_sampled_ms = 1;
@@ -86,53 +108,31 @@ galileo_e5a_noncoherentIQ_acquisition_caf_cc::galileo_e5a_noncoherentIQ_acquisit
         {
             d_sampled_ms = sampled_ms;
         }
-    d_fft_size = static_cast<int>(sampled_ms) * d_samples_per_ms;
-    d_mag = 0;
-    d_input_power = 0.0;
-    d_num_doppler_bins = 0;
-    d_bit_transition_flag = bit_transition_flag;
-    d_buffer_count = 0;
-    d_both_signal_components = both_signal_components_;
-    d_CAF_window_hz = CAF_window_hz_;
-    d_enable_monitor_output = enable_monitor_output;
 
-    d_inbuffer.reserve(d_fft_size);
-    d_fft_code_I_A.reserve(d_fft_size);
-    d_magnitudeIA.reserve(d_fft_size);
+    d_inbuffer = std::vector<gr_complex>(d_fft_size);
+    d_fft_code_I_A = std::vector<gr_complex>(d_fft_size);
+    d_magnitudeIA = std::vector<float>(d_fft_size);
 
     if (d_both_signal_components == true)
         {
-            d_fft_code_Q_A.reserve(d_fft_size);
-            d_magnitudeQA.reserve(d_fft_size);
+            d_fft_code_Q_A = std::vector<gr_complex>(d_fft_size);
+            d_magnitudeQA = std::vector<float>(d_fft_size);
         }
 
     // IF COHERENT INTEGRATION TIME > 1
     if (d_sampled_ms > 1)
         {
-            d_fft_code_I_B.reserve(d_fft_size);
-            d_magnitudeIB.reserve(d_fft_size);
+            d_fft_code_I_B = std::vector<gr_complex>(d_fft_size);
+            d_magnitudeIB = std::vector<float>(d_fft_size);
             if (d_both_signal_components == true)
                 {
-                    d_fft_code_Q_B.reserve(d_fft_size);
-                    d_magnitudeQB.reserve(d_fft_size);
+                    d_fft_code_Q_B = std::vector<gr_complex>(d_fft_size);
+                    d_magnitudeQB = std::vector<float>(d_fft_size);
                 }
         }
 
     d_fft_if = gnss_fft_fwd_make_unique(d_fft_size);
     d_ifft = gnss_fft_rev_make_unique(d_fft_size);
-
-    d_dump = dump;
-    d_dump_filename = dump_filename;
-
-    d_doppler_resolution = 0;
-    d_threshold = 0;
-    d_doppler_step = 250;
-    d_gnss_synchro = nullptr;
-    d_code_phase = 0;
-    d_doppler_freq = 0;
-    d_test_statistics = 0;
-    d_channel = 0;
-    d_gr_stream_buffer = 0;
 }
 
 
@@ -244,11 +244,11 @@ void galileo_e5a_noncoherentIQ_acquisition_caf_cc::init()
      * separately before non-coherent integration */
     if (d_CAF_window_hz > 0)
         {
-            d_CAF_vector.reserve(d_num_doppler_bins);
-            d_CAF_vector_I.reserve(d_num_doppler_bins);
+            d_CAF_vector = std::vector<float>(d_num_doppler_bins);
+            d_CAF_vector_I = std::vector<float>(d_num_doppler_bins);
             if (d_both_signal_components == true)
                 {
-                    d_CAF_vector_Q.reserve(d_num_doppler_bins);
+                    d_CAF_vector_Q = std::vector<float>(d_num_doppler_bins);
                 }
         }
 }

@@ -38,6 +38,7 @@
 #include <gnuradio/blocks/skiphead.h>
 #include <gnuradio/top_block.h>
 #include <gtest/gtest.h>
+#include <pmt/pmt.h>
 #include <chrono>
 #include <cstdio>  // FPGA read input file
 #include <fcntl.h>
@@ -52,6 +53,11 @@
 #include <gnuradio/analog/sig_source.h>
 #else
 #include <gnuradio/analog/sig_source_c.h>
+#endif
+#if PMT_USES_BOOST_ANY
+namespace wht = boost;
+#else
+namespace wht = std;
 #endif
 
 #define DMA_TRACK_TRANSFER_SIZE 2046  // DMA transfer size for tracking
@@ -183,7 +189,7 @@ void GpsL1CADllPllTrackingTestFpga_msg_rx::msg_handler_channel_events(const pmt:
             int64_t message = pmt::to_long(msg);
             rx_message = message;
         }
-    catch (const boost::bad_any_cast &e)
+    catch (const wht::bad_any_cast &e)
         {
             LOG(WARNING) << "msg_handler_channel_events Bad any_cast: " << e.what();
             rx_message = 0;
@@ -191,9 +197,11 @@ void GpsL1CADllPllTrackingTestFpga_msg_rx::msg_handler_channel_events(const pmt:
 }
 
 
-GpsL1CADllPllTrackingTestFpga_msg_rx::GpsL1CADllPllTrackingTestFpga_msg_rx() : gr::block("GpsL1CADllPllTrackingTestFpga_msg_rx",
-                                                                                   gr::io_signature::make(0, 0, 0),
-                                                                                   gr::io_signature::make(0, 0, 0))
+GpsL1CADllPllTrackingTestFpga_msg_rx::GpsL1CADllPllTrackingTestFpga_msg_rx()
+    : gr::block("GpsL1CADllPllTrackingTestFpga_msg_rx",
+          gr::io_signature::make(0, 0, 0),
+          gr::io_signature::make(0, 0, 0)),
+      rx_message(0)
 {
     this->message_port_register_in(pmt::mp("events"));
     this->set_msg_handler(pmt::mp("events"),
@@ -206,7 +214,6 @@ GpsL1CADllPllTrackingTestFpga_msg_rx::GpsL1CADllPllTrackingTestFpga_msg_rx() : g
         boost::bind(&GpsL1CADllPllTrackingTestFpga_msg_rx::msg_handler_channel_events, this, _1));
 #endif
 #endif
-    rx_message = 0;
 }
 
 
@@ -239,10 +246,10 @@ public:
     void check_results_codephase(arma::vec &true_time_s, arma::vec &true_value,
         arma::vec &meas_time_s, arma::vec &meas_value);
 
-    GpsL1CADllPllTrackingTestFpga()
+    GpsL1CADllPllTrackingTestFpga() : item_size(sizeof(gr_complex))
     {
         config = std::make_shared<InMemoryConfiguration>();
-        item_size = sizeof(gr_complex);
+
         gnss_synchro = Gnss_Synchro();
     }
 

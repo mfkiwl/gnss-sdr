@@ -21,13 +21,14 @@
 #include "INIReader.h"
 #include "command_event.h"
 #include "gnss_sdr_make_unique.h"
-#include <boost/any.hpp>
 #include <gnuradio/io_signature.h>
 #include <algorithm>
 #include <array>
 #include <bitset>
 #include <exception>
+#include <iomanip>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <utility>
 
@@ -44,18 +45,17 @@ labsat23_source::labsat23_source(const char *signal_file_basename,
     bool digital_io_enabled) : gr::block("labsat23_source",
                                    gr::io_signature::make(0, 0, 0),
                                    gr::io_signature::make(1, 3, sizeof(gr_complex))),
-                               d_queue(queue)
+                               d_queue(queue),
+                               d_channel_selector_config(channel_selector),
+                               d_current_file_number(0),
+                               d_labsat_version(0),
+                               d_channel_selector(0),
+                               d_ref_clock(0),
+                               d_bits_per_sample(0),
+                               d_header_parsed(false),
+                               d_ls3w_digital_io_enabled(digital_io_enabled)
 {
-    d_channel_selector_config = channel_selector;
-    d_header_parsed = false;
-    d_bits_per_sample = 0;
-    d_current_file_number = 0;
-    d_labsat_version = 0;
-    d_ref_clock = 0;
-    d_channel_selector = 0;
     d_signal_file_basename = std::string(signal_file_basename);
-    d_ls3w_digital_io_enabled = digital_io_enabled;
-
     std::string signal_file;
     this->set_output_multiple(8);
     signal_file = generate_filename();
@@ -114,7 +114,7 @@ std::string labsat23_source::generate_filename()
                 {
                     return d_signal_file_basename;
                 }
-            return std::string("donotexist");  // just to stop processing
+            return {"donotexist"};  // just to stop processing
         }
     if (d_signal_file_basename.substr(d_signal_file_basename.length() - 5, 5) == ".ls3w" or d_signal_file_basename.substr(d_signal_file_basename.length() - 5, 5) == ".LS3W")
         {

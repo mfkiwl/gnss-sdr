@@ -57,6 +57,7 @@
 #include <exception>  // for exception
 #include <iostream>   // for cout, cerr
 #include <map>
+#include <memory>
 #include <numeric>
 #include <vector>
 
@@ -65,6 +66,13 @@
 #include <boost/bind/bind.hpp>
 #endif
 
+#if PMT_USES_BOOST_ANY
+#include <boost/any.hpp>
+namespace wht = boost;
+#else
+#include <any>
+namespace wht = std;
+#endif
 
 dll_pll_veml_tracking_sptr dll_pll_veml_make_tracking(const Dll_Pll_Conf &conf_)
 {
@@ -72,12 +80,54 @@ dll_pll_veml_tracking_sptr dll_pll_veml_make_tracking(const Dll_Pll_Conf &conf_)
 }
 
 
-dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_) : gr::block("dll_pll_veml_tracking", gr::io_signature::make(1, 1, sizeof(gr_complex)),
-                                                                              gr::io_signature::make(1, 1, sizeof(Gnss_Synchro)))
+dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_)
+    : gr::block("dll_pll_veml_tracking", gr::io_signature::make(1, 1, sizeof(gr_complex)),
+          gr::io_signature::make(1, 1, sizeof(Gnss_Synchro))),
+      d_trk_parameters(conf_),
+      d_acquisition_gnss_synchro(nullptr),
+      d_code_chip_rate(0.0),
+      d_acq_code_phase_samples(0.0),
+      d_acq_carrier_doppler_hz(0.0),
+      d_current_correlation_time_s(0.0),
+      d_carrier_doppler_hz(0.0),
+      d_acc_carrier_phase_rad(0.0),
+      d_rem_code_phase_chips(0.0),
+      d_T_chip_seconds(0.0),
+      d_T_prn_seconds(0.0),
+      d_T_prn_samples(0.0),
+      d_K_blk_samples(0.0),
+      d_carrier_lock_test(1.0),
+      d_CN0_SNV_dB_Hz(0.0),
+      d_carrier_lock_threshold(d_trk_parameters.carrier_lock_th),
+      d_carrier_phase_step_rad(0.0),
+      d_carrier_phase_rate_step_rad(0.0),
+      d_code_phase_step_chips(0.0),
+      d_code_phase_rate_step_chips(0.0),
+      d_rem_code_phase_samples(0.0),  // Residual code phase (in chips)
+      d_acq_sample_stamp(0ULL),
+      d_rem_carr_phase_rad(0.0),  // Residual carrier phase
+      d_state(0),                 // initial state: standby
+      d_current_prn_length_samples(static_cast<int32_t>(d_trk_parameters.vector_length)),
+      d_extend_correlation_symbols_count(0),
+      d_cn0_estimation_counter(0),
+      d_carrier_lock_fail_counter(0),
+      d_code_lock_fail_counter(0),
+      d_channel(0),
+      d_secondary_code_length(0U),
+      d_data_secondary_code_length(0U),
+      d_pull_in_transitory(true),
+      d_corrected_doppler(false),
+      d_interchange_iq(false),
+      d_veml(false),
+      d_cloop(true),
+      d_dump(d_trk_parameters.dump),
+      d_dump_mat(d_trk_parameters.dump_mat && d_dump),
+      d_acc_carrier_phase_initialized(false),
+      d_Flag_PLL_180_deg_phase_locked(false)
 {
     // prevent telemetry symbols accumulation in output buffers
     this->set_max_noutput_items(1);
-    d_trk_parameters = conf_;
+
     // Telemetry bit synchronization message port input
     this->message_port_register_out(pmt::mp("events"));
     this->set_relative_rate(1.0 / static_cast<double>(d_trk_parameters.vector_length));
@@ -98,14 +148,6 @@ dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_) : gr::bl
 
     // initialize internal vars
     d_dll_filt_history.set_capacity(1000);
-    d_veml = false;
-    d_cloop = true;
-    d_pull_in_transitory = true;
-    d_code_chip_rate = 0.0;
-    d_secondary_code_length = 0U;
-    d_data_secondary_code_length = 0U;
-    d_preamble_length_symbols = 0;
-    d_interchange_iq = false;
     d_signal_type = std::string(d_trk_parameters.signal);
 
     std::map<std::string, std::string> map_signal_pretty_name;
@@ -141,7 +183,7 @@ dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_) : gr::bl
                     d_trk_parameters.spc = d_trk_parameters.early_late_space_chips;
                     d_trk_parameters.y_intercept = 1.0;
                     // symbol integration: 20 trk symbols (20 ms) = 1 tlm bit
-                    // set the preamble in the secondary code acquisition to obtain tlm symbol synchronization
+                    // set the bit transition pattern in secondary code to obtain bit synchronization
                     d_secondary_code_length = static_cast<uint32_t>(GPS_CA_PREAMBLE_LENGTH_SYMBOLS);
                     d_secondary_code_string = GPS_CA_PREAMBLE_SYMBOLS_STR;
                     d_symbols_per_bit = GPS_CA_TELEMETRY_SYMBOLS_PER_BIT;
@@ -263,6 +305,7 @@ dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_) : gr::bl
                             // remove data secondary code
                             d_data_secondary_code_length = static_cast<uint32_t>(GALILEO_E5A_I_SECONDARY_CODE_LENGTH);
                             d_data_secondary_code_string = GALILEO_E5A_I_SECONDARY_CODE;
+                            d_interchange_iq = true;
                         }
                     else
                         {
@@ -270,7 +313,6 @@ dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_) : gr::bl
                             d_secondary_code_length = static_cast<uint32_t>(GALILEO_E5A_I_SECONDARY_CODE_LENGTH);
                             d_secondary_code_string = GALILEO_E5A_I_SECONDARY_CODE;
                             d_signal_pretty_name = d_signal_pretty_name + "I";
-                            d_interchange_iq = true;
                         }
                 }
             else if (d_signal_type == "7X")
@@ -294,6 +336,7 @@ dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_) : gr::bl
                             // remove data secondary code
                             d_data_secondary_code_length = static_cast<uint32_t>(GALILEO_E5B_I_SECONDARY_CODE_LENGTH);
                             d_data_secondary_code_string = GALILEO_E5B_I_SECONDARY_CODE;
+                            d_interchange_iq = true;
                         }
                     else
                         {
@@ -301,7 +344,6 @@ dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_) : gr::bl
                             d_secondary_code_length = static_cast<uint32_t>(GALILEO_E5B_I_SECONDARY_CODE_LENGTH);
                             d_secondary_code_string = GALILEO_E5B_I_SECONDARY_CODE;
                             d_signal_pretty_name = d_signal_pretty_name + "I";
-                            d_interchange_iq = true;
                         }
                 }
             else if (d_signal_type == "E6")
@@ -410,10 +452,9 @@ dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_) : gr::bl
             d_code_samples_per_chip = 0U;
             d_symbols_per_bit = 0;
         }
-    d_T_chip_seconds = 0.0;
-    d_T_prn_seconds = 0.0;
-    d_T_prn_samples = 0.0;
-    d_K_blk_samples = 0.0;
+
+    // Initial code frequency basis of NCO
+    d_code_freq_chips = d_code_chip_rate;
 
     // Initialize tracking  ==========================================
     d_code_loop_filter = Tracking_loop_filter(static_cast<float>(d_code_period), d_trk_parameters.dll_bw_hz, d_trk_parameters.dll_filter_order, false);
@@ -434,8 +475,8 @@ dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_) : gr::bl
             d_n_correlator_taps = 3;
         }
 
-    d_correlator_outs.reserve(d_n_correlator_taps);
-    d_local_code_shift_chips.reserve(d_n_correlator_taps);
+    d_correlator_outs = volk_gnsssdr::vector<gr_complex>(d_n_correlator_taps);
+    d_local_code_shift_chips = volk_gnsssdr::vector<float>(d_n_correlator_taps);
     // map memory pointers of correlator outputs
     if (d_veml)
         {
@@ -488,29 +529,10 @@ dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_) : gr::bl
     // --- Initializations ---
     d_Prompt_circular_buffer.set_capacity(d_secondary_code_length);
     d_multicorrelator_cpu.set_high_dynamics_resampler(d_trk_parameters.high_dyn);
-    // Initial code frequency basis of NCO
-    d_code_freq_chips = d_code_chip_rate;
-    // Residual code phase (in chips)
-    d_rem_code_phase_samples = 0.0;
-    // Residual carrier phase
-    d_rem_carr_phase_rad = 0.0;
-
-    // sample synchronization
-    d_sample_counter = 0ULL;
-    d_acq_sample_stamp = 0ULL;
-
-    d_current_prn_length_samples = static_cast<int32_t>(d_trk_parameters.vector_length);
-    d_current_correlation_time_s = 0.0;
 
     // CN0 estimation and lock detector buffers
-    d_cn0_estimation_counter = 0;
-    d_Prompt_buffer.reserve(d_trk_parameters.cn0_samples);
-    d_carrier_lock_test = 1.0;
-    d_CN0_SNV_dB_Hz = 0.0;
-    d_carrier_lock_fail_counter = 0;
-    d_code_lock_fail_counter = 0;
-    d_carrier_lock_threshold = d_trk_parameters.carrier_lock_th;
-    d_Prompt_Data.reserve(1);
+    d_Prompt_buffer = volk_gnsssdr::vector<gr_complex>(d_trk_parameters.cn0_samples);
+    d_Prompt_Data = volk_gnsssdr::vector<gr_complex>(1);
     d_cn0_smoother = Exponential_Smoother();
     d_cn0_smoother.set_alpha(d_trk_parameters.cn0_smoother_alpha);
 
@@ -525,21 +547,8 @@ dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_) : gr::bl
     d_carrier_lock_test_smoother.set_offset(0.0);
     d_carrier_lock_test_smoother.set_samples_for_initialization(d_trk_parameters.carrier_lock_test_smoother_samples);
 
-    d_acquisition_gnss_synchro = nullptr;
-    d_channel = 0;
-    d_acq_code_phase_samples = 0.0;
-    d_acq_carrier_doppler_hz = 0.0;
-    d_carrier_doppler_hz = 0.0;
-    d_acc_carrier_phase_rad = 0.0;
-
-    d_extend_correlation_symbols_count = 0;
-    d_code_phase_step_chips = 0.0;
-    d_code_phase_rate_step_chips = 0.0;
-    d_carrier_phase_step_rad = 0.0;
-    d_carrier_phase_rate_step_rad = 0.0;
-    d_rem_code_phase_chips = 0.0;
-    d_state = 0;  // initial state: standby
     clear_tracking_vars();
+
     if (d_trk_parameters.smoother_length > 0)
         {
             d_carr_ph_history.set_capacity(d_trk_parameters.smoother_length * 2);
@@ -551,8 +560,6 @@ dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_) : gr::bl
             d_code_ph_history.set_capacity(1);
         }
 
-    d_dump = d_trk_parameters.dump;
-    d_dump_mat = d_trk_parameters.dump_mat and d_dump;
     if (d_dump)
         {
             d_dump_filename = d_trk_parameters.dump_filename;
@@ -586,8 +593,9 @@ dll_pll_veml_tracking::dll_pll_veml_tracking(const Dll_Pll_Conf &conf_) : gr::bl
                     d_dump = false;
                 }
         }
-    d_corrected_doppler = false;
-    d_acc_carrier_phase_initialized = false;
+    d_last_timetag_samplecounter = 0;
+    d_timetag_waiting = false;
+    set_tag_propagation_policy(TPP_DONT);  // no tag propagation, the time tag will be adjusted and regenerated in work()
 }
 
 
@@ -607,7 +615,7 @@ void dll_pll_veml_tracking::msg_handler_telemetry_to_trk(const pmt::pmt_t &msg)
         {
             if (pmt::any_ref(msg).type().hash_code() == int_type_hash_code)
                 {
-                    const int tlm_event = boost::any_cast<int>(pmt::any_ref(msg));
+                    const int tlm_event = wht::any_cast<int>(pmt::any_ref(msg));
                     if (tlm_event == 1)
                         {
                             DLOG(INFO) << "Telemetry fault received in ch " << this->d_channel;
@@ -616,9 +624,13 @@ void dll_pll_veml_tracking::msg_handler_telemetry_to_trk(const pmt::pmt_t &msg)
                         }
                 }
         }
-    catch (const boost::bad_any_cast &e)
+    catch (const wht::bad_any_cast &e)
         {
             LOG(WARNING) << "msg_handler_telemetry_to_trk Bad any_cast: " << e.what();
+        }
+    catch (std::exception &ex)
+        {
+            LOG(WARNING) << "msg_handler_telemetry_to_trk Bad any_cast: " << ex.what();
         }
 }
 
@@ -928,6 +940,14 @@ bool dll_pll_veml_tracking::acquire_secondary()
 
     if (abs(corr_value) == static_cast<int32_t>(d_secondary_code_length))
         {
+            if (corr_value < 0)
+                {
+                    d_Flag_PLL_180_deg_phase_locked = true;
+                }
+            else
+                {
+                    d_Flag_PLL_180_deg_phase_locked = false;
+                }
             return true;
         }
 
@@ -1390,7 +1410,7 @@ void dll_pll_veml_tracking::log_data()
                     d_dump_file.write(reinterpret_cast<char *>(&prompt_I), sizeof(float));
                     d_dump_file.write(reinterpret_cast<char *>(&prompt_Q), sizeof(float));
                     // PRN start sample stamp
-                    tmp_long_int = d_sample_counter + static_cast<uint64_t>(d_current_prn_length_samples);
+                    tmp_long_int = this->nitems_read(0) + static_cast<uint64_t>(d_current_prn_length_samples);
                     d_dump_file.write(reinterpret_cast<char *>(&tmp_long_int), sizeof(uint64_t));
                     // accumulated carrier phase
                     tmp_float = static_cast<float>(d_acc_carrier_phase_rad);
@@ -1424,7 +1444,7 @@ void dll_pll_veml_tracking::log_data()
                     // AUX vars (for debug purposes)
                     tmp_float = static_cast<float>(d_rem_code_phase_samples);
                     d_dump_file.write(reinterpret_cast<char *>(&tmp_float), sizeof(float));
-                    tmp_double = static_cast<double>(d_sample_counter + d_current_prn_length_samples);
+                    tmp_double = static_cast<double>(this->nitems_read(0) + d_current_prn_length_samples);
                     d_dump_file.write(reinterpret_cast<char *>(&tmp_double), sizeof(double));
                     // PRN
                     uint32_t prn_ = d_acquisition_gnss_synchro->PRN;
@@ -1683,6 +1703,14 @@ void dll_pll_veml_tracking::stop_tracking()
 }
 
 
+int64_t dll_pll_veml_tracking::uint64diff(uint64_t first, uint64_t second)
+{
+    uint64_t abs_diff = (first > second) ? (first - second) : (second - first);
+    assert(abs_diff <= INT64_MAX);
+    return (first > second) ? static_cast<int64_t>(abs_diff) : -static_cast<int64_t>(abs_diff);
+}
+
+
 int dll_pll_veml_tracking::general_work(int noutput_items __attribute__((unused)), gr_vector_int &ninput_items,
     gr_vector_const_void_star &input_items, gr_vector_void_star &output_items)
 {
@@ -1695,7 +1723,8 @@ int dll_pll_veml_tracking::general_work(int noutput_items __attribute__((unused)
 
     if (d_pull_in_transitory == true)
         {
-            if (d_trk_parameters.pull_in_time_s < (d_sample_counter - d_acq_sample_stamp) / static_cast<int>(d_trk_parameters.fs_in))
+            // if (d_trk_parameters.pull_in_time_s < (d_sample_counter - d_acq_sample_stamp) / static_cast<int>(d_trk_parameters.fs_in))
+            if (d_trk_parameters.pull_in_time_s < (this->nitems_read(0) - d_acq_sample_stamp) / static_cast<int>(d_trk_parameters.fs_in))
                 {
                     d_pull_in_transitory = false;
                     d_carrier_lock_fail_counter = 0;
@@ -1706,7 +1735,7 @@ int dll_pll_veml_tracking::general_work(int noutput_items __attribute__((unused)
         {
         case 0:  // Standby - Consume samples at full throttle, do nothing
             {
-                d_sample_counter += static_cast<uint64_t>(ninput_items[0]);
+                // d_sample_counter += static_cast<uint64_t>(ninput_items[0]);
                 consume_each(ninput_items[0]);
                 return 0;
                 break;
@@ -1714,7 +1743,8 @@ int dll_pll_veml_tracking::general_work(int noutput_items __attribute__((unused)
         case 1:  // Pull-in
             {
                 // Signal alignment (skip samples until the incoming signal is aligned with local replica)
-                const int64_t acq_trk_diff_samples = static_cast<int64_t>(d_sample_counter) - static_cast<int64_t>(d_acq_sample_stamp);
+                // const int64_t acq_trk_diff_samples = static_cast<int64_t>(d_sample_counter) - static_cast<int64_t>(d_acq_sample_stamp);
+                const int64_t acq_trk_diff_samples = static_cast<int64_t>(this->nitems_read(0)) - static_cast<int64_t>(d_acq_sample_stamp);
                 const double acq_trk_diff_seconds = static_cast<double>(acq_trk_diff_samples) / d_trk_parameters.fs_in;
                 const double delta_trk_to_acq_prn_start_samples = static_cast<double>(acq_trk_diff_samples) - d_acq_code_phase_samples;
 
@@ -1731,7 +1761,7 @@ int dll_pll_veml_tracking::general_work(int noutput_items __attribute__((unused)
                 const int32_t samples_offset = round(d_acq_code_phase_samples);
                 d_acc_carrier_phase_rad -= d_carrier_phase_step_rad * static_cast<double>(samples_offset);
                 d_state = 2;
-                d_sample_counter += samples_offset;  // count for the processed samples
+                // d_sample_counter += samples_offset;  // count for the processed samples
                 d_cn0_smoother.reset();
                 d_carrier_lock_test_smoother.reset();
 
@@ -1762,7 +1792,8 @@ int dll_pll_veml_tracking::general_work(int noutput_items __attribute__((unused)
                 //    }
 
                 // fail-safe: check if the secondary code or bit synchronization has not succeeded in a limited time period
-                if (d_trk_parameters.bit_synchronization_time_limit_s < (d_sample_counter - d_acq_sample_stamp) / static_cast<int>(d_trk_parameters.fs_in))
+                // if (d_trk_parameters.bit_synchronization_time_limit_s < (d_sample_counter - d_acq_sample_stamp) / static_cast<int>(d_trk_parameters.fs_in))
+                if (d_trk_parameters.bit_synchronization_time_limit_s < (this->nitems_read(0) - d_acq_sample_stamp) / static_cast<int>(d_trk_parameters.fs_in))
                     {
                         d_carrier_lock_fail_counter = 300000;  // force loss-of-lock condition
                         LOG(INFO) << d_systemName << " " << d_signal_pretty_name << " tracking synchronization time limit reached in channel " << d_channel
@@ -1982,14 +2013,67 @@ int dll_pll_veml_tracking::general_work(int noutput_items __attribute__((unused)
             }
         }
 
+    // time tags
+    std::vector<gr::tag_t> tags_vec;
+    this->get_tags_in_range(tags_vec, 0, this->nitems_read(0), this->nitems_read(0) + d_current_prn_length_samples);
+    for (const auto &it : tags_vec)
+        {
+            try
+                {
+                    if (pmt::any_ref(it.value).type().hash_code() == typeid(const std::shared_ptr<GnssTime>).hash_code())
+                        {
+                            // std::cout << "ch[" << d_acquisition_gnss_synchro->Channel_ID << "] tracking time tag with offset " << it->offset << " vs. counter " << d_sample_counter << " vs. nread " << this->nitems_read(0) << " containing ";
+                            // std::cout << "ch[" << d_acquisition_gnss_synchro->Channel_ID << "] tracking time tag with offset " << it->offset << " vs. nread " << this->nitems_read(0) << " containing ";
+                            const auto last_timetag = boost::any_cast<const std::shared_ptr<GnssTime>>(pmt::any_ref(it.value));
+                            d_last_timetag = *last_timetag;
+                            d_last_timetag_samplecounter = it.offset;
+                            d_timetag_waiting = true;
+                        }
+                    else
+                        {
+                            std::cout << "hash code not match\n";
+                        }
+                }
+            catch (const boost::bad_any_cast &e)
+                {
+                    std::cout << "msg Bad any_cast: " << e.what();
+                }
+            catch (std::exception &ex)
+                {
+                    LOG(WARNING) << "Bad any_cast: " << ex.what();
+                }
+        }
+
     consume_each(d_current_prn_length_samples);
-    d_sample_counter += static_cast<uint64_t>(d_current_prn_length_samples);
+    // d_sample_counter += static_cast<uint64_t>(d_current_prn_length_samples);
     if (current_synchro_data.Flag_valid_symbol_output || loss_of_lock)
         {
             current_synchro_data.fs = static_cast<int64_t>(d_trk_parameters.fs_in);
-            current_synchro_data.Tracking_sample_counter = d_sample_counter;
+            current_synchro_data.Tracking_sample_counter = this->nitems_read(0);
             current_synchro_data.Flag_valid_symbol_output = !loss_of_lock;
+            current_synchro_data.Flag_PLL_180_deg_phase_locked = d_Flag_PLL_180_deg_phase_locked;
             *out[0] = current_synchro_data;
+
+            // generate new tag associated with gnss-synchro object
+
+            if (d_timetag_waiting == true)
+                {
+                    int64_t diff_samplecount = uint64diff(current_synchro_data.Tracking_sample_counter, d_last_timetag_samplecounter);
+
+                    double intpart;
+                    d_last_timetag.tow_ms_fraction = d_last_timetag.tow_ms_fraction + modf(1000.0 * static_cast<double>(diff_samplecount) / d_trk_parameters.fs_in, &intpart);
+
+                    const std::shared_ptr<GnssTime> tmp_obj = std::make_shared<GnssTime>(GnssTime());
+                    tmp_obj->week = d_last_timetag.week;
+                    tmp_obj->tow_ms = d_last_timetag.tow_ms + static_cast<int>(intpart);
+                    tmp_obj->tow_ms_fraction = d_last_timetag.tow_ms_fraction;
+                    tmp_obj->rx_time = static_cast<double>(current_synchro_data.Tracking_sample_counter) / d_trk_parameters.fs_in;
+                    add_item_tag(0, this->nitems_written(0) + 1, pmt::mp("timetag"), pmt::make_any(tmp_obj));
+
+                    // std::cout << "[" << this->nitems_written(0) + 1 << "][diff_time: " << 1000.0 * static_cast<double>(diff_samplecount) / d_trk_parameters.fs_in << "] Sent TimeTag Week: " << d_last_timetag.week << ", TOW: " << d_last_timetag.tow_ms << " [ms], TOW fraction: " << d_last_timetag.tow_ms_fraction << " [ms] \n";
+                    d_timetag_waiting = false;
+                }
+
             return 1;
         }
     return 0;

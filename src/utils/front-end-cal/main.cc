@@ -74,6 +74,12 @@
 #include <boost/bind/bind.hpp>
 #endif
 
+#if PMT_USES_BOOST_ANY
+namespace wht = boost;
+#else
+namespace wht = std;
+#endif
+
 #if GFLAGS_OLD_NAMESPACE
 namespace gflags
 {
@@ -111,7 +117,7 @@ private:
     FrontEndCal_msg_rx();
 
 public:
-    int rx_message;
+    int rx_message{0};
 };
 
 
@@ -129,7 +135,7 @@ void FrontEndCal_msg_rx::msg_handler_channel_events(const pmt::pmt_t& msg)
             rx_message = message;
             channel_internal_queue.push(rx_message);
         }
-    catch (const boost::bad_any_cast& e)
+    catch (const wht::bad_any_cast& e)
         {
             LOG(WARNING) << "msg_handler_telemetry Bad any cast!\n";
             rx_message = 0;
@@ -137,7 +143,8 @@ void FrontEndCal_msg_rx::msg_handler_channel_events(const pmt::pmt_t& msg)
 }
 
 
-FrontEndCal_msg_rx::FrontEndCal_msg_rx() : gr::block("FrontEndCal_msg_rx", gr::io_signature::make(0, 0, 0), gr::io_signature::make(0, 0, 0))
+FrontEndCal_msg_rx::FrontEndCal_msg_rx()
+    : gr::block("FrontEndCal_msg_rx", gr::io_signature::make(0, 0, 0), gr::io_signature::make(0, 0, 0))
 {
     this->message_port_register_in(pmt::mp("events"));
     this->set_msg_handler(pmt::mp("events"),
@@ -150,7 +157,6 @@ FrontEndCal_msg_rx::FrontEndCal_msg_rx() : gr::block("FrontEndCal_msg_rx", gr::i
         boost::bind(&FrontEndCal_msg_rx::msg_handler_channel_events, this, _1));
 #endif
 #endif
-    rx_message = 0;
 }
 
 
@@ -338,9 +344,9 @@ int main(int argc, char** argv)
         {
             std::cout << "Exception caught while capturing samples (bad lexical cast)\n";
         }
-    catch (const boost::io::too_few_args& e)
+    catch (const std::exception& e)
         {
-            std::cout << "Exception caught while capturing samples (too few args)\n";
+            std::cout << "Exception caught while capturing samples: " << e.what() << '\n';
         }
     catch (...)
         {

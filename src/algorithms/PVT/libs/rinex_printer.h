@@ -98,7 +98,7 @@ public:
      * \brief Print RINEX annotation. If it is the first annotation, it also
      * prints the RINEX headers for navigation and observation files. If it is
      * not the first annotation, it only annotates the observation, and updates
-     * the navigation header if UTC data was not available when writting it for
+     * the navigation header if UTC data was not available when writing it for
      * the first time. The meaning of type_of_rx is as follows:
      *
      * type_of_rx    | Signals
@@ -222,8 +222,8 @@ public:
     }
 
     /*!
-      * \brief Returns name of RINEX observation file
-      */
+     * \brief Returns name of RINEX observation file
+     */
     inline std::string get_obsfilename() const
     {
         return obsfilename;

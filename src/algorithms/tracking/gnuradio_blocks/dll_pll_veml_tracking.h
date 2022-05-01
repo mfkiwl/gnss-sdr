@@ -22,6 +22,7 @@
 #include "dll_pll_conf.h"
 #include "exponential_smoother.h"
 #include "gnss_block_interface.h"
+#include "gnss_time.h"                // for timetags produced by File_Timestamp_Signal_Source
 #include "tracking_FLL_PLL_filter.h"  // for PLL/FLL filter
 #include "tracking_loop_filter.h"     // for DLL filter
 #include <boost/circular_buffer.hpp>
@@ -57,7 +58,7 @@ dll_pll_veml_tracking_sptr dll_pll_veml_make_tracking(const Dll_Pll_Conf &conf_)
 class dll_pll_veml_tracking : public gr::block
 {
 public:
-    ~dll_pll_veml_tracking();
+    ~dll_pll_veml_tracking() override;
 
     void set_channel(uint32_t channel);
     void set_gnss_synchro(Gnss_Synchro *p_gnss_synchro);
@@ -65,9 +66,9 @@ public:
     void stop_tracking();
 
     int general_work(int noutput_items, gr_vector_int &ninput_items,
-        gr_vector_const_void_star &input_items, gr_vector_void_star &output_items);
+        gr_vector_const_void_star &input_items, gr_vector_void_star &output_items) override;
 
-    void forecast(int noutput_items, gr_vector_int &ninput_items_required);
+    void forecast(int noutput_items, gr_vector_int &ninput_items_required) override;
 
 private:
     friend dll_pll_veml_tracking_sptr dll_pll_veml_make_tracking(const Dll_Pll_Conf &conf_);
@@ -83,6 +84,7 @@ private:
     void log_data();
     bool cn0_and_tracking_lock_status(double coh_integration_time_s);
     bool acquire_secondary();
+    int64_t uint64diff(uint64_t first, uint64_t second);
     int32_t save_matfile() const;
 
     Cpu_Multicorrelator_Real_Codes d_multicorrelator_cpu;
@@ -163,14 +165,16 @@ private:
 
     std::ofstream d_dump_file;
 
-    uint64_t d_sample_counter;
+    // uint64_t d_sample_counter;
     uint64_t d_acq_sample_stamp;
+    GnssTime d_last_timetag{};
+    uint64_t d_last_timetag_samplecounter;
+    bool d_timetag_waiting;
 
     float *d_prompt_data_shift;
     float d_rem_carr_phase_rad;
 
     int32_t d_symbols_per_bit;
-    int32_t d_preamble_length_symbols;
     int32_t d_state;
     int32_t d_correlation_length_ms;
     int32_t d_n_correlator_taps;
@@ -198,6 +202,7 @@ private:
     bool d_dump_mat;
     bool d_acc_carrier_phase_initialized;
     bool d_enable_extended_integration;
+    bool d_Flag_PLL_180_deg_phase_locked;
 };
 
 

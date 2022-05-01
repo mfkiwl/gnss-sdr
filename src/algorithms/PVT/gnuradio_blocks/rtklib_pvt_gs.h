@@ -19,6 +19,7 @@
 
 #include "gnss_block_interface.h"
 #include "gnss_synchro.h"
+#include "gnss_time.h"
 #include "rtklib.h"
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -29,8 +30,10 @@
 #include <cstddef>                // for size_t
 #include <cstdint>                // for int32_t
 #include <ctime>                  // for time_t
+#include <fstream>                // for std::fstream
 #include <map>                    // for map
 #include <memory>                 // for shared_ptr, unique_ptr
+#include <queue>                  // for std::queue
 #include <string>                 // for string
 #include <sys/types.h>            // for key_t
 #include <vector>                 // for vector
@@ -57,6 +60,8 @@ class Nmea_Printer;
 class Pvt_Conf;
 class Rinex_Printer;
 class Rtcm_Printer;
+class An_Packet_Printer;
+class Has_Simple_Printer;
 class Rtklib_Solver;
 class rtklib_pvt_gs;
 
@@ -131,6 +136,8 @@ private:
         const Pvt_Conf& conf_,
         const rtk_t& rtk);
 
+    void log_source_timetag_info(double RX_time_ns, double TAG_time_ns);
+
     void msg_handler_telemetry(const pmt::pmt_t& msg);
 
     void msg_handler_has_data(const pmt::pmt_t& msg) const;
@@ -161,6 +168,8 @@ private:
     bool save_gnss_synchro_map_xml(const std::string& file_name);  // debug helper function
     bool load_gnss_synchro_map_xml(const std::string& file_name);  // debug helper function
 
+    std::fstream d_log_timetag_file;
+
     std::shared_ptr<Rtklib_Solver> d_internal_pvt_solver;
     std::shared_ptr<Rtklib_Solver> d_user_pvt_solver;
 
@@ -172,6 +181,8 @@ private:
     std::unique_ptr<Rtcm_Printer> d_rtcm_printer;
     std::unique_ptr<Monitor_Pvt_Udp_Sink> d_udp_sink_ptr;
     std::unique_ptr<Monitor_Ephemeris_Udp_Sink> d_eph_udp_sink_ptr;
+    std::unique_ptr<Has_Simple_Printer> d_has_simple_printer;
+    std::unique_ptr<An_Packet_Printer> d_an_printer;
 
     std::chrono::time_point<std::chrono::system_clock> d_start;
     std::chrono::time_point<std::chrono::system_clock> d_end;
@@ -204,6 +215,8 @@ private:
     std::map<int, Gnss_Synchro> d_gnss_observables_map_t0;
     std::map<int, Gnss_Synchro> d_gnss_observables_map_t1;
 
+    std::queue<GnssTime> d_TimeChannelTagTimestamps;
+
     boost::posix_time::time_duration d_utc_diff_time;
 
     size_t d_gps_ephemeris_sptr_type_hash_code;
@@ -218,7 +231,6 @@ private:
     size_t d_galileo_utc_model_sptr_type_hash_code;
     size_t d_galileo_almanac_helper_sptr_type_hash_code;
     size_t d_galileo_almanac_sptr_type_hash_code;
-    size_t d_galileo_has_message_sptr_type_hash_code;
     size_t d_glonass_gnav_ephemeris_sptr_type_hash_code;
     size_t d_glonass_gnav_utc_model_sptr_type_hash_code;
     size_t d_glonass_gnav_almanac_sptr_type_hash_code;
@@ -230,6 +242,7 @@ private:
 
     double d_rinex_version;
     double d_rx_time;
+    uint64_t d_local_counter_ms;
 
     key_t d_sysv_msg_key;
     int d_sysv_msqid;
@@ -246,7 +259,7 @@ private:
     int32_t d_gpx_rate_ms;
     int32_t d_geojson_rate_ms;
     int32_t d_nmea_rate_ms;
-    int32_t d_last_status_print_seg;  // for status printer
+    int32_t d_an_rate_ms;
     int32_t d_output_rate_ms;
     int32_t d_display_rate_ms;
     int32_t d_report_rate_ms;
@@ -271,6 +284,9 @@ private:
     bool d_show_local_time_zone;
     bool d_waiting_obs_block_rx_clock_offset_correction_msg;
     bool d_enable_rx_clock_correction;
+    bool d_enable_has_messages;
+    bool d_an_printer_enabled;
+    bool d_log_timetag;
 };
 
 

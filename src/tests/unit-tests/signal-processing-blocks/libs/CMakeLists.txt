@@ -39,6 +39,7 @@ target_link_libraries(signal_processing_testing_lib
         Armadillo::armadillo
         Gflags::gflags
         Gnuradio::runtime
+        Gnuradio::pmt
     PRIVATE
         Boost::headers
         Matio::matio
@@ -51,6 +52,14 @@ target_include_directories(signal_processing_testing_lib
     INTERFACE
         ${CMAKE_SOURCE_DIR}/src/tests/common-files
 )
+
+if(GNURADIO_USES_SPDLOG)
+    target_link_libraries(signal_processing_testing_lib
+        PUBLIC
+            fmt::fmt
+            spdlog::spdlog
+    )
+endif()
 
 if(USE_GENERIC_LAMBDAS)
     set(has_generic_lambdas HAS_GENERIC_LAMBDA=1)
@@ -80,6 +89,12 @@ if(GNURADIO_USES_STD_POINTERS)
     )
 endif()
 
+if(PMT_USES_BOOST_ANY)
+    target_compile_definitions(signal_processing_testing_lib
+        PRIVATE
+            -DPMT_USES_BOOST_ANY=1
+    )
+endif()
 
 if(ENABLE_CLANG_TIDY)
     if(CLANG_TIDY_EXE)

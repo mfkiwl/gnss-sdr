@@ -1,7 +1,7 @@
 # GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# SPDX-FileCopyrightText: 2010-2021 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-FileCopyrightText: 2010-2022 C. Fernandez-Prades cfernandez(at)cttc.es
 # SPDX-License-Identifier: BSD-3-Clause
 
 ################################################################################
@@ -11,7 +11,12 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
     message(FATAL_ERROR "Prevented in-tree build, it is bad practice.\nTry 'cd build && cmake ..' instead.")
 endif()
 
-cmake_minimum_required(VERSION 2.8.12...3.21)
+# Select the release build type by default to get optimization flags.
+# This has to come before project() which otherwise initializes it.
+# Build type can still be overridden by setting -DCMAKE_BUILD_TYPE=
+set(CMAKE_BUILD_TYPE "Release" CACHE STRING "")
+
+cmake_minimum_required(VERSION 2.8.12...3.23)
 project(gnss-sdr CXX C)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
@@ -27,6 +32,8 @@ include(FeatureSummary)
 option(ENABLE_UHD "Enable the use of UHD (driver for all USRP devices)" ON)
 
 option(ENABLE_OSMOSDR "Enable the use of OsmoSDR and other front-ends (RTL-based dongles, HackRF, bladeRF, etc.) as signal source" OFF)
+
+option(ENABLE_LIMESDR "Enable the use of LimeSDR and Custom LimeSDR as signal source" OFF)
 
 option(ENABLE_FMCOMMS2 "Enable the use of FMCOMMS4-EBZ + ZedBoard hardware, requires gr-iio" OFF)
 
@@ -72,6 +79,8 @@ option(ENABLE_ARMA_NO_DEBUG OFF)
 
 option(ENABLE_STRIP "Create stripped binaries without debugging symbols (in Release build mode only)" OFF)
 
+option(Boost_USE_STATIC_LIBS "Use Boost static libs" OFF)
+
 if(ENABLE_PACKAGING)
     set(ENABLE_GENERIC_ARCH ON)
     set(ENABLE_ARMA_NO_DEBUG ON)
@@ -92,7 +101,7 @@ option(ENABLE_SYSTEM_TESTING_EXTRA "Download external tools and build extra syst
 
 option(ENABLE_GNSS_SIM_INSTALL "Enable the installation of gnss_sim on the fly" ON)
 
-option(ENABLE_OWN_CPUFEATURES "Force the building of the cpu_features library even if it is already installed" ON)
+option(ENABLE_CPUFEATURES "Make use of the cpu_features library" ON)
 
 if(NOT (ENABLE_UNIT_TESTING_EXTRA OR ENABLE_SYSTEM_TESTING_EXTRA OR ENABLE_FPGA))
     set(ENABLE_GNSS_SIM_INSTALL OFF)
@@ -116,6 +125,7 @@ endif()
 
 option(ENABLE_EXTERNAL_MATHJAX "Use MathJax from an external CDN in HTML docs" ON)
 
+option(ENABLE_ORC "Use (if available) the Optimized Inner Loop Runtime Compiler (ORC)" OFF)
 
 ################################################################################
 # GNSS-SDR version information
@@ -156,9 +166,9 @@ endif()
 set(VERSION_INFO_MAJOR_VERSION 0)
 set(VERSION_INFO_API_COMPAT 0)
 if(${THIS_IS_A_RELEASE})
-    set(VERSION_INFO_MINOR_VERSION 15)
+    set(VERSION_INFO_MINOR_VERSION 17)
 else()
-    set(VERSION_INFO_MINOR_VERSION 15.git-${GIT_BRANCH}-${GIT_COMMIT_HASH})
+    set(VERSION_INFO_MINOR_VERSION 17.git-${GIT_BRANCH}-${GIT_COMMIT_HASH})
 endif()
 
 set(VERSION ${VERSION_INFO_MAJOR_VERSION}.${VERSION_INFO_API_COMPAT}.${VERSION_INFO_MINOR_VERSION})
@@ -214,19 +224,9 @@ include(GnsssdrBuildTypes)
 #  - O2WithASM: -O2 -g -save-temps
 #  - O3WithASM: -O3 -g -save-temps
 #  - ASAN: -Wall -Wextra -g -O2 -fsanitize=address -fno-omit-frame-pointer
-if(NOT CMAKE_BUILD_TYPE)
-    if(ENABLE_GPERFTOOLS OR ENABLE_GPROF)
-        set(CMAKE_BUILD_TYPE "RelWithDebInfo")
-        message(STATUS "Build type not specified: defaulting to RelWithDebInfo.")
-    else()
-        set(CMAKE_BUILD_TYPE "Release")
-        message(STATUS "Build type not specified: defaulting to Release.")
-    endif()
-else()
-    message(STATUS "Build type set to ${CMAKE_BUILD_TYPE}.")
-endif()
 gnsssdr_check_build_type(${CMAKE_BUILD_TYPE})
-set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "")
+message(STATUS "Build type set to ${CMAKE_BUILD_TYPE}.")
+
 if(NOT (${CMAKE_BUILD_TYPE} STREQUAL "Release"))
     set(ENABLE_STRIP OFF)
 endif()
@@ -320,8 +320,8 @@ set(GNSSSDR_PROTOBUF_MIN_VERSION "3.0.0")
 # Versions to download and build (but not installed) if not found
 ################################################################################
 set(GNSSSDR_GFLAGS_LOCAL_VERSION "2.2.2")
-set(GNSSSDR_GLOG_LOCAL_VERSION "0.5.0")
-set(GNSSSDR_ARMADILLO_LOCAL_VERSION "10.6.x")
+set(GNSSSDR_GLOG_LOCAL_VERSION "0.6.0")
+set(GNSSSDR_ARMADILLO_LOCAL_VERSION "10.8.x")
 if((CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.0) OR
   (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.0))
     set(GNSSSDR_GTEST_LOCAL_VERSION "1.10.x")
@@ -330,11 +330,15 @@ else()
 endif()
 set(GNSSSDR_GNSS_SIM_LOCAL_VERSION "master")
 set(GNSSSDR_GPSTK_LOCAL_VERSION "8.0.0")
-set(GNSSSDR_MATIO_LOCAL_VERSION "1.5.21")
-set(GNSSSDR_PUGIXML_LOCAL_VERSION "1.11.4")
-set(GNSSSDR_PROTOCOLBUFFERS_LOCAL_VERSION "3.17.3")
-set(GNSSSDR_BENCHMARK_LOCAL_VERSION "1.5.6")
+set(GNSSSDR_MATIO_LOCAL_VERSION "1.5.23")
+set(GNSSSDR_PUGIXML_LOCAL_VERSION "1.12")
+set(GNSSSDR_PROTOCOLBUFFERS_LOCAL_VERSION "3.20.0")
+set(GNSSSDR_BENCHMARK_LOCAL_VERSION "1.6.1")
 set(GNSSSDR_MATHJAX_EXTERNAL_VERSION "2.7.7")
+
+if(CMAKE_VERSION VERSION_LESS "3.16")
+    set(GNSSSDR_GLOG_LOCAL_VERSION "0.5.0")
+endif()
 
 if(CMAKE_VERSION VERSION_LESS "3.3")
     set(GNSSSDR_GLOG_LOCAL_VERSION "0.4.0")    # Fix for Debian 8
@@ -564,10 +568,23 @@ endif()
 
 
 ################################################################################
+# VOLK - Vector-Optimized Library of Kernels
+################################################################################
+find_package(VOLK)
+if(NOT VOLK_FOUND)
+    message(FATAL_ERROR "*** VOLK is required to build gnss-sdr")
+endif()
+set_package_properties(VOLK PROPERTIES
+    PURPOSE "Provides an abstraction of optimized math routines targeting several SIMD processors."
+    TYPE REQUIRED
+)
+
+
+
+################################################################################
 # GNU Radio - https://www.gnuradio.org
 ################################################################################
 set(GR_REQUIRED_COMPONENTS RUNTIME PMT BLOCKS FFT FILTER ANALOG)
-
 find_package(UHD)
 set_package_properties(UHD PROPERTIES
     PURPOSE "Used for communication with front-ends of the USRP family."
@@ -596,13 +613,38 @@ endif()
 ################################################################################
 # Log4cpp - http://log4cpp.sourceforge.net/
 ################################################################################
-find_package(LOG4CPP)
-set_package_properties(LOG4CPP PROPERTIES
-    PURPOSE "Required by GNU Radio."
-    TYPE REQUIRED
-)
-if(NOT LOG4CPP_FOUND)
-    message(FATAL_ERROR "*** Log4cpp is required to build gnss-sdr")
+if(GNURADIO_USES_LOG4CPP)
+    find_package(LOG4CPP)
+    set_package_properties(LOG4CPP PROPERTIES
+        PURPOSE "Required by GNU Radio."
+        TYPE REQUIRED
+    )
+endif()
+
+
+
+################################################################################
+# spdlog - https://github.com/gabime/spdlog
+################################################################################
+if(GNURADIO_USES_SPDLOG)
+    find_package(SPDLOG REQUIRED)
+    set_package_properties(SPDLOG PROPERTIES
+        PURPOSE "Required by GNU Radio."
+        TYPE REQUIRED
+    )
+endif()
+
+
+
+################################################################################
+# fmt - https://github.com/fmtlib/fmt
+################################################################################
+if(GNURADIO_USES_SPDLOG)
+    find_package(FMT REQUIRED)
+    set_package_properties(FMT PROPERTIES
+        PURPOSE "Required by GNU Radio."
+        TYPE REQUIRED
+    )
 endif()
 
 
@@ -617,7 +659,7 @@ if(NOT ENABLE_OWN_GPSTK)
         PURPOSE "Used in some Extra Tests."
     )
 endif()
-if(NOT (GNURADIO_VERSION VERSION_LESS 3.8) AND LOG4CPP_READY_FOR_CXX17)
+if(NOT (GNURADIO_VERSION VERSION_LESS 3.8) AND (LOG4CPP_READY_FOR_CXX17 OR GNURADIO_USES_SPDLOG))
     # Check if we have std::filesystem
     if(NOT (CMAKE_VERSION VERSION_LESS 3.8))
         if(NOT GPSTK_FOUND OR NOT (GPSTK_FOUND AND GPSTK_OLDER_THAN_8))  # Fix for GPSTk < 8.0.0
@@ -631,21 +673,25 @@ if(NOT (GNURADIO_VERSION VERSION_LESS 3.8) AND LOG4CPP_READY_FOR_CXX17)
         endif()
         if(FILESYSTEM_FOUND)
             set(CMAKE_CXX_STANDARD 17)
-            if(CMAKE_VERSION VERSION_GREATER 3.13)
-                # UHD 4.0.0.0 still does not support C++20
-                if((NOT UHD_FOUND) OR (UHD_FOUND AND ("${UHD_VERSION}" VERSION_LESS 3.99)))
-                    set(CMAKE_CXX_STANDARD 20)
-                    if(CMAKE_VERSION VERSION_GREATER 3.20.99)
-                        if(((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.0.0")) OR
-                            ((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "12.0")))
-                            set(CMAKE_CXX_STANDARD 23)
-                        endif()
-                    endif()
-                endif()
-            endif()
+            # if(CMAKE_VERSION VERSION_GREATER 3.13)
+                # UHD 3.15.0.0-5 does not support C++20
+                # GNU Radio 3.10.0.git does not support C++20
+                # if(((NOT UHD_FOUND) OR (UHD_FOUND AND ("${UHD_VERSION}" VERSION_LESS 3.14.99))) AND (GNURADIO_VERSION VERSION_LESS 3.9.99))
+                #     set(CMAKE_CXX_STANDARD 20)
+                #     if(CMAKE_VERSION VERSION_GREATER 3.20.99)
+                #         if(((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.0.0")) OR
+                #             ((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "12.0")))
+                #             set(CMAKE_CXX_STANDARD 23)
+                #         endif()
+                #     endif()
+                # endif()
+            # endif()
             set(CMAKE_CXX_STANDARD_REQUIRED ON)
         endif()
     endif()
+endif()
+if((NOT PMT_USES_BOOST_ANY) AND (CMAKE_CXX_STANDARD VERSION_LESS 17))
+    message(FATAL_ERROR "GNU Radio v${GNURADIO_VERSION} requires C++17. Please update your environment.")
 endif()
 
 
@@ -667,7 +713,6 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.70.0" "1.70" "1.71.0" "1.71"
 )
 set(Boost_USE_MULTITHREAD ON)
-set(Boost_USE_STATIC_LIBS OFF)
 set(BOOST_COMPONENTS atomic chrono date_time serialization system thread)
 if(NOT ${FILESYSTEM_FOUND})
     set(BOOST_COMPONENTS ${BOOST_COMPONENTS} filesystem)
@@ -975,20 +1020,6 @@ endif()
 
 
 ################################################################################
-# VOLK - Vector-Optimized Library of Kernels
-################################################################################
-find_package(VOLK)
-if(NOT VOLK_FOUND)
-    message(FATAL_ERROR "*** VOLK is required to build gnss-sdr")
-endif()
-set_package_properties(VOLK PROPERTIES
-    PURPOSE "Provides an abstraction of optimized math routines targeting several SIMD processors."
-    TYPE REQUIRED
-)
-
-
-
-################################################################################
 # volk_gnsssdr module - GNSS-SDR's own VOLK library
 ################################################################################
 find_package(VOLKGNSSSDR)
@@ -1108,21 +1139,27 @@ if(NOT VOLKGNSSSDR_FOUND)
     else()
         set(VOLK_GNSSSDR_COMPILER -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
     endif()
-    find_package(ORC)
-    set_package_properties(ORC PROPERTIES
-        PURPOSE "Used by volk_gnsssdr."
-        TYPE OPTIONAL
-    )
-    if(ORC_FOUND)
-        set(ORC_ENABLED ON)
+
+    if(ENABLE_ORC)
+        find_package(ORC)
+        set_package_properties(ORC PROPERTIES
+            PURPOSE "Used by volk_gnsssdr."
+            TYPE OPTIONAL
+            )
+        if(ORC_FOUND)
+            set(ORC_ENABLED ON)
+        else()
+            set(ORC_ENABLED OFF)
+            set(ENABLE_ORC OFF)
+        endif()
     else()
         set(ORC_ENABLED OFF)
+        set(ENABLE_ORC OFF)
     endif()
 
     set(VOLK_GNSSSDR_CMAKE_ARGS ${VOLK_GNSSSDR_COMPILER}
         -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/volk_gnsssdr_module/install
         -DENABLE_STATIC_LIBS=ON
-        -DENABLE_OWN_CPUFEATURES=${ENABLE_OWN_CPUFEATURES}
         -DENABLE_PROFILING=${ENABLE_PROFILING}
         -DENABLE_ORC=${ORC_ENABLED}
         ${STRIP_VOLK_GNSSSDR_PROFILE}
@@ -1159,15 +1196,8 @@ if(NOT VOLKGNSSSDR_FOUND)
     endif()
     include(GNUInstallDirs)
     set(SUPPORTED_CPU_FEATURES_ARCH FALSE)
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^mips")
-        set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
-    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
-        set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
-    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
-        set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
-    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)|(AMD64|amd64)|(^i.86$)")
-        set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
-    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(powerpc|ppc)")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES
+        "(^mips)|(^arm)|(^aarch64)|(x86_64)|(AMD64|amd64)|(^i.86$)|(^powerpc)|(^ppc)")
         set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
     endif()
     if(${CMAKE_INSTALL_LIBDIR} MATCHES lib64)
@@ -1193,29 +1223,38 @@ if(NOT VOLKGNSSSDR_FOUND)
                 ${CMAKE_BINARY_DIR}/volk_gnsssdr_module/install/lib${VOLK_GNSSSDR_LIB_SUFFIX}/${CMAKE_FIND_LIBRARY_PREFIXES}volk_gnsssdr${CMAKE_STATIC_LIBRARY_SUFFIX}
                 ${CMAKE_BINARY_DIR}/volk_gnsssdr_module/install/bin/volk_gnsssdr_profile
             )
-            if(NOT ENABLE_OWN_CPUFEATURES)
-                find_package(CpuFeatures QUIET)
-                set_package_properties(CpuFeatures PROPERTIES
+            if(ENABLE_CPUFEATURES)
+                find_package(CPUFEATURES)
+                set_package_properties(CPUFEATURES PROPERTIES
                     URL "https://github.com/google/cpu_features"
                     PURPOSE "Used by the volk_gnsssdr library."
                     TYPE REQUIRED
                 )
             endif()
-            if(CpuFeatures_FOUND)
-                message(STATUS "Found CpuFeatures: (found version ${CpuFeatures_VERSION})")
-                set_package_properties(CpuFeatures PROPERTIES
-                    DESCRIPTION "A cross platform C99 library to get CPU features at runtime (found: v${CpuFeatures_VERSION})"
+            if(CPUFEATURES_FOUND)
+                message(STATUS "Found CpuFeatures: (found version ${CPUFEATURES_VERSION})")
+                set_package_properties(CPUFEATURES PROPERTIES
+                    DESCRIPTION "A cross platform C99 library to get CPU features at runtime (version: ${CPUFEATURES_VERSION})"
                 )
             else()
-                set_package_properties(CpuFeatures PROPERTIES
+                set_package_properties(CPUFEATURES PROPERTIES
                     DESCRIPTION "A cross platform C99 library to get CPU features at runtime"
-                    PURPOSE "CpuFeatures will be built when doing '${CMAKE_MAKE_PROGRAM_PRETTY_NAME}'."
                 )
-                set(VOLK_GNSSSDR_BUILD_BYPRODUCTS
-                    ${VOLK_GNSSSDR_BUILD_BYPRODUCTS}
-                    ${CMAKE_BINARY_DIR}/volk_gnsssdr_module/install/${CMAKE_INSTALL_LIBDIR}/${CMAKE_FIND_LIBRARY_PREFIXES}cpu_features${CMAKE_STATIC_LIBRARY_SUFFIX}
-                )
+                if(VOLK_VERSION AND VOLK_VERSION VERSION_GREATER "2.3" AND VOLK_VERSION VERSION_LESS "2.5.2") # detect "hidden" cpu_features 0.6.0
+                    set(ENABLE_CPUFEATURES OFF)
+                else()
+                    set_package_properties(CPUFEATURES PROPERTIES
+                        PURPOSE "CpuFeatures will be built when doing '${CMAKE_MAKE_PROGRAM_PRETTY_NAME}'."
+                    )
+                    set(VOLK_GNSSSDR_BUILD_BYPRODUCTS
+                        ${VOLK_GNSSSDR_BUILD_BYPRODUCTS}
+                        ${CMAKE_BINARY_DIR}/volk_gnsssdr_module/install/${CMAKE_INSTALL_LIBDIR}/${CMAKE_FIND_LIBRARY_PREFIXES}cpu_features${CMAKE_STATIC_LIBRARY_SUFFIX}
+                    )
+                endif()
             endif()
+            set(VOLK_GNSSSDR_CMAKE_ARGS ${VOLK_GNSSSDR_CMAKE_ARGS}
+                    -DVOLK_CPU_FEATURES=${ENABLE_CPUFEATURES}
+            )
             ExternalProject_Add(volk_gnsssdr_module
                 PREFIX ${CMAKE_BINARY_DIR}/volk_gnsssdr_module
                 SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/algorithms/libs/volk_gnsssdr_module/volk_gnsssdr
@@ -1231,6 +1270,10 @@ if(NOT VOLKGNSSSDR_FOUND)
                 INSTALL_DIR ${CMAKE_BINARY_DIR}/volk_gnsssdr_module/install
             )
         else()
+            set(ENABLE_CPUFEATURES OFF)
+            set(VOLK_GNSSSDR_CMAKE_ARGS ${VOLK_GNSSSDR_CMAKE_ARGS}
+                -DVOLK_CPU_FEATURES=${ENABLE_CPUFEATURES}
+            )
             ExternalProject_Add(volk_gnsssdr_module
                 PREFIX ${CMAKE_BINARY_DIR}/volk_gnsssdr_module
                 SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/algorithms/libs/volk_gnsssdr_module/volk_gnsssdr
@@ -1258,8 +1301,8 @@ if(NOT VOLKGNSSSDR_FOUND)
     set_property(TARGET volk_gnsssdr PROPERTY IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/volk_gnsssdr_module/install/lib${VOLK_GNSSSDR_LIB_SUFFIX}/libvolk_gnsssdr${CMAKE_STATIC_LIBRARY_SUFFIX})
     set(VOLK_GNSSSDR_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/volk_gnsssdr_module/build/include/;${CMAKE_SOURCE_DIR}/src/algorithms/libs/volk_gnsssdr_module/volk_gnsssdr/include;${ORC_INCLUDE_DIRS}")
     set(VOLK_GNSSSDR_LIBRARIES volk_gnsssdr ${ORC_LIBRARIES_STATIC})
-    if(CpuFeatures_FOUND)
-        set(VOLK_GNSSSDR_LIBRARIES ${VOLK_GNSSSDR_LIBRARIES} CpuFeatures::cpu_features)
+    if(CPUFEATURES_FOUND)
+        set(VOLK_GNSSSDR_LIBRARIES ${VOLK_GNSSSDR_LIBRARIES} CpuFeature::cpu_features)
     endif()
 
     if(NOT TARGET Volkgnsssdr::volkgnsssdr)
@@ -1274,7 +1317,7 @@ if(NOT VOLKGNSSSDR_FOUND)
             INTERFACE_LINK_LIBRARIES "${VOLK_GNSSSDR_LIBRARIES}"
         )
         if(CMAKE_VERSION VERSION_GREATER 3.0 AND SUPPORTED_CPU_FEATURES_ARCH)
-            if(NOT CpuFeatures_FOUND)
+            if(NOT CPUFEATURES_FOUND AND ENABLE_CPUFEATURES)
                 set_target_properties(Volkgnsssdr::volkgnsssdr PROPERTIES
                     INTERFACE_LINK_LIBRARIES ${CMAKE_BINARY_DIR}/volk_gnsssdr_module/install/${CMAKE_INSTALL_LIBDIR}/${CMAKE_FIND_LIBRARY_PREFIXES}cpu_features${CMAKE_STATIC_LIBRARY_SUFFIX}
                 )
@@ -1304,7 +1347,7 @@ if(NOT VOLKGNSSSDR_FOUND)
         PURPOSE "volk_gnsssdr will be built when doing '${CMAKE_MAKE_PROGRAM_PRETTY_NAME}'."
     )
 else()
-    set(ENABLE_OWN_CPUFEATURES OFF)
+    set(ENABLE_ORC OFF)
 endif()
 
 
@@ -1314,7 +1357,10 @@ endif()
 ################################################################################
 set(LOCAL_GFLAGS FALSE)
 if(NOT ENABLE_OWN_GLOG)
-    find_package(GFLAGS)
+    find_package(GLOG)
+    if(GLOG_FOUND)
+        find_package(GFLAGS)
+    endif()
 endif()
 set_package_properties(GFLAGS PROPERTIES
     PURPOSE "Used for commandline flags management."
@@ -1455,9 +1501,6 @@ endif()
 ################################################################################
 # glog - https://github.com/google/glog
 ################################################################################
-if(NOT ENABLE_OWN_GLOG AND NOT ${LOCAL_GFLAGS})
-    find_package(GLOG)
-endif()
 set_package_properties(GLOG PROPERTIES
     PURPOSE "Used for runtime internal logging."
     TYPE REQUIRED
@@ -1639,8 +1682,11 @@ ${CMAKE_BINARY_DIR}/thirdparty/glog/glog-${GNSSSDR_GLOG_LOCAL_VERSION}/configure
                 ${CMAKE_BINARY_DIR}/glog-${GNSSSDR_GLOG_LOCAL_VERSION}/${CMAKE_FIND_LIBRARY_PREFIXES}glogd${CMAKE_STATIC_LIBRARY_SUFFIX}
             )
         endif()
-        if((CMAKE_VERSION VERSION_GREATER 3.12.0) AND NOT (CMAKE_GENERATOR STREQUAL Xcode))
+        if((CMAKE_VERSION VERSION_GREATER 3.12.0) AND NOT (CMAKE_GENERATOR STREQUAL Xcode) AND NOT CMAKE_CROSSCOMPILING)
             set(PARALLEL_BUILD "--parallel 2")
+        endif()
+        if(GNSSSDR_GLOG_LOCAL_VERSION VERSION_GREATER 0.5.0)
+            set(GLOG_GTEST -DWITH_GTEST=FALSE)
         endif()
         ExternalProject_Add(glog-${GNSSSDR_GLOG_LOCAL_VERSION}
             DEPENDS ${TARGET_GFLAGS}
@@ -1654,6 +1700,7 @@ ${CMAKE_BINARY_DIR}/thirdparty/glog/glog-${GNSSSDR_GLOG_LOCAL_VERSION}/configure
                 ${GLOG_TOOLCHAIN_FILE}
                 -DCMAKE_BUILD_TYPE=$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo>$<$<CONFIG:MinSizeRel>:MinSizeRel>$<$<CONFIG:NoOptWithASM>:Debug>$<$<CONFIG:Coverage>:Debug>$<$<CONFIG:O2WithASM>:RelWithDebInfo>$<$<CONFIG:O3WithASM>:RelWithDebInfo>$<$<CONFIG:ASAN>:Debug>
                 -DBUILD_SHARED_LIBS=OFF
+                ${GLOG_GTEST}
                 -DBUILD_TESTING=OFF
             BUILD_COMMAND "${GLOG_MAKE_PROGRAM} ${PARALLEL_BUILD}"
             BUILD_BYPRODUCTS ${GLOG_BUILD_BYPRODUCTS}
@@ -1775,6 +1822,8 @@ if(NOT TARGET BLAS::BLAS)
     )
 endif()
 
+
+
 ################################################################################
 # Check that LAPACK (Linear Algebra PACKage) is found in the system
 # See https://www.netlib.org/lapack/
@@ -1807,6 +1856,7 @@ if(NOT TARGET LAPACK::LAPACK)
         INTERFACE_LINK_LIBRARIES ${LAPACK_LIBRARIES}
     )
 endif()
+
 
 
 ################################################################################
@@ -2949,6 +2999,35 @@ else()
 endif()
 
 
+
+##########################################
+# gr-limesdr - OPTIONAL
+# https://github.com/myriadrf/gr-limesdr
+##########################################
+find_package(GRLIMESDR)
+set_package_properties(GRLIMESDR PROPERTIES
+    PURPOSE "Used for communication with LimeSDR."
+    TYPE OPTIONAL
+)
+if(ENABLE_LIMESDR)
+    if(GRLIMESDR_FOUND)
+        message(STATUS "The driver for LimeSDR will be compiled.")
+        message(STATUS " You can disable it with 'cmake -DENABLE_LIMESDR=OFF ..'")
+    else()
+        if(ENABLE_PACKAGING)
+            message(WARNING "gr-limesdr has not been found. Source blocks depending on it will NOT be built.")
+        else()
+            message(FATAL_ERROR "gr-limesdr required to build gnss-sdr with the optional LIMESDR driver")
+        endif()
+        set(ENABLE_LIMESDR OFF)
+    endif()
+else()
+    message(STATUS "The (optional) driver for LimeSDR is not enabled.")
+    message(STATUS " Enable it with 'cmake -DENABLE_LIMESDR=ON ..' to add support for LimeSDR.")
+endif()
+
+
+
 ##############################################
 # gr-iio - OPTIONAL
 # IIO blocks for GNU Radio
@@ -2995,6 +3074,7 @@ if(ENABLE_PLUTOSDR OR ENABLE_FMCOMMS2)
 endif()
 
 
+
 #####################################################################
 # libiio - OPTIONAL
 # A library for interfacing with local and remote Linux IIO devices
@@ -3020,6 +3100,7 @@ if(ENABLE_AD9361 OR ENABLE_FMCOMMS2)
         endif()
     endif()
 endif()
+
 
 
 ##############################################
@@ -3051,6 +3132,7 @@ if(ENABLE_FLEXIBAND)
         message(FATAL_ERROR "Teleorbit Flexiband GNU Radio driver required to build gnss-sdr with the optional FLEXIBAND adapter")
     endif()
 endif()
+
 
 
 #######################################################
@@ -3251,6 +3333,7 @@ add_subdirectory(src)
 ################################################################################
 add_feature_info(ENABLE_UHD ENABLE_UHD "Enables UHD_Signal_Source for using RF front-ends from the USRP family. Requires gr-uhd.")
 add_feature_info(ENABLE_OSMOSDR ENABLE_OSMOSDR "Enables Osmosdr_Signal_Source and RtlTcp_Signal_Source for using RF front-ends compatible with the OsmoSDR driver. Requires gr-osmosdr.")
+add_feature_info(ENABLE_LIMESDR ENABLE_LIMESDR "Enables Limesdr_Signal_Source. Requires gr-limesdr.")
 add_feature_info(ENABLE_FMCOMMS2 ENABLE_FMCOMMS2 "Enables Fmcomms2_Signal_Source for FMCOMMS2/3/4 devices. Requires gr-iio and libad9361-dev.")
 add_feature_info(ENABLE_PLUTOSDR ENABLE_PLUTOSDR "Enables Plutosdr_Signal_Source for using ADALM-PLUTO boards. Requires gr-iio.")
 add_feature_info(ENABLE_AD9361 ENABLE_AD9361 "Enables Ad9361_Fpga_Signal_Source for devices with the AD9361 chipset. Requires libiio and libad9361-dev.")
@@ -3270,6 +3353,7 @@ add_feature_info(ENABLE_PACKAGING ENABLE_PACKAGING "Enables software packaging."
 add_feature_info(ENABLE_OWN_GLOG ENABLE_OWN_GLOG "Forces the downloading and building of Google glog.")
 add_feature_info(ENABLE_OWN_ARMADILLO ENABLE_OWN_ARMADILLO "Forces the downloading and building of Armadillo.")
 add_feature_info(ENABLE_LOG ENABLE_LOG "Enables runtime internal logging with Google glog.")
+add_feature_info(ENABLE_ORC ENABLE_ORC "Use the Optimized Inner Loop Runtime Compiler (ORC) for building volk_gnsssdr.")
 add_feature_info(ENABLE_STRIP ENABLE_STRIP "Enables the generation of stripped binaries (without debugging symbols).")
 add_feature_info(ENABLE_UNIT_TESTING ENABLE_UNIT_TESTING "Enables building of Unit Tests.")
 add_feature_info(ENABLE_UNIT_TESTING_MINIMAL ENABLE_UNIT_TESTING_MINIMAL "Enables building a minimal set of Unit Tests.")
@@ -3281,7 +3365,8 @@ add_feature_info(ENABLE_GNSS_SIM_INSTALL ENABLE_GNSS_SIM_INSTALL "Enables downlo
 add_feature_info(ENABLE_INSTALL_TESTS ENABLE_INSTALL_TESTS "Install test binaries when doing '${CMAKE_MAKE_PROGRAM_PRETTY_NAME} install'.")
 add_feature_info(ENABLE_BENCHMARKS ENABLE_BENCHMARKS "Enables building of code snippet benchmarks.")
 add_feature_info(ENABLE_EXTERNAL_MATHJAX ENABLE_EXTERNAL_MATHJAX "Use MathJax from an external CDN in HTML docs when doing '${CMAKE_MAKE_PROGRAM_PRETTY_NAME} doc'.")
-add_feature_info(ENABLE_OWN_CPUFEATURES ENABLE_OWN_CPUFEATURES "Force building own local version of the cpu_features library, even if it is already installed.")
+add_feature_info(ENABLE_CPUFEATURES ENABLE_CPUFEATURES "Make use of the cpu_features library.")
+add_feature_info(Boost_USE_STATIC_LIBS Boost_USE_STATIC_LIBS "Use Boost static libraries.")
 
 message(STATUS "")
 message(STATUS "***************************************")

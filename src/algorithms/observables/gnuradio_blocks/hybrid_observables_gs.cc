@@ -35,6 +35,14 @@
 #include <limits>     // for numeric_limits
 #include <utility>    // for move
 
+#if PMT_USES_BOOST_ANY
+#include <boost/any.hpp>
+namespace wht = boost;
+#else
+#include <any>
+namespace wht = std;
+#endif
+
 #if HAS_GENERIC_LAMBDA
 #else
 #include <boost/bind/bind.hpp>
@@ -47,9 +55,24 @@ hybrid_observables_gs_sptr hybrid_observables_gs_make(const Obs_Conf &conf_)
 }
 
 
-hybrid_observables_gs::hybrid_observables_gs(const Obs_Conf &conf_) : gr::block("hybrid_observables_gs",
-                                                                          gr::io_signature::make(conf_.nchannels_in, conf_.nchannels_in, sizeof(Gnss_Synchro)),
-                                                                          gr::io_signature::make(conf_.nchannels_out, conf_.nchannels_out, sizeof(Gnss_Synchro)))
+hybrid_observables_gs::hybrid_observables_gs(const Obs_Conf &conf_)
+    : gr::block("hybrid_observables_gs",
+          gr::io_signature::make(conf_.nchannels_in, conf_.nchannels_in, sizeof(Gnss_Synchro)),
+          gr::io_signature::make(conf_.nchannels_out, conf_.nchannels_out, sizeof(Gnss_Synchro))),
+      d_conf(conf_),
+      d_dump_filename(conf_.dump_filename),
+      d_smooth_filter_M(static_cast<double>(conf_.smoothing_factor)),
+      d_T_rx_step_s(static_cast<double>(conf_.observable_interval_ms) / 1000.0),
+      d_last_rx_clock_round20ms_error(0.0),
+      d_T_rx_TOW_ms(0U),
+      d_T_rx_step_ms(conf_.observable_interval_ms),
+      d_T_status_report_timer_ms(0),
+      d_nchannels_in(conf_.nchannels_in),
+      d_nchannels_out(conf_.nchannels_out),
+      d_T_rx_TOW_set(false),
+      d_always_output_gs(conf_.always_output_gs),
+      d_dump(conf_.dump),
+      d_dump_mat(conf_.dump_mat && d_dump)
 {
     // PVT input message port
     this->message_port_register_in(pmt::mp("pvt_to_observables"));
@@ -63,15 +86,36 @@ hybrid_observables_gs::hybrid_observables_gs(const Obs_Conf &conf_) : gr::block(
         boost::bind(&hybrid_observables_gs::msg_handler_pvt_to_observables, this, _1));
 #endif
 #endif
+
     // Send Channel status to gnss_flowgraph
     this->message_port_register_out(pmt::mp("status"));
-    d_conf = conf_;
-    d_dump = conf_.dump;
-    d_dump_mat = conf_.dump_mat and d_dump;
-    d_dump_filename = conf_.dump_filename;
-    d_nchannels_out = conf_.nchannels_out;
-    d_nchannels_in = conf_.nchannels_in;
+
     d_gnss_synchro_history = std::make_unique<Gnss_circular_deque<Gnss_Synchro>>(1000, d_nchannels_out);
+
+    d_Rx_clock_buffer.set_capacity(std::min(std::max(200U / d_T_rx_step_ms, 3U), 10U));
+    d_Rx_clock_buffer.clear();
+
+    d_channel_last_pll_lock = std::vector<bool>(d_nchannels_out, false);
+    d_channel_last_pseudorange_smooth = std::vector<double>(d_nchannels_out, 0.0);
+    d_channel_last_carrier_phase_rads = std::vector<double>(d_nchannels_out, 0.0);
+
+    d_mapStringValues["1C"] = evGPS_1C;
+    d_mapStringValues["2S"] = evGPS_2S;
+    d_mapStringValues["L5"] = evGPS_L5;
+    d_mapStringValues["1B"] = evGAL_1B;
+    d_mapStringValues["5X"] = evGAL_5X;
+    d_mapStringValues["E6"] = evGAL_E6;
+    d_mapStringValues["7X"] = evGAL_7X;
+    d_mapStringValues["1G"] = evGLO_1G;
+    d_mapStringValues["2G"] = evGLO_2G;
+    d_mapStringValues["B1"] = evBDS_B1;
+    d_mapStringValues["B2"] = evBDS_B2;
+    d_mapStringValues["B3"] = evBDS_B3;
+
+
+    d_SourceTagTimestamps = std::vector<std::queue<GnssTime>>(d_nchannels_out);
+
+    set_tag_propagation_policy(TPP_DONT);  // no tag propagation, the time tag will be adjusted and regenerated in work()
 
     // ############# ENABLE DATA FILE LOG #################
     if (d_dump)
@@ -117,31 +161,6 @@ hybrid_observables_gs::hybrid_observables_gs(const Obs_Conf &conf_) : gr::block(
                     d_dump = false;
                 }
         }
-    d_T_rx_TOW_ms = 0U;
-    d_T_rx_step_ms = conf_.observable_interval_ms;
-    d_T_rx_step_s = static_cast<double>(d_T_rx_step_ms) / 1000.0;
-    d_T_rx_TOW_set = false;
-    d_T_status_report_timer_ms = 0;
-    d_Rx_clock_buffer.set_capacity(std::min(std::max(200U / d_T_rx_step_ms, 3U), 10U));
-    d_Rx_clock_buffer.clear();
-
-    d_channel_last_pll_lock = std::vector<bool>(d_nchannels_out, false);
-    d_channel_last_pseudorange_smooth = std::vector<double>(d_nchannels_out, 0.0);
-    d_channel_last_carrier_phase_rads = std::vector<double>(d_nchannels_out, 0.0);
-
-    d_smooth_filter_M = static_cast<double>(conf_.smoothing_factor);
-    d_mapStringValues["1C"] = evGPS_1C;
-    d_mapStringValues["2S"] = evGPS_2S;
-    d_mapStringValues["L5"] = evGPS_L5;
-    d_mapStringValues["1B"] = evGAL_1B;
-    d_mapStringValues["5X"] = evGAL_5X;
-    d_mapStringValues["E6"] = evGAL_E6;
-    d_mapStringValues["7X"] = evGAL_7X;
-    d_mapStringValues["1G"] = evGLO_1G;
-    d_mapStringValues["2G"] = evGLO_2G;
-    d_mapStringValues["B1"] = evBDS_B1;
-    d_mapStringValues["B2"] = evBDS_B2;
-    d_mapStringValues["B3"] = evBDS_B3;
 }
 
 
@@ -190,13 +209,15 @@ void hybrid_observables_gs::msg_handler_pvt_to_observables(const pmt::pmt_t &msg
         {
             if (pmt::any_ref(msg).type().hash_code() == d_double_type_hash_code)
                 {
-                    const auto new_rx_clock_offset_s = boost::any_cast<double>(pmt::any_ref(msg));
+                    const auto new_rx_clock_offset_s = wht::any_cast<double>(pmt::any_ref(msg));
+                    double old_tow_corrected = static_cast<double>(d_T_rx_TOW_ms) - new_rx_clock_offset_s * 1000.0;
                     d_T_rx_TOW_ms = d_T_rx_TOW_ms - static_cast<int>(round(new_rx_clock_offset_s * 1000.0));
                     // align the receiver clock to integer multiple of d_T_rx_step_ms
                     if (d_T_rx_TOW_ms % d_T_rx_step_ms)
                         {
                             d_T_rx_TOW_ms += d_T_rx_step_ms - d_T_rx_TOW_ms % d_T_rx_step_ms;
                         }
+                    d_last_rx_clock_round20ms_error = static_cast<double>(d_T_rx_TOW_ms) - old_tow_corrected;
                     // d_Rx_clock_buffer.clear();  // Clear all the elements in the buffer
                     for (uint32_t n = 0; n < d_nchannels_out; n++)
                         {
@@ -206,7 +227,7 @@ void hybrid_observables_gs::msg_handler_pvt_to_observables(const pmt::pmt_t &msg
                     LOG(INFO) << "Corrected new RX Time offset: " << static_cast<int>(round(new_rx_clock_offset_s * 1000.0)) << "[ms]";
                 }
         }
-    catch (const boost::bad_any_cast &e)
+    catch (const wht::bad_any_cast &e)
         {
             LOG(WARNING) << "msg_handler_pvt_to_observables Bad any_cast: " << e.what();
         }
@@ -603,6 +624,55 @@ void hybrid_observables_gs::smooth_pseudoranges(std::vector<Gnss_Synchro> &data)
 }
 
 
+void hybrid_observables_gs::set_tag_timestamp_in_sdr_timeframe(const std::vector<Gnss_Synchro> &data, uint64_t rx_clock)
+{
+    // it transforms the HW sample tag timestamp from a relative samplestamp (from receiver start)
+    // to an absolute GPS TOW samplestamp associated with the current set of pseudoranges
+    if (!d_TimeChannelTagTimestamps.empty())
+        {
+            double fs = 0;
+            std::vector<Gnss_Synchro>::const_iterator it;
+            for (it = data.begin(); it != data.end(); it++)
+                {
+                    if (it->Flag_valid_pseudorange == true)
+                        {
+                            fs = static_cast<double>(it->fs);
+                            break;
+                        }
+                }
+
+            double delta_rxtime_to_tag;
+            GnssTime current_tag;
+            do
+                {
+                    current_tag = d_TimeChannelTagTimestamps.front();
+                    delta_rxtime_to_tag = (static_cast<double>(rx_clock) / fs) - current_tag.rx_time;  // delta time relative to receiver's start time
+                    if (delta_rxtime_to_tag >= 0)
+                        {
+                            d_TimeChannelTagTimestamps.pop();
+                        }
+                }
+            while (delta_rxtime_to_tag >= 0.1 and !d_TimeChannelTagTimestamps.empty());
+
+            if (delta_rxtime_to_tag >= 0 and delta_rxtime_to_tag <= 0.1)
+                {
+                    // std::cout << "[Time ch][" << delta_rxtime_to_tag
+                    //           << "] OBS RX TimeTag Week: " << current_tag.week
+                    //           << ", TOW: " << current_tag.tow_ms
+                    //           << " [ms], TOW fraction: " << current_tag.tow_ms_fraction
+                    //           << " [ms], DELTA TLM TOW: " << d_last_rx_clock_round20ms_error + delta_rxtime_to_tag * 1000.0 + static_cast<double>(current_tag.tow_ms) - static_cast<double>(d_T_rx_TOW_ms) + current_tag.tow_ms_fraction << " [ms] \n";
+                    const std::shared_ptr<GnssTime> tmp_obj = std::make_shared<GnssTime>(GnssTime());
+                    *tmp_obj = current_tag;
+                    double intpart;
+                    tmp_obj->tow_ms_fraction = tmp_obj->tow_ms_fraction + modf(delta_rxtime_to_tag * 1000.0, &intpart);
+                    tmp_obj->tow_ms = current_tag.tow_ms + static_cast<int>(intpart);
+                    tmp_obj->rx_time = static_cast<double>(d_T_rx_TOW_ms);  // new TAG samplestamp in absolute RX time (GPS TOW frame) same as the pseudorange set
+                    add_item_tag(0, this->nitems_written(0) + 1, pmt::mp("timetag"), pmt::make_any(tmp_obj));
+                }
+        }
+}
+
+
 int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)),
     gr_vector_int &ninput_items, gr_vector_const_void_star &input_items,
     gr_vector_void_star &output_items)
@@ -615,6 +685,31 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
     if (ninput_items[d_nchannels_in - 1] > 0)
         {
             d_Rx_clock_buffer.push_back(in[d_nchannels_in - 1][0].Tracking_sample_counter);
+
+            // time tags
+            std::vector<gr::tag_t> tags_vec;
+            this->get_tags_in_range(tags_vec, d_nchannels_in - 1, this->nitems_read(d_nchannels_in - 1), this->nitems_read(d_nchannels_in - 1) + 1);
+            for (const auto &it : tags_vec)
+                {
+                    try
+                        {
+                            if (pmt::any_ref(it.value).type().hash_code() == typeid(const std::shared_ptr<GnssTime>).hash_code())
+                                {
+                                    const auto timetag = boost::any_cast<const std::shared_ptr<GnssTime>>(pmt::any_ref(it.value));
+                                    // std::cout << "[Time ch ] timetag: " << timetag->rx_time << "\n";
+                                    d_TimeChannelTagTimestamps.push(*timetag);
+                                }
+                            else
+                                {
+                                    std::cout << "hash code not match\n";
+                                }
+                        }
+                    catch (const boost::bad_any_cast &e)
+                        {
+                            std::cout << "msg Bad any_cast: " << e.what();
+                        }
+                }
+
             // Consume one item from the clock channel (last of the input channels)
             consume(static_cast<int32_t>(d_nchannels_in) - 1, 1);
         }
@@ -622,9 +717,34 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
     // Push the tracking observables into buffers to allow the observable interpolation at the desired Rx clock
     for (uint32_t n = 0; n < d_nchannels_out; n++)
         {
-            // Push the valid tracking Gnss_Synchros to their corresponding deque
+            //**************** time tags ****************
+            //            std::vector<gr::tag_t> tags_vec;
+            //            this->get_tags_in_range(tags_vec, n, this->nitems_read(n), this->nitems_read(n) + ninput_items[n]);
+            //            for (std::vector<gr::tag_t>::iterator it = tags_vec.begin(); it != tags_vec.end(); ++it)
+            //                {
+            //                    try
+            //                        {
+            //                            if (pmt::any_ref(it->value).type().hash_code() == typeid(const std::shared_ptr<GnssTime>).hash_code())
+            //                                {
+            //                                    const std::shared_ptr<GnssTime> timetag = boost::any_cast<const std::shared_ptr<GnssTime>>(pmt::any_ref(it->value));
+            //                                    //std::cout << "[ch " << n << "] timetag: " << timetag->rx_time << "\n";
+            //                                    d_SourceTagTimestamps.at(n).push(*timetag);
+            //                                }
+            //                            else
+            //                                {
+            //                                    std::cout << "hash code not match\n";
+            //                                }
+            //                        }
+            //                    catch (const boost::bad_any_cast &e)
+            //                        {
+            //                            std::cout << "msg Bad any_cast: " << e.what();
+            //                        }
+            //                }
+
+            //************* end time tags **************
             for (int32_t m = 0; m < ninput_items[n]; m++)
                 {
+                    // Push the valid tracking Gnss_Synchros to their corresponding deque
                     if (in[n][m].Flag_valid_word)
                         {
                             if (d_gnss_synchro_history->size(n) > 0)
@@ -682,6 +802,7 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
             if (n_valid > 0)
                 {
                     compute_pranges(epoch_data);
+                    set_tag_timestamp_in_sdr_timeframe(epoch_data, d_Rx_clock_buffer.front());
                 }
 
             // Carrier smoothing (optional)
@@ -689,6 +810,7 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
                 {
                     smooth_pseudoranges(epoch_data);
                 }
+
             // output the observables set to the PVT block
             for (uint32_t n = 0; n < d_nchannels_out; n++)
                 {
@@ -744,6 +866,15 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
                     // old_time_debug = out[0][0].RX_time * 1000.0;
                     return 1;
                 }
+        }
+    if (d_always_output_gs)
+        {
+            Gnss_Synchro empty_gs{};
+            for (uint32_t n = 0; n < d_nchannels_out; n++)
+                {
+                    out[n][0] = empty_gs;
+                }
+            return 1;
         }
     return 0;
 }

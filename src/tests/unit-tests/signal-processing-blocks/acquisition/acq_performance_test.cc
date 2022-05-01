@@ -49,6 +49,11 @@
 #include <boost/bind/bind.hpp>
 #endif
 
+#if PMT_USES_BOOST_ANY
+namespace wht = boost;
+#else
+namespace wht = std;
+#endif
 
 DEFINE_string(config_file_ptest, std::string(""), "File containing alternative configuration parameters for the acquisition performance test.");
 DEFINE_string(acq_test_input_file, std::string(""), "File containing raw signal data, must be in int8_t format. The signal generator will not be used.");
@@ -81,8 +86,6 @@ DEFINE_int32(acq_test_fake_PRN, 33, "PRN number of a non-present satellite");
 DEFINE_int32(acq_test_iterations, 1, "Number of iterations (same signal, different noise realization)");
 DEFINE_bool(plot_acq_test, false, "Plots results with gnuplot, if available");
 DEFINE_int32(acq_test_skiphead, 0, "Number of samples to skip in the input file");
-
-DEFINE_bool(acq_test_dump, false, "Dump the results of an acquisition block into .mat files.");
 
 // ######## GNURADIO BLOCK MESSAGE RECEVER #########
 class AcqPerfTest_msg_rx;
@@ -119,7 +122,7 @@ void AcqPerfTest_msg_rx::msg_handler_channel_events(const pmt::pmt_t msg)
             rx_message = message;
             channel_internal_queue.push(rx_message);
         }
-    catch (const boost::bad_any_cast& e)
+    catch (const wht::bad_any_cast& e)
         {
             LOG(WARNING) << "msg_handler_channel_events Bad any_cast: " << e.what();
             rx_message = 0;
@@ -263,7 +266,7 @@ protected:
                         pfa_vector.push_back(FLAGS_acq_test_pfa_init * std::pow(10, aux));
                         aux = aux + 1.0;
                     }
-                pfa_vector.push_back(1.0);
+                pfa_vector.push_back(0.999);
             }
         else
             {
@@ -279,8 +282,17 @@ protected:
 
         num_thresholds = pfa_vector.size();
 
-        int aux2 = ((generated_signal_duration_s * 900 - (FLAGS_acq_test_coherent_time_ms * FLAGS_acq_test_max_dwells)) / (FLAGS_acq_test_coherent_time_ms * FLAGS_acq_test_max_dwells));
-        if ((FLAGS_acq_test_num_meas > 0) and (FLAGS_acq_test_num_meas < aux2))
+        // the gnss simulator does not dump the trk observables for the last 100 ms of generated signal
+        int aux2;
+        if (FLAGS_acq_test_bit_transition_flag)
+            {
+                aux2 = floor((generated_signal_duration_s * ms_per_s - 100) / (FLAGS_acq_test_coherent_time_ms * 2.0) - 1);
+            }
+        else
+            {
+                aux2 = floor((generated_signal_duration_s * ms_per_s - 100) / (FLAGS_acq_test_coherent_time_ms * FLAGS_acq_test_max_dwells) - 1);
+            }
+        if ((FLAGS_acq_test_num_meas > 0) && (FLAGS_acq_test_num_meas < aux2))
             {
                 num_of_measurements = static_cast<unsigned int>(FLAGS_acq_test_num_meas);
             }
@@ -366,6 +378,8 @@ protected:
     std::string signal_id;
 
 private:
+    static const uint32_t ms_per_s = 1000;
+
     std::string generator_binary;
     std::string p1;
     std::string p2;
@@ -531,16 +545,10 @@ int AcquisitionPerformanceTest::configure_receiver(double cn0, float pfa, unsign
                     config->set_property("Acquisition.make_two_steps", "false");
                 }
 
-            if (FLAGS_acq_test_dump)
-                {
-                    config->set_property("Acquisition.dump", "true");
-                }
-            else
-                {
-                    config->set_property("Acquisition.dump", "false");
-                }
+            config->set_property("Acquisition.dump", "true");
 
-            std::string dump_file = path_str + std::string("/acquisition_") + std::to_string(cn0) + "_" + std::to_string(iter) + "_" + std::to_string(pfa);
+            // std::string dump_file = path_str + std::string("/acquisition_") + std::to_string(cn0) + "_" + std::to_string(iter) + "_" + std::to_string(pfa);
+            std::string dump_file = path_str + std::string("/acquisition_") + std::to_string(static_cast<int>(cn0)) + "_" + std::to_string(iter) + "_" + std::to_string(static_cast<int>(pfa * 1.0e5));
             config->set_property("Acquisition.dump_filename", dump_file);
             config->set_property("Acquisition.dump_channel", std::to_string(dump_channel));
             config->set_property("Acquisition.blocking_on_standby", "true");
@@ -719,7 +727,7 @@ void AcquisitionPerformanceTest::plot_results()
                                     for (int k = 0; k < num_thresholds; k++)
                                         {
                                             Pd_i.push_back(Pd[i][k]);
-                                            Pfa_i.push_back(Pfa[i][k]);
+                                            Pfa_i.push_back(pfa_vector[k]);
                                         }
                                     g1.plot_xy(Pfa_i, Pd_i, "CN0 = " + std::to_string(static_cast<int>(cn0_vector[i])) + " dBHz");
                                 }
@@ -755,7 +763,7 @@ void AcquisitionPerformanceTest::plot_results()
                                     for (int k = 0; k < num_thresholds; k++)
                                         {
                                             Pd_i_correct.push_back(Pd_correct[i][k]);
-                                            Pfa_i.push_back(Pfa[i][k]);
+                                            Pfa_i.push_back(pfa_vector[k]);
                                         }
                                     g2.plot_xy(Pfa_i, Pd_i_correct, "CN0 = " + std::to_string(static_cast<int>(cn0_vector[i])) + " dBHz");
                                 }
@@ -778,6 +786,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
 
     if (fs::exists(path_str))
         {
+            std::cout << "Deleting old files at " << path_str << " ...\n";
             fs::remove_all(path_str);
         }
     errorlib::error_code ec;
@@ -840,7 +849,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                                     run_receiver();
 
                                     // count executions
-                                    std::string basename = path_str + std::string("/acquisition_") + std::to_string(it) + "_" + std::to_string(iter) + "_" + std::to_string(pfa_vector[pfa_iter]) + "_" + gnss_synchro.System + "_" + signal_id;
+                                    std::string basename = path_str + std::string("/acquisition_") + std::to_string(static_cast<int>(it)) + "_" + std::to_string(iter) + "_" + std::to_string(static_cast<int>(pfa_vector[pfa_iter] * 1.0e5)) + "_" + gnss_synchro.System + "_" + gnss_synchro.Signal;
                                     int num_executions = count_executions(basename, observed_satellite);
 
                                     // Read measured data
@@ -938,7 +947,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                                             // Cut measurements without reference
                                             for (int i = 0; i < num_executions; i++)
                                                 {
-                                                    if (!std::isnan(doppler_estimation_error(i)) and !std::isnan(delay_estimation_error(i)))
+                                                    if (!std::isnan(doppler_estimation_error(i)) && !std::isnan(delay_estimation_error(i)))
                                                         {
                                                             num_clean_executions++;
                                                         }
@@ -948,7 +957,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                                             num_clean_executions = 0;
                                             for (int i = 0; i < num_executions; i++)
                                                 {
-                                                    if (!std::isnan(doppler_estimation_error(i)) and !std::isnan(delay_estimation_error(i)))
+                                                    if (!std::isnan(doppler_estimation_error(i)) && !std::isnan(delay_estimation_error(i)))
                                                         {
                                                             clean_doppler_estimation_error(num_clean_executions) = doppler_estimation_error(i);
                                                             clean_delay_estimation_error(num_clean_executions) = delay_estimation_error(i);
@@ -983,24 +992,23 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                                                 {
                                                     meas_Pd_.push_back(0.0);
                                                 }
-                                            std::cout << TEXT_BOLD_BLACK << "Probability of detection for channel=" << ch << ", CN0=" << it << " dBHz"
+                                            std::cout << TEXT_BOLD_BLUE << "Probability of detection for channel=" << ch << ", CN0=" << it << " dBHz"
                                                       << ": " << (num_executions > 0 ? computed_Pd : 0.0) << TEXT_RESET << '\n';
                                         }
                                     if (num_clean_executions > 0)
                                         {
                                             arma::vec correct_acq = arma::zeros(num_executions, 1);
                                             double correctly_detected = 0.0;
-                                            for (int i = 0; i < num_clean_executions - 1; i++)
-
+                                            for (int i = 0; i < num_clean_executions; i++)
                                                 {
-                                                    if (abs(clean_delay_estimation_error(i)) < 0.5 and abs(clean_doppler_estimation_error(i)) < static_cast<float>(config->property("Acquisition.doppler_step", 1)) / 2.0)
+                                                    if (abs(clean_delay_estimation_error(i)) < 0.5 && abs(clean_doppler_estimation_error(i)) < static_cast<float>(config->property("Acquisition.doppler_step", 1)))
                                                         {
                                                             correctly_detected = correctly_detected + 1.0;
                                                         }
                                                 }
                                             double computed_Pd_correct = correctly_detected / static_cast<double>(num_clean_executions);
                                             meas_Pd_correct_.push_back(computed_Pd_correct);
-                                            std::cout << TEXT_BOLD_BLACK << "Probability of correct detection for channel=" << ch << ", CN0=" << it << " dBHz"
+                                            std::cout << TEXT_BOLD_BLUE << "Probability of correct detection for channel=" << ch << ", CN0=" << it << " dBHz"
                                                       << ": " << computed_Pd_correct << TEXT_RESET << '\n';
                                         }
                                     else
@@ -1018,7 +1026,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                                                         {
                                                             meas_Pfa_.push_back(0.0);
                                                         }
-                                                    std::cout << TEXT_BOLD_BLACK << "Probability of false alarm for channel=" << ch << ", CN0=" << it << " dBHz"
+                                                    std::cout << TEXT_BOLD_BLUE << "Probability of false alarm for channel=" << ch << ", CN0=" << it << " dBHz"
                                                               << ": " << (num_executions > 0 ? computed_Pfa : 0.0) << TEXT_RESET << '\n';
                                                 }
                                         }
@@ -1029,7 +1037,7 @@ TEST_F(AcquisitionPerformanceTest, ROC)
                     float sum_pd = static_cast<float>(std::accumulate(meas_Pd_.begin(), meas_Pd_.end(), 0.0));
                     float sum_pd_correct = static_cast<float>(std::accumulate(meas_Pd_correct_.begin(), meas_Pd_correct_.end(), 0.0));
                     float sum_pfa = static_cast<float>(std::accumulate(meas_Pfa_.begin(), meas_Pfa_.end(), 0.0));
-                    if (!meas_Pd_.empty() and !meas_Pfa_.empty())
+                    if (!meas_Pd_.empty() && !meas_Pfa_.empty())
                         {
                             Pd[cn0_index][pfa_iter] = sum_pd / static_cast<float>(meas_Pd_.size());
                             Pfa[cn0_index][pfa_iter] = sum_pfa / static_cast<float>(meas_Pfa_.size());

@@ -54,6 +54,14 @@ if(GNURADIO_USES_STD_POINTERS)
     )
 endif()
 
+if(GNURADIO_USES_SPDLOG)
+    target_link_libraries(channel_libs
+        PUBLIC
+            fmt::fmt
+            spdlog::spdlog
+    )
+endif()
+
 if(USE_GENERIC_LAMBDAS)
     set(has_generic_lambdas HAS_GENERIC_LAMBDA=1)
     set(no_has_generic_lambdas HAS_GENERIC_LAMBDA=0)
@@ -73,6 +81,16 @@ if(USE_BOOST_BIND_PLACEHOLDERS)
     target_compile_definitions(channel_libs
         PRIVATE
             -DUSE_BOOST_BIND_PLACEHOLDERS=1
+    )
+endif()
+
+if(PMT_USES_BOOST_ANY)
+    target_compile_definitions(channel_libs
+        PRIVATE -DPMT_USES_BOOST_ANY=1
+    )
+    target_link_libraries(channel_libs
+        PRIVATE
+            Boost::headers
     )
 endif()
 

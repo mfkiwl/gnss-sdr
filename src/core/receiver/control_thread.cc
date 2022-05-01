@@ -69,6 +69,12 @@
 #include <boost/chrono.hpp>  // for steady_clock
 #endif
 
+#if PMT_USES_BOOST_ANY
+namespace wht = boost;
+#else
+namespace wht = std;
+#endif
+
 extern Concurrent_Map<Gps_Acq_Assist> global_gps_acq_assist_map;
 extern Concurrent_Queue<Gps_Acq_Assist> global_gps_acq_assist_queue;
 
@@ -123,15 +129,15 @@ ControlThread::ControlThread()
 
 
 ControlThread::ControlThread(std::shared_ptr<ConfigurationInterface> configuration)
+    : configuration_(std::move(configuration)),
+      well_formatted_configuration_(true),
+      conf_file_has_section_(true),
+      conf_file_has_mandatory_globals_(true),
+      conf_has_signal_sources_(true),
+      conf_has_observables_(true),
+      conf_has_pvt_(true),
+      restart_(false)
 {
-    configuration_ = std::move(configuration);
-    conf_file_has_section_ = true;
-    conf_file_has_mandatory_globals_ = true;
-    conf_has_signal_sources_ = true;
-    conf_has_observables_ = true;
-    conf_has_pvt_ = true;
-    well_formatted_configuration_ = true;
-    restart_ = false;
     init();
 }
 
@@ -280,7 +286,7 @@ void ControlThread::event_dispatcher(bool &valid_event, pmt::pmt_t &msg)
                 {
                     if (receiver_on_standby_ == false)
                         {
-                            const auto new_event = boost::any_cast<channel_event_sptr>(pmt::any_ref(msg));
+                            const auto new_event = wht::any_cast<channel_event_sptr>(pmt::any_ref(msg));
                             DLOG(INFO) << "New channel event rx from ch id: " << new_event->channel_id
                                        << " what: " << new_event->event_type;
                             flowgraph_->apply_action(new_event->channel_id, new_event->event_type);
@@ -288,7 +294,7 @@ void ControlThread::event_dispatcher(bool &valid_event, pmt::pmt_t &msg)
                 }
             else if (msg_type_hash_code == command_event_type_hash_code_)
                 {
-                    const auto new_event = boost::any_cast<command_event_sptr>(pmt::any_ref(msg));
+                    const auto new_event = wht::any_cast<command_event_sptr>(pmt::any_ref(msg));
                     DLOG(INFO) << "New command event rx from ch id: " << new_event->command_id
                                << " what: " << new_event->event_type;
 
@@ -369,7 +375,10 @@ int ControlThread::run()
     // launch GNSS assistance process AFTER the flowgraph is running because the GNU Radio asynchronous queues must be already running to transport msgs
     assist_GNSS();
     // start the keyboard_listener thread
-    keyboard_thread_ = std::thread(&ControlThread::keyboard_listener, this);
+    if (FLAGS_keyboard)
+        {
+            keyboard_thread_ = std::thread(&ControlThread::keyboard_listener, this);
+        }
     sysv_queue_thread_ = std::thread(&ControlThread::sysv_queue_listener, this);
 
     // start the telecommand listener thread
@@ -405,11 +414,15 @@ int ControlThread::run()
 #endif
 
     // Terminate keyboard thread
-    if (keyboard_thread_.joinable())
+    if (FLAGS_keyboard && keyboard_thread_.joinable())
         {
             pthread_t id = keyboard_thread_.native_handle();
             keyboard_thread_.detach();
+#ifndef ANDROID
             pthread_cancel(id);
+#else
+            // todo: find alternative
+#endif
         }
 
     // Terminate telecommand thread
@@ -417,7 +430,11 @@ int ControlThread::run()
         {
             pthread_t id2 = cmd_interface_thread_.native_handle();
             cmd_interface_thread_.detach();
+#ifndef ANDROID
             pthread_cancel(id2);
+#else
+            // todo: find alternative
+#endif
         }
 
     LOG(INFO) << "Flowgraph stopped";
@@ -1190,6 +1207,7 @@ void ControlThread::keyboard_listener()
                 {
                     std::cout << "Quit keystroke order received, stopping GNSS-SDR !!\n";
                     control_queue_->push(pmt::make_any(command_event_make(200, 0)));
+                    stop_ = true;
                     read_keys = false;
                 }
             else

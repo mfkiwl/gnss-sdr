@@ -50,7 +50,6 @@ target_link_libraries(core_monitor
         core_system_parameters
     PRIVATE
         Boost::serialization
-        Gnuradio::pmt
 )
 
 get_filename_component(PROTO_INCLUDE_HEADERS_DIR ${PROTO_HDRS} DIRECTORY)
@@ -71,6 +70,14 @@ target_include_directories(core_monitor
 if(GNURADIO_USES_STD_POINTERS)
     target_compile_definitions(core_monitor
         PUBLIC -DGNURADIO_USES_STD_POINTERS=1
+    )
+endif()
+
+if(GNURADIO_USES_SPDLOG)
+    target_link_libraries(core_monitor
+        PUBLIC
+            fmt::fmt
+            spdlog::spdlog
     )
 endif()
 

@@ -30,7 +30,7 @@ if(NOT GOOGLETEST_FOUND)
         "--build" "${CMAKE_BINARY_DIR}/gtest-${GNSSSDR_GTEST_LOCAL_VERSION}"
         "--config" $<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo>$<$<CONFIG:MinSizeRel>:MinSizeRel>$<$<CONFIG:NoOptWithASM>:Debug>$<$<CONFIG:Coverage>:Debug>$<$<CONFIG:O2WithASM>:RelWithDebInfo>$<$<CONFIG:O3WithASM>:RelWithDebInfo>$<$<CONFIG:ASAN>:Debug>
     )
-    if(CMAKE_VERSION VERSION_GREATER 3.12)
+    if(CMAKE_VERSION VERSION_GREATER 3.12 AND NOT CMAKE_CROSSCOMPILING)
         # Parallel building of gtest causes problems in some environments (e.g. Macports buildings)
         set(GTEST_BUILD_COMMAND ${GTEST_BUILD_COMMAND} "--parallel 1")
     endif()
@@ -403,12 +403,12 @@ if(ENABLE_UNIT_TESTING_EXTRA OR ENABLE_SYSTEM_TESTING_EXTRA OR ENABLE_FPGA)
                     -DCMAKE_C_STANDARD=11
                     -DCMAKE_C_EXTENSIONS=ON
                 BUILD_COMMAND ${GPSTK_BUILD_COMMAND} ${GPSTK_PARALLEL_BUILD}
-                BUILD_BYPRODUCTS ${CMAKE_BINARY_DIR}/gpstk-${GNSSSDR_GPSTK_LOCAL_VERSION}/install/${CMAKE_INSTALL_LIBDIR}/${CMAKE_FIND_LIBRARY_PREFIXES}gpstk${CMAKE_STATIC_LIBRARY_SUFFIX}
+                BUILD_BYPRODUCTS ${CMAKE_BINARY_DIR}/gpstk-${GNSSSDR_GPSTK_LOCAL_VERSION}/install/lib/${CMAKE_FIND_LIBRARY_PREFIXES}gpstk${CMAKE_STATIC_LIBRARY_SUFFIX}
                 UPDATE_COMMAND ""
             )
         endif()
         set(GPSTK_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/gpstk-${GNSSSDR_GPSTK_LOCAL_VERSION}/install/include CACHE PATH "Local GPSTK headers")
-        set(GPSTK_LIBRARY ${CMAKE_BINARY_DIR}/gpstk-${GNSSSDR_GPSTK_LOCAL_VERSION}/install/${CMAKE_INSTALL_LIBDIR}/${CMAKE_FIND_LIBRARY_PREFIXES}gpstk${CMAKE_STATIC_LIBRARY_SUFFIX})
+        set(GPSTK_LIBRARY ${CMAKE_BINARY_DIR}/gpstk-${GNSSSDR_GPSTK_LOCAL_VERSION}/install/lib/${CMAKE_FIND_LIBRARY_PREFIXES}gpstk${CMAKE_STATIC_LIBRARY_SUFFIX})
         set(GPSTK_BINDIR ${CMAKE_BINARY_DIR}/gpstk-${GNSSSDR_GPSTK_LOCAL_VERSION}/install/bin/)
         add_definitions(-DGPSTK_BINDIR="${GPSTK_BINDIR}")
         add_library(Gpstk::gpstk STATIC IMPORTED)
@@ -542,6 +542,11 @@ if(ENABLE_UNIT_TESTING)
             PRIVATE -DGNURADIO_USES_STD_POINTERS=1
         )
     endif()
+    if(PMT_USES_BOOST_ANY)
+        target_compile_definitions(run_tests
+            PRIVATE -DPMT_USES_BOOST_ANY=1
+        )
+    endif()
     if(ENABLE_UNIT_TESTING_EXTRA)
         target_link_libraries(run_tests PRIVATE Gpstk::gpstk)
         if(GPSTK_OLDER_THAN_8)
@@ -640,6 +645,11 @@ if(ENABLE_FPGA)
         target_compile_definitions(gps_l1_ca_dll_pll_tracking_test_fpga
             PRIVATE
                 -DUSE_BOOST_BIND_PLACEHOLDERS=1
+        )
+    endif()
+    if(PMT_USES_BOOST_ANY)
+        target_compile_definitions(gps_l1_ca_dll_pll_tracking_test_fpga
+            PRIVATE -DPMT_USES_BOOST_ANY=1
         )
     endif()
 
@@ -1002,6 +1012,12 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
         INTERFACE
             ${CMAKE_SOURCE_DIR}/src/tests/common-files
     )
+    if(PMT_USES_BOOST_ANY)
+        target_compile_definitions(acq_test
+            PRIVATE
+                -DPMT_USES_BOOST_ANY=1
+        )
+    endif()
     add_test(acq_test acq_test)
 
     if(USE_GENERIC_LAMBDAS)
@@ -1089,6 +1105,12 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
         target_compile_definitions(trk_test
             PRIVATE
                 -DUSE_BOOST_BIND_PLACEHOLDERS=1
+        )
+    endif()
+    if(PMT_USES_BOOST_ANY)
+        target_compile_definitions(trk_test
+            PRIVATE
+                -DPMT_USES_BOOST_ANY=1
         )
     endif()
 

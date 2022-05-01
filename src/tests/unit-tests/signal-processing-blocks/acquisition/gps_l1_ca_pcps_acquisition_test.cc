@@ -34,6 +34,7 @@
 #include <gnuradio/blocks/null_sink.h>
 #include <gnuradio/top_block.h>
 #include <gtest/gtest.h>
+#include <pmt/pmt.h>
 #include <chrono>
 #include <memory>
 #include <utility>
@@ -49,6 +50,11 @@
 #include <gnuradio/analog/sig_source_c.h>
 #endif
 
+#if PMT_USES_BOOST_ANY
+namespace wht = boost;
+#else
+namespace wht = std;
+#endif
 
 // ######## GNURADIO BLOCK MESSAGE RECEVER #########
 class GpsL1CaPcpsAcquisitionTest_msg_rx;
@@ -65,7 +71,7 @@ private:
     GpsL1CaPcpsAcquisitionTest_msg_rx();
 
 public:
-    int rx_message;
+    int rx_message{0};
     ~GpsL1CaPcpsAcquisitionTest_msg_rx() override;  //!< Default destructor
 };
 
@@ -83,7 +89,7 @@ void GpsL1CaPcpsAcquisitionTest_msg_rx::msg_handler_channel_events(const pmt::pm
             int64_t message = pmt::to_long(msg);
             rx_message = message;
         }
-    catch (const boost::bad_any_cast &e)
+    catch (const wht::bad_any_cast &e)
         {
             LOG(WARNING) << "msg_handler_channel_events Bad any_cast: " << e.what();
             rx_message = 0;
@@ -91,7 +97,9 @@ void GpsL1CaPcpsAcquisitionTest_msg_rx::msg_handler_channel_events(const pmt::pm
 }
 
 
-GpsL1CaPcpsAcquisitionTest_msg_rx::GpsL1CaPcpsAcquisitionTest_msg_rx() : gr::block("GpsL1CaPcpsAcquisitionTest_msg_rx", gr::io_signature::make(0, 0, 0), gr::io_signature::make(0, 0, 0))
+GpsL1CaPcpsAcquisitionTest_msg_rx::GpsL1CaPcpsAcquisitionTest_msg_rx()
+    : gr::block("GpsL1CaPcpsAcquisitionTest_msg_rx", gr::io_signature::make(0, 0, 0), gr::io_signature::make(0, 0, 0))
+
 {
     this->message_port_register_in(pmt::mp("events"));
     this->set_msg_handler(pmt::mp("events"),
@@ -104,7 +112,6 @@ GpsL1CaPcpsAcquisitionTest_msg_rx::GpsL1CaPcpsAcquisitionTest_msg_rx() : gr::blo
         boost::bind(&GpsL1CaPcpsAcquisitionTest_msg_rx::msg_handler_channel_events, this, _1));
 #endif
 #endif
-    rx_message = 0;
 }
 
 
@@ -117,12 +124,11 @@ class GpsL1CaPcpsAcquisitionTest : public ::testing::Test
 {
 protected:
     GpsL1CaPcpsAcquisitionTest()
+        : item_size(sizeof(gr_complex))
+
     {
         config = std::make_shared<InMemoryConfiguration>();
-        item_size = sizeof(gr_complex);
         gnss_synchro = Gnss_Synchro();
-        doppler_max = 5000;
-        doppler_step = 100;
     }
 
     ~GpsL1CaPcpsAcquisitionTest() override = default;
@@ -134,8 +140,8 @@ protected:
     std::shared_ptr<InMemoryConfiguration> config;
     Gnss_Synchro gnss_synchro{};
     size_t item_size;
-    unsigned int doppler_max;
-    unsigned int doppler_step;
+    unsigned int doppler_max{5000};
+    unsigned int doppler_step{100};
 };
 
 

@@ -16,6 +16,7 @@
 
 namespace cpu_features
 {
+
 class FakeCpu
 {
 public:
@@ -41,7 +42,7 @@ public:
         xcr0_eax_ = os_backups_extended_registers ? -1 : 0;
     }
 
-#if defined(CPU_FEATURES_OS_DARWIN)
+#if defined(CPU_FEATURES_OS_MACOS)
     bool GetDarwinSysCtlByName(std::string name) const
     {
         return darwin_sysctlbyname_.count(name);
@@ -51,7 +52,7 @@ public:
     {
         darwin_sysctlbyname_.insert(name);
     }
-#endif  // CPU_FEATURES_OS_DARWIN
+#endif  // CPU_FEATURES_OS_MACOS
 
 #if defined(CPU_FEATURES_OS_WINDOWS)
     bool GetWindowsIsProcessorFeaturePresent(DWORD ProcessorFeature)
@@ -67,51 +68,66 @@ public:
 
 private:
     std::map<std::pair<uint32_t, int>, Leaf> cpuid_leaves_;
-#if defined(CPU_FEATURES_OS_DARWIN)
+#if defined(CPU_FEATURES_OS_MACOS)
     std::set<std::string> darwin_sysctlbyname_;
-#endif  // CPU_FEATURES_OS_DARWIN
+#endif  // CPU_FEATURES_OS_MACOS
 #if defined(CPU_FEATURES_OS_WINDOWS)
     std::set<DWORD> windows_isprocessorfeaturepresent_;
 #endif  // CPU_FEATURES_OS_WINDOWS
     uint32_t xcr0_eax_;
 };
 
-FakeCpu* g_fake_cpu = nullptr;
+static FakeCpu* g_fake_cpu_instance = nullptr;
+
+static FakeCpu& cpu()
+{
+    assert(g_fake_cpu_instance != nullptr);
+    return *g_fake_cpu_instance;
+}
 
 extern "C" Leaf GetCpuidLeaf(uint32_t leaf_id, int ecx)
 {
-    return g_fake_cpu->GetCpuidLeaf(leaf_id, ecx);
+    return cpu().GetCpuidLeaf(leaf_id, ecx);
 }
 
-extern "C" uint32_t GetXCR0Eax(void) { return g_fake_cpu->GetXCR0Eax(); }
+extern "C" uint32_t GetXCR0Eax(void) { return cpu().GetXCR0Eax(); }
 
-#if defined(CPU_FEATURES_OS_DARWIN)
+#if defined(CPU_FEATURES_OS_MACOS)
 extern "C" bool GetDarwinSysCtlByName(const char* name)
 {
-    return g_fake_cpu->GetDarwinSysCtlByName(name);
+    return cpu().GetDarwinSysCtlByName(name);
 }
-#endif  // CPU_FEATURES_OS_DARWIN
+#endif  // CPU_FEATURES_OS_MACOS
 
 #if defined(CPU_FEATURES_OS_WINDOWS)
 extern "C" bool GetWindowsIsProcessorFeaturePresent(DWORD ProcessorFeature)
 {
-    return g_fake_cpu->GetWindowsIsProcessorFeaturePresent(ProcessorFeature);
+    return cpu().GetWindowsIsProcessorFeaturePresent(ProcessorFeature);
 }
 #endif  // CPU_FEATURES_OS_WINDOWS
 
 namespace
 {
+
 class CpuidX86Test : public ::testing::Test
 {
 protected:
-    void SetUp() override { g_fake_cpu = new FakeCpu(); }
-    void TearDown() override { delete g_fake_cpu; }
+    void SetUp() override
+    {
+        assert(g_fake_cpu_instance == nullptr);
+        g_fake_cpu_instance = new FakeCpu();
+    }
+    void TearDown() override
+    {
+        delete g_fake_cpu_instance;
+        g_fake_cpu_instance = nullptr;
+    }
 };
 
 TEST_F(CpuidX86Test, SandyBridge)
 {
-    g_fake_cpu->SetOsBackupsExtendedRegisters(true);
-    g_fake_cpu->SetLeaves({
+    cpu().SetOsBackupsExtendedRegisters(true);
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x0000000D, 0x756E6547, 0x6C65746E, 0x49656E69}},
         {{0x00000001, 0}, Leaf{0x000206A6, 0x00100800, 0x1F9AE3BF, 0xBFEBFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x00000000, 0x00000000, 0x00000000}},
@@ -153,28 +169,29 @@ TEST_F(CpuidX86Test, SandyBridge)
     EXPECT_FALSE(features.adx);
 }
 
+const int UNDEF = -1;
 const int KiB = 1024;
 const int MiB = 1024 * KiB;
 
 TEST_F(CpuidX86Test, SandyBridgeTestOsSupport)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x0000000D, 0x756E6547, 0x6C65746E, 0x49656E69}},
         {{0x00000001, 0}, Leaf{0x000206A6, 0x00100800, 0x1F9AE3BF, 0xBFEBFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x00000000, 0x00000000, 0x00000000}},
     });
     // avx is disabled if os does not support backing up ymm registers.
-    g_fake_cpu->SetOsBackupsExtendedRegisters(false);
+    cpu().SetOsBackupsExtendedRegisters(false);
     EXPECT_FALSE(GetX86Info().features.avx);
     // avx is disabled if os does not support backing up ymm registers.
-    g_fake_cpu->SetOsBackupsExtendedRegisters(true);
+    cpu().SetOsBackupsExtendedRegisters(true);
     EXPECT_TRUE(GetX86Info().features.avx);
 }
 
 TEST_F(CpuidX86Test, SkyLake)
 {
-    g_fake_cpu->SetOsBackupsExtendedRegisters(true);
-    g_fake_cpu->SetLeaves({
+    cpu().SetOsBackupsExtendedRegisters(true);
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x00000016, 0x756E6547, 0x6C65746E, 0x49656E69}},
         {{0x00000001, 0}, Leaf{0x000406E3, 0x00100800, 0x7FFAFBBF, 0xBFEBFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x029C67AF, 0x00000000, 0x00000000}},
@@ -189,7 +206,7 @@ TEST_F(CpuidX86Test, SkyLake)
 
 TEST_F(CpuidX86Test, Branding)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x00000016, 0x756E6547, 0x6C65746E, 0x49656E69}},
         {{0x00000001, 0}, Leaf{0x000406E3, 0x00100800, 0x7FFAFBBF, 0xBFEBFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x029C67AF, 0x00000000, 0x00000000}},
@@ -206,7 +223,7 @@ TEST_F(CpuidX86Test, Branding)
 
 TEST_F(CpuidX86Test, KabyLakeCache)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x00000016, 0x756E6547, 0x6C65746E, 0x49656E69}},
         {{0x00000001, 0}, Leaf{0x000406E3, 0x00100800, 0x7FFAFBBF, 0xBFEBFBFF}},
         {{0x00000004, 0}, Leaf{0x1C004121, 0x01C0003F, 0x0000003F, 0x00000000}},
@@ -256,7 +273,7 @@ TEST_F(CpuidX86Test, KabyLakeCache)
 
 TEST_F(CpuidX86Test, HSWCache)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x00000016, 0x756E6547, 0x6C65746E, 0x49656E69}},
         {{0x00000001, 0}, Leaf{0x000406E3, 0x00100800, 0x7FFAFBBF, 0xBFEBFBFF}},
         {{0x00000004, 0}, Leaf{0x1C004121, 0x01C0003F, 0x0000003F, 0x00000000}},
@@ -307,7 +324,7 @@ TEST_F(CpuidX86Test, HSWCache)
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0200F30_K11_Griffin_CPUID.txt
 TEST_F(CpuidX86Test, AMD_K11_GRIFFIN)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x00000001, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00200F30, 0x00020800, 0x00002001, 0x178BFBFF}},
         {{0x80000000, 0}, Leaf{0x8000001A, 0x68747541, 0x444D4163, 0x69746E65}},
@@ -324,7 +341,7 @@ TEST_F(CpuidX86Test, AMD_K11_GRIFFIN)
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0300F10_K12_Llano_CPUID.txt
 TEST_F(CpuidX86Test, AMD_K12_LLANO)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x00000006, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00300F10, 0x00040800, 0x00802009, 0x178BFBFF}},
         {{0x80000000, 0}, Leaf{0x8000001B, 0x68747541, 0x444D4163, 0x69746E65}},
@@ -341,7 +358,7 @@ TEST_F(CpuidX86Test, AMD_K12_LLANO)
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0500F01_K14_Bobcat_CPUID.txt
 TEST_F(CpuidX86Test, AMD_K14_BOBCAT_AMD0500F01)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x00000006, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00500F01, 0x00020800, 0x00802209, 0x178BFBFF}},
         {{0x80000000, 0}, Leaf{0x8000001B, 0x68747541, 0x444D4163, 0x69746E65}},
@@ -358,7 +375,7 @@ TEST_F(CpuidX86Test, AMD_K14_BOBCAT_AMD0500F01)
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0500F10_K14_Bobcat_CPUID.txt
 TEST_F(CpuidX86Test, AMD_K14_BOBCAT_AMD0500F10)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x00000006, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00500F10, 0x00020800, 0x00802209, 0x178BFBFF}},
         {{0x00000002, 0}, Leaf{0x00000000, 0x00000000, 0x00000000, 0x00000000}},
@@ -383,7 +400,7 @@ TEST_F(CpuidX86Test, AMD_K14_BOBCAT_AMD0500F10)
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0500F20_K14_Bobcat_CPUID.txt
 TEST_F(CpuidX86Test, AMD_K14_BOBCAT_AMD0500F20)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x00000006, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00500F20, 0x00020800, 0x00802209, 0x178BFBFF}},
         {{0x80000000, 0}, Leaf{0x8000001B, 0x68747541, 0x444D4163, 0x69746E65}},
@@ -400,7 +417,7 @@ TEST_F(CpuidX86Test, AMD_K14_BOBCAT_AMD0500F20)
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0670F00_K15_StoneyRidge_CPUID.txt
 TEST_F(CpuidX86Test, AMD_K15_EXCAVATOR_STONEY_RIDGE)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x0000000D, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00670F00, 0x00020800, 0x7ED8320B, 0x178BFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x000001A9, 0x00000000, 0x00000000}},
@@ -415,6 +432,8 @@ TEST_F(CpuidX86Test, AMD_K15_EXCAVATOR_STONEY_RIDGE)
     EXPECT_STREQ(info.vendor, "AuthenticAMD");
     EXPECT_EQ(info.family, 0x15);
     EXPECT_EQ(info.model, 0x70);
+    EXPECT_STREQ(info.brand_string,
+        "AMD A9-9410 RADEON R5, 5 COMPUTE CORES 2C+3G   ");
     EXPECT_EQ(GetX86Microarchitecture(&info),
         X86Microarchitecture::AMD_EXCAVATOR);
 
@@ -426,7 +445,7 @@ TEST_F(CpuidX86Test, AMD_K15_EXCAVATOR_STONEY_RIDGE)
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0600F20_K15_AbuDhabi_CPUID0.txt
 TEST_F(CpuidX86Test, AMD_K15_PILEDRIVER_ABU_DHABI)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x0000000D, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00600F20, 0x00100800, 0x3E98320B, 0x178BFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x00000008, 0x00000000, 0x00000000}},
@@ -441,6 +460,8 @@ TEST_F(CpuidX86Test, AMD_K15_PILEDRIVER_ABU_DHABI)
     EXPECT_STREQ(info.vendor, "AuthenticAMD");
     EXPECT_EQ(info.family, 0x15);
     EXPECT_EQ(info.model, 0x02);
+    EXPECT_STREQ(info.brand_string,
+        "AMD Opteron(tm) Processor 6376                 ");
     EXPECT_EQ(GetX86Microarchitecture(&info),
         X86Microarchitecture::AMD_PILEDRIVER);
 
@@ -449,10 +470,59 @@ TEST_F(CpuidX86Test, AMD_K15_PILEDRIVER_ABU_DHABI)
     EXPECT_STREQ(brand_string, "AMD Opteron(tm) Processor 6376                 ");
 }
 
+// http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0600F20_K15_AbuDhabi_CPUID0.txt
+TEST_F(CpuidX86Test, AMD_K15_PILEDRIVER_ABU_DHABI_CACHE_INFO)
+{
+    cpu().SetLeaves({
+        {{0x00000000, 0}, Leaf{0x0000000D, 0x68747541, 0x444D4163, 0x69746E65}},
+        {{0x00000001, 0}, Leaf{0x00600F20, 0x00100800, 0x3E98320B, 0x178BFBFF}},
+        {{0x80000000, 0}, Leaf{0x8000001E, 0x68747541, 0x444D4163, 0x69746E65}},
+        {{0x80000001, 0}, Leaf{0x00600F20, 0x30000000, 0x01EBBFFF, 0x2FD3FBFF}},
+        {{0x8000001D, 0}, Leaf{0x00000121, 0x00C0003F, 0x0000003F, 0x00000000}},
+        {{0x8000001D, 1}, Leaf{0x00004122, 0x0040003F, 0x000001FF, 0x00000000}},
+        {{0x8000001D, 2}, Leaf{0x00004143, 0x03C0003F, 0x000007FF, 0x00000001}},
+        {{0x8000001D, 3}, Leaf{0x0001C163, 0x0BC0003F, 0x000007FF, 0x00000001}},
+    });
+    const auto info = GetX86CacheInfo();
+
+    EXPECT_EQ(info.size, 4);
+    EXPECT_EQ(info.levels[0].level, 1);
+    EXPECT_EQ(info.levels[0].cache_type, 1);
+    EXPECT_EQ(info.levels[0].cache_size, 16 * KiB);
+    EXPECT_EQ(info.levels[0].ways, 4);
+    EXPECT_EQ(info.levels[0].line_size, 64);
+    EXPECT_EQ(info.levels[0].tlb_entries, 64);
+    EXPECT_EQ(info.levels[0].partitioning, 1);
+
+    EXPECT_EQ(info.levels[1].level, 1);
+    EXPECT_EQ(info.levels[1].cache_type, 2);
+    EXPECT_EQ(info.levels[1].cache_size, 64 * KiB);
+    EXPECT_EQ(info.levels[1].ways, 2);
+    EXPECT_EQ(info.levels[1].line_size, 64);
+    EXPECT_EQ(info.levels[1].tlb_entries, 512);
+    EXPECT_EQ(info.levels[1].partitioning, 1);
+
+    EXPECT_EQ(info.levels[2].level, 2);
+    EXPECT_EQ(info.levels[2].cache_type, 3);
+    EXPECT_EQ(info.levels[2].cache_size, 2 * MiB);
+    EXPECT_EQ(info.levels[2].ways, 16);
+    EXPECT_EQ(info.levels[2].line_size, 64);
+    EXPECT_EQ(info.levels[2].tlb_entries, 2048);
+    EXPECT_EQ(info.levels[2].partitioning, 1);
+
+    EXPECT_EQ(info.levels[3].level, 3);
+    EXPECT_EQ(info.levels[3].cache_type, 3);
+    EXPECT_EQ(info.levels[3].cache_size, 6 * MiB);
+    EXPECT_EQ(info.levels[3].ways, 48);
+    EXPECT_EQ(info.levels[3].line_size, 64);
+    EXPECT_EQ(info.levels[3].tlb_entries, 2048);
+    EXPECT_EQ(info.levels[3].partitioning, 1);
+}
+
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0600F12_K15_Interlagos_CPUID3.txt
 TEST_F(CpuidX86Test, AMD_K15_BULLDOZER_INTERLAGOS)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x0000000D, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00600F12, 0x000C0800, 0x1E98220B, 0x178BFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x00000000, 0x00000000, 0x00000000}},
@@ -467,6 +537,8 @@ TEST_F(CpuidX86Test, AMD_K15_BULLDOZER_INTERLAGOS)
     EXPECT_STREQ(info.vendor, "AuthenticAMD");
     EXPECT_EQ(info.family, 0x15);
     EXPECT_EQ(info.model, 0x01);
+    EXPECT_STREQ(info.brand_string,
+        "AMD Opteron(TM) Processor 6238                 ");
     EXPECT_EQ(GetX86Microarchitecture(&info),
         X86Microarchitecture::AMD_BULLDOZER);
 
@@ -478,7 +550,7 @@ TEST_F(CpuidX86Test, AMD_K15_BULLDOZER_INTERLAGOS)
 // http://users.atw.hu/instlatx64/AuthenticAMD0630F81_K15_Godavari_CPUID.txt
 TEST_F(CpuidX86Test, AMD_K15_STREAMROLLER_GODAVARI)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x0000000D, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00630F81, 0x00040800, 0x3E98320B, 0x178BFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x00000000, 0x00000000, 0x00000000}},
@@ -495,6 +567,8 @@ TEST_F(CpuidX86Test, AMD_K15_STREAMROLLER_GODAVARI)
     EXPECT_EQ(info.family, 0x15);
     EXPECT_EQ(info.model, 0x38);
     EXPECT_EQ(info.stepping, 0x01);
+    EXPECT_STREQ(info.brand_string,
+        "AMD A8-7670K Radeon R7, 10 Compute Cores 4C+6G ");
     EXPECT_EQ(GetX86Microarchitecture(&info),
         X86Microarchitecture::AMD_STREAMROLLER);
 
@@ -506,7 +580,7 @@ TEST_F(CpuidX86Test, AMD_K15_STREAMROLLER_GODAVARI)
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0700F01_K16_Kabini_CPUID.txt
 TEST_F(CpuidX86Test, AMD_K16_JAGUAR_KABINI)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x0000000D, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00700F01, 0x00040800, 0x3ED8220B, 0x178BFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x00000008, 0x00000000, 0x00000000}},
@@ -521,6 +595,8 @@ TEST_F(CpuidX86Test, AMD_K16_JAGUAR_KABINI)
     EXPECT_STREQ(info.vendor, "AuthenticAMD");
     EXPECT_EQ(info.family, 0x16);
     EXPECT_EQ(info.model, 0x00);
+    EXPECT_STREQ(info.brand_string,
+        "AMD A4-5000 APU with Radeon(TM) HD Graphics    ");
     EXPECT_EQ(GetX86Microarchitecture(&info), X86Microarchitecture::AMD_JAGUAR);
 
     char brand_string[49];
@@ -531,7 +607,7 @@ TEST_F(CpuidX86Test, AMD_K16_JAGUAR_KABINI)
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0730F01_K16_Beema_CPUID2.txt
 TEST_F(CpuidX86Test, AMD_K16_PUMA_BEEMA)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x0000000D, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00730F01, 0x00040800, 0x7ED8220B, 0x178BFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x00000008, 0x00000000, 0x00000000}},
@@ -546,6 +622,8 @@ TEST_F(CpuidX86Test, AMD_K16_PUMA_BEEMA)
     EXPECT_STREQ(info.vendor, "AuthenticAMD");
     EXPECT_EQ(info.family, 0x16);
     EXPECT_EQ(info.model, 0x30);
+    EXPECT_STREQ(info.brand_string,
+        "AMD A6-6310 APU with AMD Radeon R4 Graphics    ");
     EXPECT_EQ(GetX86Microarchitecture(&info), X86Microarchitecture::AMD_PUMA);
 
     char brand_string[49];
@@ -556,7 +634,7 @@ TEST_F(CpuidX86Test, AMD_K16_PUMA_BEEMA)
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0820F01_K17_Dali_CPUID.txt
 TEST_F(CpuidX86Test, AMD_K17_ZEN_DALI)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x0000000D, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00820F01, 0x00020800, 0x7ED8320B, 0x178BFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x209C01A9, 0x00000000, 0x00000000}},
@@ -571,6 +649,8 @@ TEST_F(CpuidX86Test, AMD_K17_ZEN_DALI)
     EXPECT_STREQ(info.vendor, "AuthenticAMD");
     EXPECT_EQ(info.family, 0x17);
     EXPECT_EQ(info.model, 0x20);
+    EXPECT_STREQ(info.brand_string,
+        "AMD 3020e with Radeon Graphics                 ");
     EXPECT_EQ(GetX86Microarchitecture(&info), X86Microarchitecture::AMD_ZEN);
 
     char brand_string[49];
@@ -581,7 +661,7 @@ TEST_F(CpuidX86Test, AMD_K17_ZEN_DALI)
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0800F82_K17_ZenP_CPUID.txt
 TEST_F(CpuidX86Test, AMD_K17_ZEN_PLUS_PINNACLE_RIDGE)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x0000000D, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00800F82, 0x00100800, 0x7ED8320B, 0x178BFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x209C01A9, 0x00000000, 0x00000000}},
@@ -596,6 +676,8 @@ TEST_F(CpuidX86Test, AMD_K17_ZEN_PLUS_PINNACLE_RIDGE)
     EXPECT_STREQ(info.vendor, "AuthenticAMD");
     EXPECT_EQ(info.family, 0x17);
     EXPECT_EQ(info.model, 0x08);
+    EXPECT_STREQ(info.brand_string,
+        "AMD Ryzen 7 2700X Eight-Core Processor         ");
     EXPECT_EQ(GetX86Microarchitecture(&info), X86Microarchitecture::AMD_ZEN_PLUS);
 
     char brand_string[49];
@@ -606,7 +688,7 @@ TEST_F(CpuidX86Test, AMD_K17_ZEN_PLUS_PINNACLE_RIDGE)
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0840F70_K17_CPUID.txt
 TEST_F(CpuidX86Test, AMD_K17_ZEN2_XBOX_SERIES_X)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x00000010, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00840F70, 0x00100800, 0x7ED8320B, 0x178BFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x219C91A9, 0x00400004, 0x00000000}},
@@ -621,6 +703,7 @@ TEST_F(CpuidX86Test, AMD_K17_ZEN2_XBOX_SERIES_X)
     EXPECT_STREQ(info.vendor, "AuthenticAMD");
     EXPECT_EQ(info.family, 0x17);
     EXPECT_EQ(info.model, 0x47);
+    EXPECT_STREQ(info.brand_string, "AMD 4700S 8-Core Processor Desktop Kit");
     EXPECT_EQ(GetX86Microarchitecture(&info), X86Microarchitecture::AMD_ZEN2);
 
     char brand_string[49];
@@ -631,7 +714,7 @@ TEST_F(CpuidX86Test, AMD_K17_ZEN2_XBOX_SERIES_X)
 // http://users.atw.hu/instlatx64/HygonGenuine/HygonGenuine0900F02_Hygon_CPUID3.txt
 TEST_F(CpuidX86Test, AMD_K18_ZEN_DHYANA)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x0000000D, 0x6F677948, 0x656E6975, 0x6E65476E}},
         {{0x00000001, 0}, Leaf{0x00900F02, 0x00100800, 0x74D83209, 0x178BFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x009C01A9, 0x0040068C, 0x00000000}},
@@ -646,6 +729,8 @@ TEST_F(CpuidX86Test, AMD_K18_ZEN_DHYANA)
     EXPECT_STREQ(info.vendor, "HygonGenuine");
     EXPECT_EQ(info.family, 0x18);
     EXPECT_EQ(info.model, 0x00);
+    EXPECT_STREQ(info.brand_string,
+        "Hygon C86 3185  8-core Processor               ");
     EXPECT_EQ(GetX86Microarchitecture(&info), X86Microarchitecture::AMD_ZEN);
 
     char brand_string[49];
@@ -653,10 +738,59 @@ TEST_F(CpuidX86Test, AMD_K18_ZEN_DHYANA)
     EXPECT_STREQ(brand_string, "Hygon C86 3185  8-core Processor               ");
 }
 
+// http://users.atw.hu/instlatx64/HygonGenuine/HygonGenuine0900F02_Hygon_CPUID.txt
+TEST_F(CpuidX86Test, AMD_K18_ZEN_DHYANA_CACHE_INFO)
+{
+    cpu().SetLeaves({
+        {{0x00000000, 0}, Leaf{0x0000000D, 0x6F677948, 0x656E6975, 0x6E65476E}},
+        {{0x00000001, 0}, Leaf{0x00900F02, 0x00100800, 0x74D83209, 0x178BFBFF}},
+        {{0x80000000, 0}, Leaf{0x8000001F, 0x6F677948, 0x656E6975, 0x6E65476E}},
+        {{0x80000001, 0}, Leaf{0x00900F02, 0x60000000, 0x35C233FF, 0x2FD3FBFF}},
+        {{0x8000001D, 0}, Leaf{0x00004121, 0x01C0003F, 0x0000003F, 0x00000000}},
+        {{0x8000001D, 1}, Leaf{0x00004122, 0x00C0003F, 0x000000FF, 0x00000000}},
+        {{0x8000001D, 2}, Leaf{0x00004143, 0x01C0003F, 0x000003FF, 0x00000002}},
+        {{0x8000001D, 3}, Leaf{0x0001C163, 0x03C0003F, 0x00001FFF, 0x00000001}},
+    });
+    const auto info = GetX86CacheInfo();
+
+    EXPECT_EQ(info.size, 4);
+    EXPECT_EQ(info.levels[0].level, 1);
+    EXPECT_EQ(info.levels[0].cache_type, 1);
+    EXPECT_EQ(info.levels[0].cache_size, 32 * KiB);
+    EXPECT_EQ(info.levels[0].ways, 8);
+    EXPECT_EQ(info.levels[0].line_size, 64);
+    EXPECT_EQ(info.levels[0].tlb_entries, 64);
+    EXPECT_EQ(info.levels[0].partitioning, 1);
+
+    EXPECT_EQ(info.levels[1].level, 1);
+    EXPECT_EQ(info.levels[1].cache_type, 2);
+    EXPECT_EQ(info.levels[1].cache_size, 64 * KiB);
+    EXPECT_EQ(info.levels[1].ways, 4);
+    EXPECT_EQ(info.levels[1].line_size, 64);
+    EXPECT_EQ(info.levels[1].tlb_entries, 256);
+    EXPECT_EQ(info.levels[1].partitioning, 1);
+
+    EXPECT_EQ(info.levels[2].level, 2);
+    EXPECT_EQ(info.levels[2].cache_type, 3);
+    EXPECT_EQ(info.levels[2].cache_size, 512 * KiB);
+    EXPECT_EQ(info.levels[2].ways, 8);
+    EXPECT_EQ(info.levels[2].line_size, 64);
+    EXPECT_EQ(info.levels[2].tlb_entries, 1024);
+    EXPECT_EQ(info.levels[2].partitioning, 1);
+
+    EXPECT_EQ(info.levels[3].level, 3);
+    EXPECT_EQ(info.levels[3].cache_type, 3);
+    EXPECT_EQ(info.levels[3].cache_size, 8 * MiB);
+    EXPECT_EQ(info.levels[3].ways, 16);
+    EXPECT_EQ(info.levels[3].line_size, 64);
+    EXPECT_EQ(info.levels[3].tlb_entries, 8192);
+    EXPECT_EQ(info.levels[3].partitioning, 1);
+}
+
 // http://users.atw.hu/instlatx64/AuthenticAMD/AuthenticAMD0A20F10_K19_Vermeer2_CPUID.txt
 TEST_F(CpuidX86Test, AMD_K19_ZEN3_VERMEER)
 {
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x00000010, 0x68747541, 0x444D4163, 0x69746E65}},
         {{0x00000001, 0}, Leaf{0x00A20F10, 0x01180800, 0x7ED8320B, 0x178BFBFF}},
         {{0x00000007, 0}, Leaf{0x00000000, 0x219C97A9, 0x0040068C, 0x00000000}},
@@ -671,6 +805,8 @@ TEST_F(CpuidX86Test, AMD_K19_ZEN3_VERMEER)
     EXPECT_STREQ(info.vendor, "AuthenticAMD");
     EXPECT_EQ(info.family, 0x19);
     EXPECT_EQ(info.model, 0x21);
+    EXPECT_STREQ(info.brand_string,
+        "AMD Ryzen 9 5900X 12-Core Processor            ");
     EXPECT_EQ(GetX86Microarchitecture(&info), X86Microarchitecture::AMD_ZEN3);
 
     char brand_string[49];
@@ -682,21 +818,18 @@ TEST_F(CpuidX86Test, AMD_K19_ZEN3_VERMEER)
 TEST_F(CpuidX86Test, Nehalem)
 {
     // Pre AVX cpus don't have xsave
-    g_fake_cpu->SetOsBackupsExtendedRegisters(false);
+    cpu().SetOsBackupsExtendedRegisters(false);
 #if defined(CPU_FEATURES_OS_WINDOWS)
-    g_fake_cpu->SetWindowsIsProcessorFeaturePresent(
-        PF_XMMI_INSTRUCTIONS_AVAILABLE);
-    g_fake_cpu->SetWindowsIsProcessorFeaturePresent(
-        PF_XMMI64_INSTRUCTIONS_AVAILABLE);
-    g_fake_cpu->SetWindowsIsProcessorFeaturePresent(
-        PF_SSE3_INSTRUCTIONS_AVAILABLE);
-#elif defined(CPU_FEATURES_OS_DARWIN)
-    g_fake_cpu->SetDarwinSysCtlByName("hw.optional.sse");
-    g_fake_cpu->SetDarwinSysCtlByName("hw.optional.sse2");
-    g_fake_cpu->SetDarwinSysCtlByName("hw.optional.sse3");
-    g_fake_cpu->SetDarwinSysCtlByName("hw.optional.supplementalsse3");
-    g_fake_cpu->SetDarwinSysCtlByName("hw.optional.sse4_1");
-    g_fake_cpu->SetDarwinSysCtlByName("hw.optional.sse4_2");
+    cpu().SetWindowsIsProcessorFeaturePresent(PF_XMMI_INSTRUCTIONS_AVAILABLE);
+    cpu().SetWindowsIsProcessorFeaturePresent(PF_XMMI64_INSTRUCTIONS_AVAILABLE);
+    cpu().SetWindowsIsProcessorFeaturePresent(PF_SSE3_INSTRUCTIONS_AVAILABLE);
+#elif defined(CPU_FEATURES_OS_MACOS)
+    cpu().SetDarwinSysCtlByName("hw.optional.sse");
+    cpu().SetDarwinSysCtlByName("hw.optional.sse2");
+    cpu().SetDarwinSysCtlByName("hw.optional.sse3");
+    cpu().SetDarwinSysCtlByName("hw.optional.supplementalsse3");
+    cpu().SetDarwinSysCtlByName("hw.optional.sse4_1");
+    cpu().SetDarwinSysCtlByName("hw.optional.sse4_2");
 #elif defined(CPU_FEATURES_OS_FREEBSD)
     auto& fs = GetEmptyFilesystem();
     fs.CreateFile("/var/run/dmesg.boot", R"(
@@ -707,13 +840,13 @@ FreeBSD is a registered trademark of The FreeBSD Foundation.
   Features2=0x5eda2203<SSE3,PCLMULQDQ,SSSE3,CX16,PCID,SSE4.1,SSE4.2,MOVBE,POPCNT,AESNI,XSAVE,OSXSAVE,RDRAND>
 real memory  = 2147418112 (2047 MB)
 )");
-#elif defined(CPU_FEATURES_OS_LINUX_OR_ANDROID)
+#elif defined(CPU_FEATURES_OS_LINUX) || defined(CPU_FEATURES_OS_ANDROID)
     auto& fs = GetEmptyFilesystem();
     fs.CreateFile("/proc/cpuinfo", R"(processor       :
-flags           : fpu mmx sse sse2 sse3 ssse3 sse4_1 sse4_2
+flags           : fpu mmx sse sse2 pni ssse3 sse4_1 sse4_2
 )");
 #endif
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x0000000B, 0x756E6547, 0x6C65746E, 0x49656E69}},
         {{0x00000001, 0}, Leaf{0x000106A2, 0x00100800, 0x00BCE3BD, 0xBFEBFBFF}},
         {{0x00000002, 0}, Leaf{0x55035A01, 0x00F0B0E3, 0x00000000, 0x09CA212C}},
@@ -746,6 +879,8 @@ flags           : fpu mmx sse sse2 sse3 ssse3 sse4_1 sse4_2
     EXPECT_EQ(info.family, 0x06);
     EXPECT_EQ(info.model, 0x1A);
     EXPECT_EQ(info.stepping, 0x02);
+    EXPECT_STREQ(info.brand_string,
+        "Genuine Intel(R) CPU           @ 0000 @ 1.87GHz");
     EXPECT_EQ(GetX86Microarchitecture(&info), X86Microarchitecture::INTEL_NHM);
 
     char brand_string[49];
@@ -768,21 +903,18 @@ flags           : fpu mmx sse sse2 sse3 ssse3 sse4_1 sse4_2
 TEST_F(CpuidX86Test, Atom)
 {
     // Pre AVX cpus don't have xsave
-    g_fake_cpu->SetOsBackupsExtendedRegisters(false);
+    cpu().SetOsBackupsExtendedRegisters(false);
 #if defined(CPU_FEATURES_OS_WINDOWS)
-    g_fake_cpu->SetWindowsIsProcessorFeaturePresent(
-        PF_XMMI_INSTRUCTIONS_AVAILABLE);
-    g_fake_cpu->SetWindowsIsProcessorFeaturePresent(
-        PF_XMMI64_INSTRUCTIONS_AVAILABLE);
-    g_fake_cpu->SetWindowsIsProcessorFeaturePresent(
-        PF_SSE3_INSTRUCTIONS_AVAILABLE);
-#elif defined(CPU_FEATURES_OS_DARWIN)
-    g_fake_cpu->SetDarwinSysCtlByName("hw.optional.sse");
-    g_fake_cpu->SetDarwinSysCtlByName("hw.optional.sse2");
-    g_fake_cpu->SetDarwinSysCtlByName("hw.optional.sse3");
-    g_fake_cpu->SetDarwinSysCtlByName("hw.optional.supplementalsse3");
-    g_fake_cpu->SetDarwinSysCtlByName("hw.optional.sse4_1");
-    g_fake_cpu->SetDarwinSysCtlByName("hw.optional.sse4_2");
+    cpu().SetWindowsIsProcessorFeaturePresent(PF_XMMI_INSTRUCTIONS_AVAILABLE);
+    cpu().SetWindowsIsProcessorFeaturePresent(PF_XMMI64_INSTRUCTIONS_AVAILABLE);
+    cpu().SetWindowsIsProcessorFeaturePresent(PF_SSE3_INSTRUCTIONS_AVAILABLE);
+#elif defined(CPU_FEATURES_OS_MACOS)
+    cpu().SetDarwinSysCtlByName("hw.optional.sse");
+    cpu().SetDarwinSysCtlByName("hw.optional.sse2");
+    cpu().SetDarwinSysCtlByName("hw.optional.sse3");
+    cpu().SetDarwinSysCtlByName("hw.optional.supplementalsse3");
+    cpu().SetDarwinSysCtlByName("hw.optional.sse4_1");
+    cpu().SetDarwinSysCtlByName("hw.optional.sse4_2");
 #elif defined(CPU_FEATURES_OS_FREEBSD)
     auto& fs = GetEmptyFilesystem();
     fs.CreateFile("/var/run/dmesg.boot", R"(
@@ -793,13 +925,13 @@ FreeBSD is a registered trademark of The FreeBSD Foundation.
   Features2=0x5eda2203<SSE3,PCLMULQDQ,SSSE3,CX16,PCID,SSE4.1,SSE4.2,MOVBE,POPCNT,AESNI,XSAVE,OSXSAVE,RDRAND>
 real memory  = 2147418112 (2047 MB)
 )");
-#elif defined(CPU_FEATURES_OS_LINUX_OR_ANDROID)
+#elif defined(CPU_FEATURES_OS_LINUX) || defined(CPU_FEATURES_OS_ANDROID)
     auto& fs = GetEmptyFilesystem();
     fs.CreateFile("/proc/cpuinfo", R"(
-flags           : fpu mmx sse sse2 sse3 ssse3 sse4_1 sse4_2
+flags           : fpu mmx sse sse2 pni ssse3 sse4_1 sse4_2
 )");
 #endif
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x0000000B, 0x756E6547, 0x6C65746E, 0x49656E69}},
         {{0x00000001, 0}, Leaf{0x00030673, 0x00100800, 0x41D8E3BF, 0xBFEBFBFF}},
         {{0x00000002, 0}, Leaf{0x61B3A001, 0x0000FFC2, 0x00000000, 0x00000000}},
@@ -831,6 +963,8 @@ flags           : fpu mmx sse sse2 sse3 ssse3 sse4_1 sse4_2
     EXPECT_EQ(info.family, 0x06);
     EXPECT_EQ(info.model, 0x37);
     EXPECT_EQ(info.stepping, 0x03);
+    EXPECT_STREQ(info.brand_string,
+        "      Intel(R) Celeron(R) CPU  J1900  @ 1.99GHz");
     EXPECT_EQ(GetX86Microarchitecture(&info),
         X86Microarchitecture::INTEL_ATOM_SMT);
 
@@ -850,16 +984,68 @@ flags           : fpu mmx sse sse2 sse3 ssse3 sse4_1 sse4_2
 #endif  // !defined(CPU_FEATURES_OS_WINDOWS)
 }
 
+// https://www.felixcloutier.com/x86/cpuid#example-3-1--example-of-cache-and-tlb-interpretation
+TEST_F(CpuidX86Test, P4_CacheInfo)
+{
+    cpu().SetLeaves({
+        {{0x00000000, 0}, Leaf{0x00000002, 0x756E6547, 0x6C65746E, 0x49656E69}},
+        {{0x00000001, 0}, Leaf{0x00000F0A, 0x00010808, 0x00000000, 0x3FEBFBFF}},
+        {{0x00000002, 0}, Leaf{0x665B5001, 0x00000000, 0x00000000, 0x007A7000}},
+    });
+
+    const auto info = GetX86CacheInfo();
+    EXPECT_EQ(info.size, 5);
+
+    EXPECT_EQ(info.levels[0].level, UNDEF);
+    EXPECT_EQ(info.levels[0].cache_type, CPU_FEATURE_CACHE_TLB);
+    EXPECT_EQ(info.levels[0].cache_size, 4 * KiB);
+    EXPECT_EQ(info.levels[0].ways, UNDEF);
+    EXPECT_EQ(info.levels[0].line_size, UNDEF);
+    EXPECT_EQ(info.levels[0].tlb_entries, 64);
+    EXPECT_EQ(info.levels[0].partitioning, 0);
+
+    EXPECT_EQ(info.levels[1].level, UNDEF);
+    EXPECT_EQ(info.levels[1].cache_type, CPU_FEATURE_CACHE_TLB);
+    EXPECT_EQ(info.levels[1].cache_size, 4 * KiB);
+    EXPECT_EQ(info.levels[1].ways, UNDEF);
+    EXPECT_EQ(info.levels[1].line_size, UNDEF);
+    EXPECT_EQ(info.levels[1].tlb_entries, 64);
+    EXPECT_EQ(info.levels[1].partitioning, 0);
+
+    EXPECT_EQ(info.levels[2].level, 1);
+    EXPECT_EQ(info.levels[2].cache_type, CPU_FEATURE_CACHE_DATA);
+    EXPECT_EQ(info.levels[2].cache_size, 8 * KiB);
+    EXPECT_EQ(info.levels[2].ways, 4);
+    EXPECT_EQ(info.levels[2].line_size, 64);
+    EXPECT_EQ(info.levels[2].tlb_entries, UNDEF);
+    EXPECT_EQ(info.levels[2].partitioning, 0);
+
+    EXPECT_EQ(info.levels[3].level, 1);
+    EXPECT_EQ(info.levels[3].cache_type, CPU_FEATURE_CACHE_INSTRUCTION);
+    EXPECT_EQ(info.levels[3].cache_size, 12 * KiB);
+    EXPECT_EQ(info.levels[3].ways, 8);
+    EXPECT_EQ(info.levels[3].line_size, UNDEF);
+    EXPECT_EQ(info.levels[3].tlb_entries, UNDEF);
+    EXPECT_EQ(info.levels[3].partitioning, 0);
+
+    EXPECT_EQ(info.levels[4].level, 2);
+    EXPECT_EQ(info.levels[4].cache_type, CPU_FEATURE_CACHE_DATA);
+    EXPECT_EQ(info.levels[4].cache_size, 256 * KiB);
+    EXPECT_EQ(info.levels[4].ways, 8);
+    EXPECT_EQ(info.levels[4].line_size, 64);
+    EXPECT_EQ(info.levels[4].tlb_entries, UNDEF);
+    EXPECT_EQ(info.levels[4].partitioning, 2);
+}
+
 // https://github.com/InstLatx64/InstLatx64/blob/master/GenuineIntel/GenuineIntel0000673_P3_KatmaiDP_CPUID.txt
 TEST_F(CpuidX86Test, P3)
 {
     // Pre AVX cpus don't have xsave
-    g_fake_cpu->SetOsBackupsExtendedRegisters(false);
+    cpu().SetOsBackupsExtendedRegisters(false);
 #if defined(CPU_FEATURES_OS_WINDOWS)
-    g_fake_cpu->SetWindowsIsProcessorFeaturePresent(
-        PF_XMMI_INSTRUCTIONS_AVAILABLE);
-#elif defined(CPU_FEATURES_OS_DARWIN)
-    g_fake_cpu->SetDarwinSysCtlByName("hw.optional.sse");
+    cpu().SetWindowsIsProcessorFeaturePresent(PF_XMMI_INSTRUCTIONS_AVAILABLE);
+#elif defined(CPU_FEATURES_OS_MACOS)
+    cpu().SetDarwinSysCtlByName("hw.optional.sse");
 #elif defined(CPU_FEATURES_OS_FREEBSD)
     auto& fs = GetEmptyFilesystem();
     fs.CreateFile("/var/run/dmesg.boot", R"(
@@ -869,13 +1055,13 @@ FreeBSD is a registered trademark of The FreeBSD Foundation.
   Features=0x1783fbff<FPU,VME,DE,PSE,TSC,MSR,PAE,MCE,CX8,APIC,SEP,MTRR,PGE,MCA,CMOV,PAT,PSE36,MMX,FXSR,SSE>
 real memory  = 2147418112 (2047 MB)
 )");
-#elif defined(CPU_FEATURES_OS_LINUX_OR_ANDROID)
+#elif defined(CPU_FEATURES_OS_LINUX) || defined(CPU_FEATURES_OS_ANDROID)
     auto& fs = GetEmptyFilesystem();
     fs.CreateFile("/proc/cpuinfo", R"(
 flags           : fpu mmx sse
 )");
 #endif
-    g_fake_cpu->SetLeaves({
+    cpu().SetLeaves({
         {{0x00000000, 0}, Leaf{0x00000003, 0x756E6547, 0x6C65746E, 0x49656E69}},
         {{0x00000001, 0}, Leaf{0x00000673, 0x00000000, 0x00000000, 0x0387FBFF}},
         {{0x00000002, 0}, Leaf{0x03020101, 0x00000000, 0x00000000, 0x0C040843}},
@@ -887,6 +1073,7 @@ flags           : fpu mmx sse
     EXPECT_EQ(info.family, 0x06);
     EXPECT_EQ(info.model, 0x07);
     EXPECT_EQ(info.stepping, 0x03);
+    EXPECT_STREQ(info.brand_string, "");
     EXPECT_EQ(GetX86Microarchitecture(&info), X86Microarchitecture::X86_UNKNOWN);
 
     char brand_string[49];
@@ -905,6 +1092,95 @@ flags           : fpu mmx sse
     EXPECT_FALSE(info.features.sse4_2);
 #endif  // !defined(CPU_FEATURES_OS_WINDOWS)
 }
+
+// https://github.com/InstLatx64/InstLatx64/blob/master/GenuineIntel/GenuineIntel0000480_486_CPUID.txt
+TEST_F(CpuidX86Test, INTEL_80486)
+{
+    cpu().SetLeaves({
+        {{0x00000000, 0}, Leaf{0x00000001, 0x756E6547, 0x6C65746E, 0x49656E69}},
+        {{0x00000001, 0}, Leaf{0x00000480, 0x00000000, 0x00000000, 0x00000003}},
+    });
+    const auto info = GetX86Info();
+
+    EXPECT_STREQ(info.vendor, "GenuineIntel");
+    EXPECT_EQ(info.family, 0x04);
+    EXPECT_EQ(info.model, 0x08);
+    EXPECT_EQ(GetX86Microarchitecture(&info), X86Microarchitecture::INTEL_80486);
+}
+
+// https://github.com/InstLatx64/InstLatx64/blob/master/GenuineIntel/GenuineIntel0000526_P54C_CPUID.txt
+TEST_F(CpuidX86Test, INTEL_P54C)
+{
+    cpu().SetLeaves({
+        {{0x00000000, 0}, Leaf{0x00000001, 0x756E6547, 0x6C65746E, 0x49656E69}},
+        {{0x00000001, 0}, Leaf{0x00000525, 0x00000000, 0x00000000, 0x000001BF}},
+    });
+    const auto info = GetX86Info();
+
+    EXPECT_STREQ(info.vendor, "GenuineIntel");
+    EXPECT_EQ(info.family, 0x05);
+    EXPECT_EQ(info.model, 0x02);
+    EXPECT_EQ(GetX86Microarchitecture(&info), X86Microarchitecture::INTEL_P5);
+}
+
+// https://github.com/InstLatx64/InstLatx64/blob/master/GenuineIntel/GenuineIntel0000590_Lakemont_CPUID2.txt
+TEST_F(CpuidX86Test, INTEL_LAKEMONT)
+{
+    cpu().SetLeaves({
+        {{0x00000000, 0}, Leaf{0x00000002, 0x756E6547, 0x6c65746E, 0x49656E69}},
+        {{0x00000001, 0}, Leaf{0x00000590, 0x00000000, 0x00010200, 0x8000237B}},
+    });
+    const auto info = GetX86Info();
+
+    EXPECT_STREQ(info.vendor, "GenuineIntel");
+    EXPECT_EQ(info.family, 0x05);
+    EXPECT_EQ(info.model, 0x09);
+    EXPECT_EQ(GetX86Microarchitecture(&info),
+        X86Microarchitecture::INTEL_LAKEMONT);
+}
+
+// https://github.com/InstLatx64/InstLatx64/blob/master/GenuineIntel/GenuineIntel0050670_KnightsLanding_CPUID.txt
+TEST_F(CpuidX86Test, INTEL_KNIGHTS_LANDING)
+{
+    cpu().SetLeaves({
+        {{0x00000000, 0}, Leaf{0x0000000D, 0x756E6547, 0x6C65746E, 0x49656E69}},
+        {{0x00000001, 0}, Leaf{0x00050670, 0x02FF0800, 0x7FF8F3BF, 0xBFEBFBFF}},
+    });
+    const auto info = GetX86Info();
+
+    EXPECT_STREQ(info.vendor, "GenuineIntel");
+    EXPECT_EQ(info.family, 0x06);
+    EXPECT_EQ(info.model, 0x57);
+    EXPECT_EQ(GetX86Microarchitecture(&info),
+        X86Microarchitecture::INTEL_KNIGHTS_L);
+}
+
+// https://github.com/google/cpu_features/issues/200
+// http://users.atw.hu/instlatx64/GenuineIntel/GenuineIntel00206F2_Eagleton_CPUID.txt
+#if defined(CPU_FEATURES_OS_WINDOWS)
+TEST_F(CpuidX86Test, WIN_INTEL_WESTMERE_EX)
+{
+    cpu().SetLeaves({
+        {{0x00000000, 0}, Leaf{0x0000000B, 0x756E6547, 0x6C65746E, 0x49656E69}},
+        {{0x00000001, 0}, Leaf{0x000206F2, 0x00400800, 0x02BEE3FF, 0xBFEBFBFF}},
+    });
+    const auto info = GetX86Info();
+
+    EXPECT_EQ(info.family, 0x06);
+    EXPECT_EQ(info.model, 0x2F);
+    EXPECT_EQ(GetX86Microarchitecture(&info), X86Microarchitecture::INTEL_WSM);
+
+#if (_WIN32_WINNT < 0x0601)  // before Win7
+    EXPECT_FALSE(info.features.ssse3);
+    EXPECT_FALSE(info.features.sse4_1);
+    EXPECT_FALSE(info.features.sse4_2);
+#else
+    EXPECT_TRUE(info.features.ssse3);
+    EXPECT_TRUE(info.features.sse4_1);
+    EXPECT_TRUE(info.features.sse4_2);
+#endif
+}
+#endif  // CPU_FEATURES_OS_WINDOWS
 
 // TODO(user): test what happens when xsave/osxsave are not present.
 // TODO(user): test what happens when xmm/ymm/zmm os support are not

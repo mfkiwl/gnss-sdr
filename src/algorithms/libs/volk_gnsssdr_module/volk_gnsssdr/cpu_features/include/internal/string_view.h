@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2017 Google LLC
 // SPDX-License-Identifier: Apache-2.0
 
-
 // A view over a piece of string. The view is not 0 terminated.
 #ifndef CPU_FEATURES_INCLUDE_INTERNAL_STRING_VIEW_H_
 #define CPU_FEATURES_INCLUDE_INTERNAL_STRING_VIEW_H_
@@ -87,7 +86,8 @@ void CpuFeatures_StringView_CopyString(const StringView src, char* dst,
 
 // Checks if line contains the specified whitespace separated word.
 bool CpuFeatures_StringView_HasWord(const StringView line,
-    const char* const word);
+    const char* const word,
+    const char separator);
 
 // Get key/value from line. key and value are separated by ": ".
 // key and value are cleaned up from leading and trailing whitespaces.

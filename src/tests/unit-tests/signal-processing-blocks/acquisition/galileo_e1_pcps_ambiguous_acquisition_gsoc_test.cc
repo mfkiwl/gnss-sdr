@@ -35,6 +35,7 @@
 #include "gnss_signal.h"
 #include "gnss_synchro.h"
 #include "in_memory_configuration.h"
+#include <boost/exception/diagnostic_information.hpp>
 #include <gnuradio/analog/sig_source_waveform.h>
 #include <gnuradio/blocks/file_source.h>
 #include <gnuradio/blocks/null_sink.h>
@@ -51,6 +52,11 @@
 #include <gnuradio/analog/sig_source.h>
 #else
 #include <gnuradio/analog/sig_source_c.h>
+#endif
+#if PMT_USES_BOOST_ANY
+namespace wht = boost;
+#else
+namespace wht = std;
 #endif
 
 // ######## GNURADIO BLOCK MESSAGE RECEVER #########
@@ -89,7 +95,7 @@ void GalileoE1PcpsAmbiguousAcquisitionGSoCTest_msg_rx::msg_handler_channel_event
             rx_message = message;
             channel_internal_queue.push(rx_message);
         }
-    catch (const boost::bad_any_cast& e)
+    catch (const wht::bad_any_cast& e)
         {
             LOG(WARNING) << "msg_handler_channel_events Bad any_cast: " << e.what();
             rx_message = 0;

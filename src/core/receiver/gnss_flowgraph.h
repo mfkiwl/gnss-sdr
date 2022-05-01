@@ -181,37 +181,20 @@ private:
     int connect_gnss_synchro_monitor();
     int connect_acquisition_monitor();
     int connect_tracking_monitor();
-
-    int disconnect_desktop_flowgraph();
-
-    int disconnect_signal_sources();
-    int disconnect_signal_conditioners();
-    int disconnect_channels();
-    int disconnect_observables();
-    int disconnect_pvt();
-    int disconnect_sample_counter();
-
-    int disconnect_signal_sources_from_signal_conditioners();
-    int disconnect_signal_conditioners_from_channels();
-    int disconnect_channels_from_observables();
-    int disconnect_observables_from_pvt();
-    int disconnect_monitors();
+    int connect_navdata_monitor();
 
 #if ENABLE_FPGA
     int connect_fpga_flowgraph();
-    int disconnect_fpga_flowgraph();
     int connect_fpga_sample_counter();
-    int disconnect_fpga_sample_counter();
 #endif
 
-    void assign_channels();
+    int assign_channels();
     void check_signal_conditioners();
 
     void set_signals_list();
     void set_channels_state();  // Initializes the channels state (start acquisition or keep standby)
                                 // using the configuration parameters (number of channels and max channels in acquisition)
     Gnss_Signal search_next_signal(const std::string& searched_signal,
-        const bool pop,
         bool& is_primary_frequency,
         bool& assistance_available,
         float& estimated_doppler,
@@ -245,6 +228,7 @@ private:
     gr::basic_block_sptr GnssSynchroMonitor_;
     gr::basic_block_sptr GnssSynchroAcquisitionMonitor_;
     gr::basic_block_sptr GnssSynchroTrackingMonitor_;
+    gr::basic_block_sptr NavDataMonitor_;
     channel_status_msg_receiver_sptr channels_status_;  // class that receives and stores the current status of the receiver channels
     galileo_e6_has_msg_receiver_sptr gal_e6_has_rx_;
 
@@ -301,7 +285,9 @@ private:
     bool enable_monitor_;
     bool enable_acquisition_monitor_;
     bool enable_tracking_monitor_;
+    bool enable_navdata_monitor_;
     bool enable_fpga_offloading_;
+    bool enable_e6_has_rx_;
 };
 
 

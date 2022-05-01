@@ -62,6 +62,10 @@ else()
     )
 endif()
 
+if(CMAKE_ANDROID_ARCH_ABI)
+        target_compile_definitions(core_receiver PUBLIC -DANDROID=1)
+endif()
+
 if(ENABLE_FPGA)
     target_compile_definitions(core_receiver PUBLIC -DENABLE_FPGA=1)
 endif()
@@ -98,6 +102,10 @@ if(ENABLE_OSMOSDR)
     if(GROSMOSDR_FOUND)
         target_compile_definitions(core_receiver PRIVATE -DOSMOSDR_DRIVER=1)
     endif()
+endif()
+
+if(ENABLE_LIMESDR)
+    target_compile_definitions(core_receiver PRIVATE -DLIMESDR_DRIVER=1)
 endif()
 
 if(ENABLE_ARRAY)
@@ -184,6 +192,13 @@ else()
     target_compile_definitions(core_receiver
         PRIVATE
             -DHAS_GENERIC_LAMBDA=0
+    )
+endif()
+
+if(PMT_USES_BOOST_ANY)
+    target_compile_definitions(core_receiver
+        PRIVATE
+            -DPMT_USES_BOOST_ANY=1
     )
 endif()
 

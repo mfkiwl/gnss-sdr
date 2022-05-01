@@ -357,7 +357,7 @@ int32_t Gps_Navigation_Message::subframe_decoder(char* subframe)
 }
 
 
-double Gps_Navigation_Message::utc_time(const double gpstime_corrected) const
+double Gps_Navigation_Message::utc_time(double gpstime_corrected) const
 {
     double t_utc;
     double t_utc_daytime;
@@ -464,18 +464,6 @@ Gps_Ephemeris Gps_Navigation_Message::get_ephemeris() const
     ephemeris.integrity_status_flag = b_integrity_status_flag;
     ephemeris.alert_flag = b_alert_flag;
     ephemeris.antispoofing_flag = b_antispoofing_flag;
-
-    // These parameters are empty; can be computed later with
-    // ephemeris.sv_clock_drift(double transmitTime);
-    // ephemeris.satellitePosition(double transmitTime);
-    ephemeris.satClkDrift = d_satClkDrift;
-    ephemeris.dtr = d_dtr;
-    ephemeris.satpos_X = d_satpos_X;
-    ephemeris.satpos_Y = d_satpos_Y;
-    ephemeris.satpos_Z = d_satpos_Z;
-    ephemeris.satvel_X = d_satvel_X;
-    ephemeris.satvel_Y = d_satvel_Y;
-    ephemeris.satvel_Z = d_satvel_Z;
 
     return ephemeris;
 }

@@ -21,6 +21,7 @@
 #include "configuration_interface.h"
 #include "gnss_sdr_string_literals.h"
 #include "gnss_sdr_valve.h"
+#include <boost/exception/diagnostic_information.hpp>
 #include <glog/logging.h>
 #include <cstdint>
 #include <iostream>
@@ -183,7 +184,7 @@ void RtlTcpSignalSource::disconnect(gr::top_block_sptr top_block)
 gr::basic_block_sptr RtlTcpSignalSource::get_left_block()
 {
     LOG(WARNING) << "Trying to get signal source left block.";
-    return gr::basic_block_sptr();
+    return {};
 }
 
 

@@ -39,6 +39,7 @@ set(TRACKING_GR_BLOCKS_SOURCES
     glonass_l2_ca_dll_pll_c_aid_tracking_cc.cc
     glonass_l2_ca_dll_pll_c_aid_tracking_sc.cc
     dll_pll_veml_tracking.cc
+    kf_vtl_tracking.cc
     ${OPT_TRACKING_BLOCKS_SOURCES}
 )
 
@@ -53,6 +54,7 @@ set(TRACKING_GR_BLOCKS_HEADERS
     glonass_l2_ca_dll_pll_c_aid_tracking_cc.h
     glonass_l2_ca_dll_pll_c_aid_tracking_sc.h
     dll_pll_veml_tracking.h
+    kf_vtl_tracking.h
     ${OPT_TRACKING_BLOCKS_HEADERS}
 )
 
@@ -147,6 +149,17 @@ endif()
 if(has_span)
     target_compile_definitions(tracking_gr_blocks
         PUBLIC -DHAS_STD_SPAN=1
+    )
+endif()
+
+if(PMT_USES_BOOST_ANY)
+    target_compile_definitions(tracking_gr_blocks
+        PRIVATE
+            -DPMT_USES_BOOST_ANY=1
+    )
+    target_link_libraries(tracking_gr_blocks
+        PRIVATE
+            Boost::headers
     )
 endif()
 

@@ -6,6 +6,7 @@
 
 
 set(SYSTEM_PARAMETERS_SOURCES
+    gnss_almanac.cc
     gnss_ephemeris.cc
     gnss_satellite.cc
     gnss_signal.cc
@@ -16,6 +17,7 @@ set(SYSTEM_PARAMETERS_SOURCES
     galileo_almanac_helper.cc
     galileo_cnav_message.cc
     galileo_fnav_message.cc
+    galileo_has_data.cc
     galileo_inav_message.cc
     galileo_reduced_ced.cc
     beidou_dnav_navigation_message.cc

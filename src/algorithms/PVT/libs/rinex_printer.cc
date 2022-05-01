@@ -56,65 +56,15 @@
 #include <vector>
 
 
-Rinex_Printer::Rinex_Printer(int32_t conf_version, const std::string& base_path, const std::string& base_name)
+Rinex_Printer::Rinex_Printer(int32_t conf_version,
+    const std::string& base_path,
+    const std::string& base_name) : d_fake_cnav_iode(1),
+                                    d_numberTypesObservations(4),
+                                    d_rinex_header_updated(false),
+                                    d_rinex_header_written(false),
+                                    d_pre_2009_file(false)
+
 {
-    d_pre_2009_file = false;
-    d_rinex_header_updated = false;
-    d_rinex_header_written = false;
-    std::string base_rinex_path = base_path;
-    fs::path full_path(fs::current_path());
-    const fs::path p(base_rinex_path);
-    if (!fs::exists(p))
-        {
-            std::string new_folder;
-            for (const auto& folder : fs::path(base_rinex_path))
-                {
-                    new_folder += folder.string();
-                    errorlib::error_code ec;
-                    if (!fs::exists(new_folder))
-                        {
-                            if (!fs::create_directory(new_folder, ec))
-                                {
-                                    std::cout << "Could not create the " << new_folder << " folder.\n";
-                                    base_rinex_path = full_path.string();
-                                }
-                        }
-                    new_folder += fs::path::preferred_separator;
-                }
-        }
-    else
-        {
-            base_rinex_path = p.string();
-        }
-    if (base_rinex_path != ".")
-        {
-            std::cout << "RINEX files will be stored at " << base_rinex_path << '\n';
-        }
-
-    navfilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_GPS_NAV", base_name);
-    obsfilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_OBS", base_name);
-    sbsfilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_SBAS", base_name);
-    navGalfilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_GAL_NAV", base_name);
-    navMixfilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_MIXED_NAV", base_name);
-    navGlofilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_GLO_NAV", base_name);
-    navBdsfilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_BDS_NAV", base_name);
-
-    Rinex_Printer::navFile.open(navfilename, std::ios::out | std::ios::in | std::ios::app);
-    Rinex_Printer::obsFile.open(obsfilename, std::ios::out | std::ios::in | std::ios::app);
-    Rinex_Printer::sbsFile.open(sbsfilename, std::ios::out | std::ios::app);
-    Rinex_Printer::navGalFile.open(navGalfilename, std::ios::out | std::ios::in | std::ios::app);
-    Rinex_Printer::navMixFile.open(navMixfilename, std::ios::out | std::ios::in | std::ios::app);
-    Rinex_Printer::navGloFile.open(navGlofilename, std::ios::out | std::ios::in | std::ios::app);
-    Rinex_Printer::navBdsFile.open(navBdsfilename, std::ios::out | std::ios::in | std::ios::app);
-
-
-    if (!Rinex_Printer::navFile.is_open() or !Rinex_Printer::obsFile.is_open() or
-        !Rinex_Printer::sbsFile.is_open() or !Rinex_Printer::navGalFile.is_open() or
-        !Rinex_Printer::navMixFile.is_open() or !Rinex_Printer::navGloFile.is_open())
-        {
-            std::cout << "RINEX files cannot be saved. Wrong permissions?\n";
-        }
-
     // RINEX v3.02 codes
     satelliteSystem["GPS"] = "G";
     satelliteSystem["GLONASS"] = "R";
@@ -199,6 +149,59 @@ Rinex_Printer::Rinex_Printer(int32_t conf_version, const std::string& base_path,
     observationCode["GPS_L1_CA_v2"] = "1";
     observationCode["GLONASS_G1_CA_v2"] = "1";
 
+    std::string base_rinex_path = base_path;
+    fs::path full_path(fs::current_path());
+    const fs::path p(base_rinex_path);
+    if (!fs::exists(p))
+        {
+            std::string new_folder;
+            for (const auto& folder : fs::path(base_rinex_path))
+                {
+                    new_folder += folder.string();
+                    errorlib::error_code ec;
+                    if (!fs::exists(new_folder))
+                        {
+                            if (!fs::create_directory(new_folder, ec))
+                                {
+                                    std::cout << "Could not create the " << new_folder << " folder.\n";
+                                    base_rinex_path = full_path.string();
+                                }
+                        }
+                    new_folder += fs::path::preferred_separator;
+                }
+        }
+    else
+        {
+            base_rinex_path = p.string();
+        }
+    if (base_rinex_path != ".")
+        {
+            std::cout << "RINEX files will be stored at " << base_rinex_path << '\n';
+        }
+
+    navfilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_GPS_NAV", base_name);
+    obsfilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_OBS", base_name);
+    sbsfilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_SBAS", base_name);
+    navGalfilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_GAL_NAV", base_name);
+    navMixfilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_MIXED_NAV", base_name);
+    navGlofilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_GLO_NAV", base_name);
+    navBdsfilename = base_rinex_path + fs::path::preferred_separator + Rinex_Printer::createFilename("RINEX_FILE_TYPE_BDS_NAV", base_name);
+
+    Rinex_Printer::navFile.open(navfilename, std::ios::out | std::ios::in | std::ios::app);
+    Rinex_Printer::obsFile.open(obsfilename, std::ios::out | std::ios::in | std::ios::app);
+    Rinex_Printer::sbsFile.open(sbsfilename, std::ios::out | std::ios::app);
+    Rinex_Printer::navGalFile.open(navGalfilename, std::ios::out | std::ios::in | std::ios::app);
+    Rinex_Printer::navMixFile.open(navMixfilename, std::ios::out | std::ios::in | std::ios::app);
+    Rinex_Printer::navGloFile.open(navGlofilename, std::ios::out | std::ios::in | std::ios::app);
+    Rinex_Printer::navBdsFile.open(navBdsfilename, std::ios::out | std::ios::in | std::ios::app);
+
+    if (!Rinex_Printer::navFile.is_open() or !Rinex_Printer::obsFile.is_open() or
+        !Rinex_Printer::sbsFile.is_open() or !Rinex_Printer::navGalFile.is_open() or
+        !Rinex_Printer::navMixFile.is_open() or !Rinex_Printer::navGloFile.is_open())
+        {
+            std::cout << "RINEX files cannot be saved. Wrong permissions?\n";
+        }
+
     if (conf_version == 2)
         {
             d_version = 2;
@@ -209,9 +212,6 @@ Rinex_Printer::Rinex_Printer(int32_t conf_version, const std::string& base_path,
             d_version = 3;
             d_stringVersion = "3.02";
         }
-
-    d_numberTypesObservations = 4;  // Number of available types of observable in the system
-    d_fake_cnav_iode = 1;
 }
 
 
@@ -1511,6 +1511,9 @@ std::string Rinex_Printer::getLocalTime() const
     line += std::string("GNSS-SDR");
     line += std::string(12, ' ');
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
     const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
@@ -1521,6 +1524,8 @@ std::string Rinex_Printer::getLocalTime() const
         {
             username = "UNKNOWN USER";
         }
+#endif
+
     line += Rinex_Printer::leftJustify(username, 20);
     const boost::gregorian::date today = boost::gregorian::day_clock::local_day();
 
@@ -3527,8 +3532,11 @@ void Rinex_Printer::rinex_sbs_header(std::fstream& out) const
     line.clear();
     line += Rinex_Printer::leftJustify("GNSS-SDR", 20);
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
-    int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
+    const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
         {
             username = c_username.data();
@@ -3537,6 +3545,7 @@ void Rinex_Printer::rinex_sbs_header(std::fstream& out) const
         {
             username = "UNKNOWN USER";
         }
+#endif
     line += Rinex_Printer::leftJustify(username, 20);
     // Date of file creation (dd-mmm-yy hhmm)
     const boost::local_time::time_zone_ptr zone(new boost::local_time::posix_time_zone("UTC"));
@@ -6001,8 +6010,11 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Glonass_Gnav_Ephem
     // -------- Line OBSERVER / AGENCY
     line.clear();
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
-    int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
+    const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
         {
             username = c_username.data();
@@ -6011,6 +6023,7 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Glonass_Gnav_Ephem
         {
             username = "UNKNOWN USER";
         }
+#endif
     line += leftJustify(username, 20);
     line += Rinex_Printer::leftJustify("CTTC", 40);  // add flag and property
     line += Rinex_Printer::leftJustify("OBSERVER / AGENCY", 20);
@@ -6327,8 +6340,11 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& gps
     // -------- Line OBSERVER / AGENCY
     line.clear();
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
-    int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
+    const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
         {
             username = c_username.data();
@@ -6337,6 +6353,7 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& gps
         {
             username = "UNKNOWN USER";
         }
+#endif
     line += leftJustify(username, 20);
     line += Rinex_Printer::leftJustify("CTTC", 40);  // add flag and property
     line += Rinex_Printer::leftJustify("OBSERVER / AGENCY", 20);
@@ -6682,8 +6699,11 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_CNAV_Ephemeris
     // -------- Line OBSERVER / AGENCY
     line.clear();
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
-    int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
+    const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
         {
             username = c_username.data();
@@ -6692,6 +6712,7 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_CNAV_Ephemeris
         {
             username = "UNKNOWN USER";
         }
+#endif
     line += leftJustify(username, 20);
     line += Rinex_Printer::leftJustify("CTTC", 40);  // add flag and property
     line += Rinex_Printer::leftJustify("OBSERVER / AGENCY", 20);
@@ -6991,8 +7012,11 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Galileo_Ephemeris&
     // -------- Line OBSERVER / AGENCY
     line.clear();
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
-    int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
+    const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
         {
             username = c_username.data();
@@ -7001,6 +7025,7 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Galileo_Ephemeris&
         {
             username = "UNKNOWN USER";
         }
+#endif
     line += leftJustify(username, 20);
     line += Rinex_Printer::leftJustify("CTTC", 40);  // add flag and property
     line += Rinex_Printer::leftJustify("OBSERVER / AGENCY", 20);
@@ -7314,8 +7339,11 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& eph
     // -------- Line OBSERVER / AGENCY
     line.clear();
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
-    int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
+    const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
         {
             username = c_username.data();
@@ -7324,6 +7352,7 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& eph
         {
             username = "UNKNOWN USER";
         }
+#endif
     line += leftJustify(username, 20);
     line += Rinex_Printer::leftJustify("CTTC", 40);  // add flag and property
     line += Rinex_Printer::leftJustify("OBSERVER / AGENCY", 20);
@@ -7571,8 +7600,11 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_CNAV_Ephemeris
     // -------- Line OBSERVER / AGENCY
     line.clear();
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
-    int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
+    const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
         {
             username = c_username.data();
@@ -7581,6 +7613,7 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_CNAV_Ephemeris
         {
             username = "UNKNOWN USER";
         }
+#endif
     line += leftJustify(username, 20);
     line += Rinex_Printer::leftJustify("CTTC", 40);  // add flag and property
     line += Rinex_Printer::leftJustify("OBSERVER / AGENCY", 20);
@@ -7822,8 +7855,11 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& eph
     // -------- Line OBSERVER / AGENCY
     line.clear();
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
-    int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
+    const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
         {
             username = c_username.data();
@@ -7832,6 +7868,7 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& eph
         {
             username = "UNKNOWN USER";
         }
+#endif
     line += leftJustify(username, 20);
     line += Rinex_Printer::leftJustify("CTTC", 40);  // add flag and property
     line += Rinex_Printer::leftJustify("OBSERVER / AGENCY", 20);
@@ -8103,8 +8140,11 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& gps
     // -------- Line OBSERVER / AGENCY
     line.clear();
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
-    int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
+    const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
         {
             username = c_username.data();
@@ -8113,6 +8153,7 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& gps
         {
             username = "UNKNOWN USER";
         }
+#endif
     line += leftJustify(username, 20);
     line += Rinex_Printer::leftJustify("CTTC", 40);  // add flag and property
     line += Rinex_Printer::leftJustify("OBSERVER / AGENCY", 20);
@@ -8449,8 +8490,11 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_CNAV_Ephemeris
     // -------- Line OBSERVER / AGENCY
     line.clear();
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
-    int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
+    const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
         {
             username = c_username.data();
@@ -8459,6 +8503,7 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_CNAV_Ephemeris
         {
             username = "UNKNOWN USER";
         }
+#endif
     line += leftJustify(username, 20);
     line += Rinex_Printer::leftJustify("CTTC", 40);  // add flag and property
     line += Rinex_Printer::leftJustify("OBSERVER / AGENCY", 20);
@@ -8767,8 +8812,11 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Galileo_Ephemeris&
     // -------- Line OBSERVER / AGENCY
     line.clear();
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
-    int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
+    const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
         {
             username = c_username.data();
@@ -8777,6 +8825,7 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Galileo_Ephemeris&
         {
             username = "UNKNOWN USER";
         }
+#endif
     line += leftJustify(username, 20);
     line += Rinex_Printer::leftJustify("CTTC", 40);  // add flag and property
     line += Rinex_Printer::leftJustify("OBSERVER / AGENCY", 20);
@@ -9034,8 +9083,11 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& gps
     // -------- Line OBSERVER / AGENCY
     line.clear();
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
-    int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
+    const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
         {
             username = c_username.data();
@@ -9044,6 +9096,7 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& gps
         {
             username = "UNKNOWN USER";
         }
+#endif
     line += leftJustify(username, 20);
     line += Rinex_Printer::leftJustify("CTTC", 40);  // add flag and property
     line += Rinex_Printer::leftJustify("OBSERVER / AGENCY", 20);
@@ -9316,8 +9369,11 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Beidou_Dnav_Epheme
     // -------- Line OBSERVER / AGENCY
     line.clear();
     std::string username;
+#if ANDROID
+    username = "ANDROID USER";
+#else
     std::array<char, 20> c_username{};
-    int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
+    const int32_t nGet = getlogin_r(c_username.data(), c_username.size() - 1);
     if (nGet == 0)
         {
             username = c_username.data();
@@ -9326,6 +9382,7 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Beidou_Dnav_Epheme
         {
             username = "UNKNOWN USER";
         }
+#endif
     line += leftJustify(username, 20);
     line += Rinex_Printer::leftJustify("CTTC", 40);  // add flag and property
     line += Rinex_Printer::leftJustify("OBSERVER / AGENCY", 20);

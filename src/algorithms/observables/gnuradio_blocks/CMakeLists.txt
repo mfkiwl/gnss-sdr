@@ -36,6 +36,14 @@ target_link_libraries(obs_gr_blocks
         Matio::matio
 )
 
+if(GNURADIO_USES_SPDLOG)
+    target_link_libraries(obs_gr_blocks
+        PUBLIC
+            fmt::fmt
+            spdlog::spdlog
+    )
+endif()
+
 target_include_directories(obs_gr_blocks
     PUBLIC
         ${CMAKE_SOURCE_DIR}/src/core/interfaces
@@ -66,6 +74,13 @@ if(USE_BOOST_BIND_PLACEHOLDERS)
     target_compile_definitions(obs_gr_blocks
         PRIVATE
             -DUSE_BOOST_BIND_PLACEHOLDERS=1
+    )
+endif()
+
+if(PMT_USES_BOOST_ANY)
+    target_compile_definitions(obs_gr_blocks
+        PRIVATE
+            -DPMT_USES_BOOST_ANY=1
     )
 endif()
 
