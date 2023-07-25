@@ -39,6 +39,7 @@
 #include "rtklib_ionex.h"
 #include "rtklib_rtkcmn.h"
 #include <cstring>
+#include <vector>
 
 /* get index -----------------------------------------------------------------*/
 int getindex(double value, const double *range)
@@ -164,16 +165,17 @@ void readionexdcb(FILE *fp, double *dcb, double *rms)
 
             if (strstr(label, "PRN / BIAS / RMS") == label)
                 {
-                    strncpy(id, buff + 3, 3);
-                    id[3] = '\0';
-
-                    if (!(sat = satid2no(id)))
+                    int ret = std::snprintf(id, 3, "%s", buff + 3);  // NOLINT(runtime/printf)
+                    if (ret >= 0 && ret < 3)
                         {
-                            trace(2, "ionex invalid satellite: %s\n", id);
-                            continue;
+                            if (!(sat = satid2no(id)))
+                                {
+                                    trace(2, "ionex invalid satellite: %s\n", id);
+                                    continue;
+                                }
+                            dcb[sat - 1] = str2num(buff, 6, 10);
+                            rms[sat - 1] = str2num(buff, 16, 10);
                         }
-                    dcb[sat - 1] = str2num(buff, 6, 10);
-                    rms[sat - 1] = str2num(buff, 16, 10);
                 }
             else if (strstr(label, "END OF AUX DATA") == label)
                 {
@@ -425,8 +427,8 @@ void readtec(const char *file, nav_t *nav, int opt)
     double hgts[3] = {0};
     double rb = 0.0;
     double nexp = -1.0;
-    double dcb[MAXSAT] = {0};
-    double rms[MAXSAT] = {0};
+    std::vector<double> dcb(MAXSAT, 0);
+    std::vector<double> rms(MAXSAT, 0);
     int i;
     int n;
     char *efiles[MAXEXFILE];
@@ -463,7 +465,7 @@ void readtec(const char *file, nav_t *nav, int opt)
                 }
 
             /* read ionex header */
-            if (readionexh(fp, lats, lons, hgts, &rb, &nexp, dcb, rms) <= 0.0)
+            if (readionexh(fp, lats, lons, hgts, &rb, &nexp, dcb.data(), rms.data()) <= 0.0)
                 {
                     trace(2, "ionex file format error %s\n", efiles[i]);
                     fclose(fp);

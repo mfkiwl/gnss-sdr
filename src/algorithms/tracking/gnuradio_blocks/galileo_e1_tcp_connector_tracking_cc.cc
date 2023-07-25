@@ -117,8 +117,12 @@ Galileo_E1_Tcp_Connector_Tracking_cc::Galileo_E1_Tcp_Connector_Tracking_cc(
       d_pull_in(false),
       d_dump_filename(dump_filename)
 {
+#if GNURADIO_GREATER_THAN_38
+    this->set_relative_rate(1, static_cast<uint64_t>(vector_length));
+#else
+    this->set_relative_rate(1.0 / static_cast<double>(vector_length));
+#endif
     this->message_port_register_out(pmt::mp("events"));
-    this->set_relative_rate(1.0 / vector_length);
     // Telemetry message port input
     this->message_port_register_in(pmt::mp("telemetry_to_trk"));
 
@@ -156,7 +160,7 @@ void Galileo_E1_Tcp_Connector_Tracking_cc::start_tracking()
     d_acq_carrier_doppler_hz = static_cast<float>(d_acquisition_gnss_synchro->Acq_doppler_hz);
     d_acq_sample_stamp = d_acquisition_gnss_synchro->Acq_samplestamp_samples;
     std::array<char, 3> Signal_{};
-    std::memcpy(Signal_.data(), d_acquisition_gnss_synchro->Signal, 3);
+    std::copy_n(d_acquisition_gnss_synchro->Signal, 3, Signal_.data());
 
     // generate local reference ALWAYS starting at chip 1 (2 samples per chip)
     galileo_e1_code_gen_complex_sampled(d_ca_code,
@@ -230,11 +234,11 @@ void Galileo_E1_Tcp_Connector_Tracking_cc::set_channel(uint32_t channel)
                         {
                             d_dump_filename.append(std::to_string(d_channel));
                             d_dump_filename.append(".dat");
-                            d_dump_file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                            d_dump_file.exceptions(std::ofstream::failbit | std::ofstream::badbit);
                             d_dump_file.open(d_dump_filename.c_str(), std::ios::out | std::ios::binary);
                             LOG(INFO) << "Tracking dump enabled on channel " << d_channel << " Log file: " << d_dump_filename.c_str();
                         }
-                    catch (const std::ifstream::failure &e)
+                    catch (const std::ofstream::failure &e)
                         {
                             LOG(WARNING) << "channel " << d_channel << " Exception opening trk dump file " << e.what();
                         }
@@ -497,7 +501,7 @@ int Galileo_E1_Tcp_Connector_Tracking_cc::general_work(int noutput_items __attri
                     uint32_t prn_ = d_acquisition_gnss_synchro->PRN;
                     d_dump_file.write(reinterpret_cast<char *>(&prn_), sizeof(uint32_t));
                 }
-            catch (const std::ifstream::failure &e)
+            catch (const std::ofstream::failure &e)
                 {
                     LOG(WARNING) << "Exception writing trk dump file " << e.what();
                 }

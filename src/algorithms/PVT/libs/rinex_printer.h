@@ -142,6 +142,7 @@ public:
      *    104   |  Galileo E1B + Galileo E5a + Galileo E6B
      *    105   |  Galileo E1B + Galileo E5b + Galileo E6B
      *    106   |  GPS L1 C/A + Galileo E1B + Galileo E6B
+     *    107   |  GPS L1 C/A + Galileo E6B
      *    500   |  BeiDou B1I
      *    501   |  BeiDou B1I + GPS L1 C/A
      *    502   |  BeiDou B1I + Galileo E1B
@@ -1015,7 +1016,7 @@ private:
 };
 
 
-// Implementation of inline functions (modified versions from GPSTk https://github.com/SGL-UT/GPSTk)
+// Implementation of inline functions (modified versions from GNSSTk https://github.com/SGL-UT/gnsstk)
 
 inline std::string& Rinex_Printer::leftJustify(std::string& s,
     std::string::size_type length,

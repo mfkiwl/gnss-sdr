@@ -4,9 +4,9 @@
 # SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
 # SPDX-License-Identifier: BSD-3-Clause
 
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${CMAKE_SOURCE_DIR}/docs/protobuf/monitor_pvt.proto)
-protobuf_generate_cpp(PROTO_SRCS2 PROTO_HDRS2 ${CMAKE_SOURCE_DIR}/docs/protobuf/gps_ephemeris.proto)
-protobuf_generate_cpp(PROTO_SRCS3 PROTO_HDRS3 ${CMAKE_SOURCE_DIR}/docs/protobuf/galileo_ephemeris.proto)
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${GNSSSDR_SOURCE_DIR}/docs/protobuf/monitor_pvt.proto)
+protobuf_generate_cpp(PROTO_SRCS2 PROTO_HDRS2 ${GNSSSDR_SOURCE_DIR}/docs/protobuf/gps_ephemeris.proto)
+protobuf_generate_cpp(PROTO_SRCS3 PROTO_HDRS3 ${GNSSSDR_SOURCE_DIR}/docs/protobuf/galileo_ephemeris.proto)
 
 set(PVT_LIB_SOURCES
     an_packet_printer.cc
@@ -22,6 +22,7 @@ set(PVT_LIB_SOURCES
     monitor_pvt_udp_sink.cc
     monitor_ephemeris_udp_sink.cc
     has_simple_printer.cc
+    geohash.cc
 )
 
 set(PVT_LIB_HEADERS
@@ -43,6 +44,7 @@ set(PVT_LIB_HEADERS
     serdes_gps_eph.h
     monitor_ephemeris_udp_sink.h
     has_simple_printer.h
+    geohash.h
 )
 
 list(SORT PVT_LIB_HEADERS)
@@ -98,7 +100,7 @@ get_filename_component(PROTO_INCLUDE_HEADERS_DIR ${PROTO_HDRS} DIRECTORY)
 # for concurrent_queue.h
 target_include_directories(pvt_libs
     PUBLIC
-        ${CMAKE_SOURCE_DIR}/src/core/receiver
+        ${GNSSSDR_SOURCE_DIR}/src/core/receiver
 )
 
 # Do not apply clang-tidy fixes to protobuf generated headers

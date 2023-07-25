@@ -112,7 +112,7 @@ Rinex_Printer::Rinex_Printer(int32_t conf_version,
     observationCode["GALILEO_E5_IQ"] = "8X";      // "8X" GALILEO E5 I+Q
     observationCode["GALILEO_E56_A"] = "6A";      // "6A" GALILEO E6 A
     observationCode["GALILEO_E56_B"] = "6B";      // "6B" GALILEO E6 B
-    observationCode["GALILEO_E56_B"] = "6C";      // "6C" GALILEO E6 C
+    observationCode["GALILEO_E56_C"] = "6C";      // "6C" GALILEO E6 C
     observationCode["GALILEO_E56_BC"] = "6X";     // "6X" GALILEO E6 B+C
     observationCode["GALILEO_E56_ABC"] = "6Z";    // "6Z" GALILEO E6 A+B+C
     observationCode["SBAS_L1_CA"] = "1C";         // "1C" SBAS L1 C/A
@@ -470,6 +470,17 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                             d_rinex_header_written = true;  // do not write header anymore
                         }
                     break;
+                case 19:  // Galileo E5a + Galileo E5b
+                    if ((galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend()))
+                        {
+                            const std::string gal_signal("5X 7X");
+                            rinex_obs_header(obsFile, galileo_ephemeris_iter->second, rx_time, gal_signal);
+                            rinex_nav_header(navGalFile, pvt_solver->galileo_iono, pvt_solver->galileo_utc_model);
+                            output_navfilename.push_back(navGalfilename);
+                            log_rinex_nav(navGalFile, pvt_solver->galileo_ephemeris_map);
+                            d_rinex_header_written = true;  // do not write header anymore
+                        }
+                    break;
                 case 23:  // GLONASS L1 C/A only
                     if (glonass_gnav_ephemeris_iter != pvt_solver->glonass_gnav_ephemeris_map.cend())
                         {
@@ -621,10 +632,22 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                             d_rinex_header_written = true;  // do not write header anymore
                         }
                     break;
+                case 100:  // Galileo E6B
+                    if (galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend())
+                        {
+                            const std::string gal_signal("E6");
+                            rinex_obs_header(obsFile, galileo_ephemeris_iter->second, rx_time, gal_signal);
+                            rinex_nav_header(navGalFile, pvt_solver->galileo_iono, pvt_solver->galileo_utc_model);
+                            output_navfilename.push_back(navGalfilename);
+                            log_rinex_nav(navGalFile, pvt_solver->galileo_ephemeris_map);
+                            d_rinex_header_written = true;  // do not write header anymore
+                        }
+                    break;
                 case 101:  // Galileo E1B + Galileo E6B
                     if (galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend())
                         {
-                            rinex_obs_header(obsFile, galileo_ephemeris_iter->second, rx_time);
+                            const std::string gal_signal("1B E6");
+                            rinex_obs_header(obsFile, galileo_ephemeris_iter->second, rx_time, gal_signal);
                             rinex_nav_header(navGalFile, pvt_solver->galileo_iono, pvt_solver->galileo_utc_model);
                             output_navfilename.push_back(navGalfilename);
                             log_rinex_nav(navGalFile, pvt_solver->galileo_ephemeris_map);
@@ -634,7 +657,7 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                 case 102:  // Galileo E5a + Galileo E6B
                     if (galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend())
                         {
-                            const std::string signal("5X");
+                            const std::string signal("5X E6");
                             rinex_obs_header(obsFile, galileo_ephemeris_iter->second, rx_time, signal);
                             rinex_nav_header(navGalFile, pvt_solver->galileo_iono, pvt_solver->galileo_utc_model);
                             output_navfilename.push_back(navGalfilename);
@@ -645,7 +668,7 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                 case 103:  // Galileo E5b + Galileo E6B
                     if (galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend())
                         {
-                            const std::string signal("7X");
+                            const std::string signal("7X E6");
                             rinex_obs_header(obsFile, galileo_ephemeris_iter->second, rx_time, signal);
                             rinex_nav_header(navGalFile, pvt_solver->galileo_iono, pvt_solver->galileo_utc_model);
                             output_navfilename.push_back(navGalfilename);
@@ -656,7 +679,7 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                 case 104:  // Galileo E1B + Galileo E5a + Galileo E6B
                     if ((galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend()))
                         {
-                            const std::string gal_signal("1B 5X");
+                            const std::string gal_signal("1B 5X E6");
                             rinex_obs_header(obsFile, galileo_ephemeris_iter->second, rx_time, gal_signal);
                             rinex_nav_header(navGalFile, pvt_solver->galileo_iono, pvt_solver->galileo_utc_model);
                             output_navfilename.push_back(navGalfilename);
@@ -667,7 +690,7 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                 case 105:  // Galileo E1B + Galileo E5b + Galileo E6B
                     if ((galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend()))
                         {
-                            const std::string gal_signal("1B 7X");
+                            const std::string gal_signal("1B 7X E6");
                             rinex_obs_header(obsFile, galileo_ephemeris_iter->second, rx_time, gal_signal);
                             rinex_nav_header(navGalFile, pvt_solver->galileo_iono, pvt_solver->galileo_utc_model);
                             output_navfilename.push_back(navGalfilename);
@@ -678,11 +701,34 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                 case 106:  // GPS L1 C/A + Galileo E1B + Galileo E6B
                     if ((galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend()) and (gps_ephemeris_iter != pvt_solver->gps_ephemeris_map.cend()))
                         {
-                            const std::string gal_signal("1B");
+                            const std::string gal_signal("1B E6");
                             rinex_obs_header(obsFile, gps_ephemeris_iter->second, galileo_ephemeris_iter->second, rx_time, gal_signal);
                             rinex_nav_header(navMixFile, pvt_solver->gps_iono, pvt_solver->gps_utc_model, gps_ephemeris_iter->second, pvt_solver->galileo_iono, pvt_solver->galileo_utc_model);
                             output_navfilename.push_back(navMixfilename);
                             log_rinex_nav(navMixFile, pvt_solver->gps_ephemeris_map, pvt_solver->galileo_ephemeris_map);
+                            d_rinex_header_written = true;  // do not write header anymore
+                        }
+                    break;
+                case 107:  // GPS L1 C/A + Galileo E6B
+                    if (gps_ephemeris_iter != pvt_solver->gps_ephemeris_map.cend())
+                        {
+                            if (galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend())
+                                {
+                                    // we have Galileo ephemeris, maybe from assistance
+                                    const std::string gal_signal("E6");
+                                    rinex_obs_header(obsFile, gps_ephemeris_iter->second, galileo_ephemeris_iter->second, rx_time, gal_signal);
+                                    rinex_nav_header(navMixFile, pvt_solver->gps_iono, pvt_solver->gps_utc_model, gps_ephemeris_iter->second, pvt_solver->galileo_iono, pvt_solver->galileo_utc_model);
+                                    output_navfilename.push_back(navMixfilename);
+                                    log_rinex_nav(navMixFile, pvt_solver->gps_ephemeris_map, pvt_solver->galileo_ephemeris_map);
+                                }
+                            else
+                                {
+                                    // we do not have galileo ephemeris, print only GPS data
+                                    rinex_obs_header(obsFile, gps_ephemeris_iter->second, rx_time);
+                                    rinex_nav_header(navFile, pvt_solver->gps_iono, pvt_solver->gps_utc_model, gps_ephemeris_iter->second);
+                                    output_navfilename.push_back(navfilename);
+                                    log_rinex_nav(navFile, pvt_solver->gps_ephemeris_map);
+                                }
                             d_rinex_header_written = true;  // do not write header anymore
                         }
                     break;
@@ -937,6 +983,18 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                                     d_rinex_header_updated = true;
                                 }
                             break;
+                        case 19:  // Galileo E5a + Galileo E5b
+                            if (galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend())
+                                {
+                                    log_rinex_obs(obsFile, galileo_ephemeris_iter->second, rx_time, gnss_observables_map, "5X 7X");
+                                }
+                            if (!d_rinex_header_updated and (pvt_solver->galileo_utc_model.A0 != 0))
+                                {
+                                    update_nav_header(navGalFile, pvt_solver->galileo_iono, pvt_solver->galileo_utc_model);
+                                    update_obs_header(obsFile, pvt_solver->galileo_utc_model);
+                                    d_rinex_header_updated = true;
+                                }
+                            break;
                         case 23:  // GLONASS L1 C/A only
                             if (glonass_gnav_ephemeris_iter != pvt_solver->glonass_gnav_ephemeris_map.cend())
                                 {
@@ -1077,10 +1135,22 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                                         }
                                 }
                             break;
+                        case 100:  // Galileo E6B
+                            if (galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend())
+                                {
+                                    log_rinex_obs(obsFile, galileo_ephemeris_iter->second, rx_time, gnss_observables_map, "E6");
+                                }
+                            if (!d_rinex_header_updated and (pvt_solver->galileo_utc_model.A0 != 0))
+                                {
+                                    update_nav_header(navGalFile, pvt_solver->galileo_iono, pvt_solver->galileo_utc_model);
+                                    update_obs_header(obsFile, pvt_solver->galileo_utc_model);
+                                    d_rinex_header_updated = true;
+                                }
+                            break;
                         case 101:  // Galileo E1B + Galileo E6B
                             if (galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend())
                                 {
-                                    log_rinex_obs(obsFile, galileo_ephemeris_iter->second, rx_time, gnss_observables_map, "1B");
+                                    log_rinex_obs(obsFile, galileo_ephemeris_iter->second, rx_time, gnss_observables_map, "1B E6");
                                 }
                             if (!d_rinex_header_updated and (pvt_solver->galileo_utc_model.A0 != 0))
                                 {
@@ -1092,7 +1162,7 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                         case 102:  // Galileo E5a + Galileo E6B
                             if (galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend())
                                 {
-                                    log_rinex_obs(obsFile, galileo_ephemeris_iter->second, rx_time, gnss_observables_map, "5X");
+                                    log_rinex_obs(obsFile, galileo_ephemeris_iter->second, rx_time, gnss_observables_map, "5X E6");
                                 }
                             if (!d_rinex_header_updated and (pvt_solver->galileo_utc_model.A0 != 0))
                                 {
@@ -1104,7 +1174,7 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                         case 103:  // Galileo E5b + Galileo E6B
                             if (galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend())
                                 {
-                                    log_rinex_obs(obsFile, galileo_ephemeris_iter->second, rx_time, gnss_observables_map, "5X");
+                                    log_rinex_obs(obsFile, galileo_ephemeris_iter->second, rx_time, gnss_observables_map, "7X E6");
                                 }
                             if (!d_rinex_header_updated and (pvt_solver->galileo_utc_model.A0 != 0))
                                 {
@@ -1116,7 +1186,7 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                         case 104:  // Galileo E1B + Galileo E5a + Galileo E6B
                             if (galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend())
                                 {
-                                    log_rinex_obs(obsFile, galileo_ephemeris_iter->second, rx_time, gnss_observables_map, "1B 5X");
+                                    log_rinex_obs(obsFile, galileo_ephemeris_iter->second, rx_time, gnss_observables_map, "1B 5X E6");
                                 }
                             if (!d_rinex_header_updated and (pvt_solver->galileo_utc_model.A0 != 0))
                                 {
@@ -1128,7 +1198,7 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                         case 105:  // Galileo E1B + Galileo E5b + Galileo E6B
                             if (galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend())
                                 {
-                                    log_rinex_obs(obsFile, galileo_ephemeris_iter->second, rx_time, gnss_observables_map, "1B 7X");
+                                    log_rinex_obs(obsFile, galileo_ephemeris_iter->second, rx_time, gnss_observables_map, "1B 7X E6");
                                 }
                             if (!d_rinex_header_updated and (pvt_solver->galileo_utc_model.A0 != 0))
                                 {
@@ -1148,6 +1218,34 @@ void Rinex_Printer::print_rinex_annotation(const Rtklib_Solver* pvt_solver, cons
                                             d_rinex_header_updated = true;
                                         }
                                 }
+                            break;
+                        case 107:
+                            if (gps_ephemeris_iter != pvt_solver->gps_ephemeris_map.cend())
+                                {
+                                    if (galileo_ephemeris_iter != pvt_solver->galileo_ephemeris_map.cend())
+                                        {
+                                            // we have Galileo ephemeris, maybe from assistance
+                                            log_rinex_obs(obsFile, gps_ephemeris_iter->second, galileo_ephemeris_iter->second, rx_time, gnss_observables_map);
+                                            if (!d_rinex_header_updated and (pvt_solver->gps_utc_model.A0 != 0))
+                                                {
+                                                    update_obs_header(obsFile, pvt_solver->gps_utc_model);
+                                                    update_nav_header(navMixFile, pvt_solver->gps_iono, pvt_solver->gps_utc_model, gps_ephemeris_iter->second, pvt_solver->galileo_iono, pvt_solver->galileo_utc_model);
+                                                    d_rinex_header_updated = true;
+                                                }
+                                        }
+                                    else
+                                        {
+                                            // we do not have galileo ephemeris, print only GPS data
+                                            log_rinex_obs(obsFile, gps_ephemeris_iter->second, rx_time, gnss_observables_map);
+                                            if (!d_rinex_header_updated and (pvt_solver->gps_utc_model.A0 != 0))
+                                                {
+                                                    update_obs_header(obsFile, pvt_solver->gps_utc_model);
+                                                    update_nav_header(navFile, pvt_solver->gps_utc_model, pvt_solver->gps_iono, gps_ephemeris_iter->second);
+                                                    d_rinex_header_updated = true;
+                                                }
+                                        }
+                                }
+
                             break;
                         case 500:  // BDS B1I only
                             if (beidou_dnav_ephemeris_iter != pvt_solver->beidou_dnav_ephemeris_map.cend())
@@ -1274,6 +1372,16 @@ void Rinex_Printer::log_rinex_nav_gps_nav(int type_of_rx, const std::map<int32_t
         case 106:  // GPS L1 C/A + Galileo E1B + Galileo E6B
             log_rinex_nav(navMixFile, new_eph, new_gal_eph);
             break;
+        case 107:  // GPS L1 C/A + Galileo E6B
+            if (navMixFile.tellp() != 0)
+                {
+                    log_rinex_nav(navMixFile, new_eph, new_gal_eph);
+                }
+            else
+                {
+                    log_rinex_nav(navFile, new_eph);
+                }
+            break;
         case 1000:  // L1+L2+L5
             log_rinex_nav(navFile, new_eph);
             break;
@@ -1309,6 +1417,9 @@ void Rinex_Printer::log_rinex_nav_gal_nav(int type_of_rx, const std::map<int32_t
         case 15:  // Galileo E1B + Galileo E5b
             log_rinex_nav(navGalFile, new_gal_eph);
             break;
+        case 19:  // Galileo E1B + Galileo E5b
+            log_rinex_nav(navGalFile, new_gal_eph);
+            break;
         case 27:  // Galileo E1B + GLONASS L1 C/A
         case 30:  // Galileo E1B + GLONASS L2 C/A
             log_rinex_nav(navMixFile, new_gal_eph, new_glo_eph);
@@ -1317,6 +1428,7 @@ void Rinex_Printer::log_rinex_nav_gal_nav(int type_of_rx, const std::map<int32_t
         case 33:  // L1+E1+E5a
             log_rinex_nav(navMixFile, new_eph, new_gal_eph);
             break;
+        case 100:  // E6B
         case 101:  // E1B + E6B
         case 102:  // Galileo E5a + Galileo E6B
         case 103:  // Galileo E5b + Galileo E6B
@@ -1326,6 +1438,12 @@ void Rinex_Printer::log_rinex_nav_gal_nav(int type_of_rx, const std::map<int32_t
             break;
         case 106:  // GPS L1 C/A + Galileo E1B + Galileo E6B
             log_rinex_nav(navMixFile, new_eph, new_gal_eph);
+            break;
+        case 107:  // GPS L1 C/A + Galileo E6B
+            if (navMixFile.tellp() != 0)
+                {
+                    log_rinex_nav(navMixFile, new_eph, new_gal_eph);
+                }
             break;
         case 1001:  // L1+E1+L2+L5+E5a
             log_rinex_nav(navMixFile, new_eph, new_gal_eph);
@@ -3263,6 +3381,7 @@ void Rinex_Printer::rinex_nav_header(std::fstream& out, const Gps_CNAV_Iono& gps
     Rinex_Printer::lengthCheck(line);
     out << line << '\n';
 }
+
 
 void Rinex_Printer::rinex_nav_header(std::fstream& out, const Glonass_Gnav_Utc_Model& glo_gnav_utc_model, const Beidou_Dnav_Iono& bds_dnav_iono, const Beidou_Dnav_Utc_Model& bds_dnav_utc_model) const
 {
@@ -5483,29 +5602,9 @@ void Rinex_Printer::log_rinex_nav(std::fstream& out, const std::map<int32_t, Gal
                     E5B_HS = "11";
                 }
 
-            if (E1B_HS == "11")
-                {
-                    LOG(WARNING) << "Signal Component currently in Test";
-                }
-            if (E1B_HS == "10")
-                {
-                    LOG(WARNING) << "Signal will be out of service";
-                }
-            if (E1B_HS == "01")
-                {
-                    LOG(WARNING) << "Signal out of service";
-                }
-            E1B_HS = "00";  // *************** CHANGE THIS WHEN GALILEO SIGNAL IS VALID
-
             std::string E1B_DVS = std::to_string(galileo_ephemeris_iter->second.E1B_DVS);
-            if (E1B_DVS == "1")
-                {
-                    LOG(WARNING) << "Navigation data without guarantee";
-                }
-            E1B_DVS = "0";  // *************** CHANGE THIS WHEN GALILEO SIGNAL IS VALID
 
             std::string SVhealth_str = E5B_HS + std::to_string(galileo_ephemeris_iter->second.E5b_DVS) + "11" + "1" + std::string(E1B_DVS) + std::string(E1B_HS) + std::to_string(galileo_ephemeris_iter->second.E1B_DVS);
-            SVhealth_str = "000000000";  // *************** CHANGE THIS WHEN GALILEO SIGNAL IS VALID
             int32_t SVhealth = Rinex_Printer::toInt(SVhealth_str, 9);
             line += Rinex_Printer::doub2for(static_cast<double>(SVhealth), 18, 2);
             line += std::string(1, ' ');
@@ -7107,6 +7206,12 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Galileo_Ephemeris&
             number_of_observations_gal = number_of_observations_gal + 4;
         }
 
+    signal_ = "E6";
+    const std::size_t found_E6 = galileo_bands.find(signal_);
+    if (found_E6 != std::string::npos)
+        {
+            number_of_observations_gal = number_of_observations_gal + 4;
+        }
 
     line += satelliteSystem.find("Galileo")->second;
     line += std::string(2, ' ');
@@ -7158,6 +7263,22 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Galileo_Ephemeris&
             line += std::string(1, ' ');
             line += observationType["SIGNAL_STRENGTH"];
             line += observationCode["GALILEO_E5b_IQ"];
+        }
+
+    if (found_E6 != std::string::npos)
+        {
+            line += std::string(1, ' ');
+            line += observationType["PSEUDORANGE"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["CARRIER_PHASE"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["DOPPLER"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["SIGNAL_STRENGTH"];
+            line += observationCode["GALILEO_E56_B"];
         }
 
     line += std::string(60 - line.size(), ' ');
@@ -8322,6 +8443,13 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& gps
         {
             number_of_observations_gal = number_of_observations_gal + 4;
         }
+
+    signal_ = "E6";
+    const std::size_t found_E6 = galileo_bands.find(signal_);
+    if (found_E6 != std::string::npos)
+        {
+            number_of_observations_gal = number_of_observations_gal + 4;
+        }
     line += satelliteSystem.find("Galileo")->second;
     line += std::string(2, ' ');
     line += Rinex_Printer::rightJustify(std::to_string(number_of_observations_gal), 3);
@@ -8369,6 +8497,21 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& gps
             line += std::string(1, ' ');
             line += observationType["SIGNAL_STRENGTH"];
             line += observationCode["GALILEO_E5b_IQ"];
+        }
+    if (found_E6 != std::string::npos)
+        {
+            line += std::string(1, ' ');
+            line += observationType["PSEUDORANGE"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["CARRIER_PHASE"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["DOPPLER"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["SIGNAL_STRENGTH"];
+            line += observationCode["GALILEO_E56_B"];
         }
     line += std::string(60 - line.size(), ' ');
     line += Rinex_Printer::leftJustify("SYS / # / OBS TYPES", 20);
@@ -8647,6 +8790,12 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_CNAV_Ephemeris
         {
             number_of_observations_gal = number_of_observations_gal + 4;
         }
+    signal_ = "E6";
+    const std::size_t found_E6 = galileo_bands.find(signal_);
+    if (found_E6 != std::string::npos)
+        {
+            number_of_observations_gal = number_of_observations_gal + 4;
+        }
     line += satelliteSystem.find("Galileo")->second;
     line += std::string(2, ' ');
     line += Rinex_Printer::rightJustify(std::to_string(number_of_observations_gal), 3);
@@ -8695,6 +8844,22 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_CNAV_Ephemeris
             line += observationType["SIGNAL_STRENGTH"];
             line += observationCode["GALILEO_E5b_IQ"];
         }
+    if (found_E6 != std::string::npos)
+        {
+            line += std::string(1, ' ');
+            line += observationType["PSEUDORANGE"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["CARRIER_PHASE"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["DOPPLER"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["SIGNAL_STRENGTH"];
+            line += observationCode["GALILEO_E56_B"];
+        }
+
     line += std::string(60 - line.size(), ' ');
     line += Rinex_Printer::leftJustify("SYS / # / OBS TYPES", 20);
     Rinex_Printer::lengthCheck(line);
@@ -8747,7 +8912,14 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Galileo_Ephemeris&
 
     // -------- Line 1
     line = std::string(5, ' ');
-    line += "3.02";
+    if (bands.find("E6") != std::string::npos)
+        {
+            line += "3.05";
+        }
+    else
+        {
+            line += "3.02";
+        }
     line += std::string(11, ' ');
     line += Rinex_Printer::leftJustify("OBSERVATION DATA", 20);
     line += satelliteSystem.find("Galileo")->second;
@@ -8899,10 +9071,16 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Galileo_Ephemeris&
             number_of_observations = number_of_observations + 4;
         }
 
-    line.clear();
     signal_ = "7X";
     const std::size_t found_7X = bands.find(signal_);
     if (found_7X != std::string::npos)
+        {
+            number_of_observations = number_of_observations + 4;
+        }
+
+    signal_ = "E6";
+    const std::size_t found_E6 = bands.find(signal_);
+    if (found_E6 != std::string::npos)
         {
             number_of_observations = number_of_observations + 4;
         }
@@ -8959,6 +9137,22 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Galileo_Ephemeris&
             line += std::string(1, ' ');
             line += observationType["SIGNAL_STRENGTH"];
             line += observationCode["GALILEO_E5b_IQ"];
+        }
+
+    if (found_E6 != std::string::npos)
+        {
+            line += std::string(1, ' ');
+            line += observationType["PSEUDORANGE"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["CARRIER_PHASE"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["DOPPLER"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["SIGNAL_STRENGTH"];
+            line += observationCode["GALILEO_E56_B"];
         }
 
     line += std::string(60 - line.size(), ' ');
@@ -9200,7 +9394,6 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& gps
             number_of_observations_gal = number_of_observations_gal + 4;
         }
 
-    line.clear();
     signal_ = "7X";
     const std::size_t found_7X = galileo_bands.find(signal_);
     if (found_7X != std::string::npos)
@@ -9208,6 +9401,14 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& gps
             number_of_observations_gal = number_of_observations_gal + 4;
         }
 
+    signal_ = "E6";
+    const std::size_t found_E6 = galileo_bands.find(signal_);
+    if (found_E6 != std::string::npos)
+        {
+            number_of_observations_gal = number_of_observations_gal + 4;
+        }
+
+    line.clear();
     line += satelliteSystem.find("Galileo")->second;
     line += std::string(2, ' ');
     line += Rinex_Printer::rightJustify(std::to_string(number_of_observations_gal), 3);
@@ -9258,6 +9459,22 @@ void Rinex_Printer::rinex_obs_header(std::fstream& out, const Gps_Ephemeris& gps
             line += std::string(1, ' ');
             line += observationType["SIGNAL_STRENGTH"];
             line += observationCode["GALILEO_E5b_IQ"];
+        }
+
+    if (found_E6 != std::string::npos)
+        {
+            line += std::string(1, ' ');
+            line += observationType["PSEUDORANGE"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["CARRIER_PHASE"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["DOPPLER"];
+            line += observationCode["GALILEO_E56_B"];
+            line += std::string(1, ' ');
+            line += observationType["SIGNAL_STRENGTH"];
+            line += observationCode["GALILEO_E56_B"];
         }
 
     line += std::string(60 - line.size(), ' ');
@@ -11586,6 +11803,7 @@ void Rinex_Printer::log_rinex_obs(std::fstream& out, const Galileo_Ephemeris& ep
     std::map<int32_t, Gnss_Synchro> observablesE1B;
     std::map<int32_t, Gnss_Synchro> observablesE5A;
     std::map<int32_t, Gnss_Synchro> observablesE5B;
+    std::map<int32_t, Gnss_Synchro> observablesE6B;
     std::map<int32_t, Gnss_Synchro>::const_iterator observables_iter;
 
     for (observables_iter = observables.cbegin();
@@ -11606,10 +11824,15 @@ void Rinex_Printer::log_rinex_obs(std::fstream& out, const Galileo_Ephemeris& ep
                 {
                     observablesE5B.insert(std::pair<int32_t, Gnss_Synchro>(observables_iter->first, observables_iter->second));
                 }
+            if ((system_ == "E") && (sig_ == "E6"))
+                {
+                    observablesE6B.insert(std::pair<int32_t, Gnss_Synchro>(observables_iter->first, observables_iter->second));
+                }
         }
     const std::size_t found_1B = galileo_bands.find("1B");
     const std::size_t found_E5a = galileo_bands.find("5X");
     const std::size_t found_E5b = galileo_bands.find("7X");
+    const std::size_t found_E6b = galileo_bands.find("E6");
 
     std::multimap<uint32_t, Gnss_Synchro> total_map;
     std::set<uint32_t> available_prns;
@@ -11675,37 +11898,27 @@ void Rinex_Printer::log_rinex_obs(std::fstream& out, const Galileo_Ephemeris& ep
                                     gs.PRN = prn_;
                                     total_map.insert(std::pair<uint32_t, Gnss_Synchro>(prn_, gs));
                                 }
-                            if (found_E5a != std::string::npos)
-                                {
-                                    Gnss_Synchro gs = Gnss_Synchro();
-                                    gs.System = 'E';
-                                    gs.Signal[0] = '5';
-                                    gs.Signal[1] = 'X';
-                                    gs.Signal[2] = '\0';
-                                    gs.PRN = prn_;
-                                    total_map.insert(std::pair<uint32_t, Gnss_Synchro>(prn_, gs));
-                                }
-                        }
-                    else
-                        {
-                            // if 5X is listed but empty
-                            if (found_E5a != std::string::npos)
-                                {
-                                    if ((total_map.count(prn_)) == 1)
-                                        {
-                                            Gnss_Synchro gs = Gnss_Synchro();
-                                            gs.System = 'E';
-                                            gs.Signal[0] = '5';
-                                            gs.Signal[1] = 'X';
-                                            gs.Signal[2] = '\0';
-                                            gs.PRN = prn_;
-                                            total_map.insert(std::pair<uint32_t, Gnss_Synchro>(prn_, gs));
-                                        }
-                                }
                         }
                     total_map.insert(std::pair<uint32_t, Gnss_Synchro>(prn_, observables_iter->second));
                 }
         }
+
+    if (found_E6b != std::string::npos)
+        {
+            for (observables_iter = observablesE6B.cbegin();
+                 observables_iter != observablesE6B.cend();
+                 observables_iter++)
+                {
+                    const uint32_t prn_ = observables_iter->second.PRN;
+                    total_map.insert(std::pair<uint32_t, Gnss_Synchro>(prn_, observables_iter->second));
+                    it = available_prns.find(prn_);
+                    if (it == available_prns.end())
+                        {
+                            available_prns.insert(prn_);
+                        }
+                }
+        }
+
     const int32_t numSatellitesObserved = available_prns.size();
     line += Rinex_Printer::rightJustify(std::to_string(numSatellitesObserved), 3);
     // Receiver clock offset (optional)
@@ -11834,6 +12047,7 @@ void Rinex_Printer::log_rinex_obs(std::fstream& out, const Gps_Ephemeris& gps_ep
     std::map<int32_t, Gnss_Synchro> observablesE1B;
     std::map<int32_t, Gnss_Synchro> observablesE5A;
     std::map<int32_t, Gnss_Synchro> observablesE5B;
+    std::map<int32_t, Gnss_Synchro> observablesE6B;
     std::map<int32_t, Gnss_Synchro>::const_iterator observables_iter;
 
     for (observables_iter = observables.cbegin();
@@ -11853,6 +12067,10 @@ void Rinex_Printer::log_rinex_obs(std::fstream& out, const Gps_Ephemeris& gps_ep
             if ((system_ == "E") && (sig_ == "7X"))
                 {
                     observablesE5B.insert(std::pair<int32_t, Gnss_Synchro>(observables_iter->first, observables_iter->second));
+                }
+            if ((system_ == "E") && (sig_ == "E6"))
+                {
+                    observablesE6B.insert(std::pair<int32_t, Gnss_Synchro>(observables_iter->first, observables_iter->second));
                 }
             if ((system_ == "G") && (sig_ == "1C"))
                 {
@@ -11891,6 +12109,19 @@ void Rinex_Printer::log_rinex_obs(std::fstream& out, const Gps_Ephemeris& gps_ep
 
     for (observables_iter = observablesE5B.cbegin();
          observables_iter != observablesE5B.cend();
+         observables_iter++)
+        {
+            const uint32_t prn_ = observables_iter->second.PRN;
+            total_gal_map.insert(std::pair<uint32_t, Gnss_Synchro>(prn_, observables_iter->second));
+            it = available_gal_prns.find(prn_);
+            if (it == available_gal_prns.end())
+                {
+                    available_gal_prns.insert(prn_);
+                }
+        }
+
+    for (observables_iter = observablesE6B.cbegin();
+         observables_iter != observablesE6B.cend();
          observables_iter++)
         {
             const uint32_t prn_ = observables_iter->second.PRN;
@@ -12107,6 +12338,7 @@ void Rinex_Printer::log_rinex_obs(std::fstream& out, const Gps_CNAV_Ephemeris& e
     std::map<int32_t, Gnss_Synchro> observablesE1B;
     std::map<int32_t, Gnss_Synchro> observablesE5A;
     std::map<int32_t, Gnss_Synchro> observablesE5B;
+    std::map<int32_t, Gnss_Synchro> observablesE6B;
     std::map<int32_t, Gnss_Synchro>::const_iterator observables_iter;
 
     for (observables_iter = observables.cbegin();
@@ -12126,6 +12358,10 @@ void Rinex_Printer::log_rinex_obs(std::fstream& out, const Gps_CNAV_Ephemeris& e
             if ((system_ == "E") && (sig_ == "7X"))
                 {
                     observablesE5B.insert(std::pair<int32_t, Gnss_Synchro>(observables_iter->first, observables_iter->second));
+                }
+            if ((system_ == "E") && (sig_ == "E6"))
+                {
+                    observablesE6B.insert(std::pair<int32_t, Gnss_Synchro>(observables_iter->first, observables_iter->second));
                 }
             if ((system_ == "G") && (sig_ == "2S"))
                 {
@@ -12170,6 +12406,19 @@ void Rinex_Printer::log_rinex_obs(std::fstream& out, const Gps_CNAV_Ephemeris& e
 
     for (observables_iter = observablesE5B.cbegin();
          observables_iter != observablesE5B.cend();
+         observables_iter++)
+        {
+            const uint32_t prn_ = observables_iter->second.PRN;
+            total_gal_map.insert(std::pair<uint32_t, Gnss_Synchro>(prn_, observables_iter->second));
+            it = available_gal_prns.find(prn_);
+            if (it == available_gal_prns.end())
+                {
+                    available_gal_prns.insert(prn_);
+                }
+        }
+
+    for (observables_iter = observablesE6B.cbegin();
+         observables_iter != observablesE6B.cend();
          observables_iter++)
         {
             const uint32_t prn_ = observables_iter->second.PRN;
@@ -12405,6 +12654,7 @@ void Rinex_Printer::log_rinex_obs(std::fstream& out, const Gps_Ephemeris& gps_ep
     std::map<int32_t, Gnss_Synchro> observablesE1B;
     std::map<int32_t, Gnss_Synchro> observablesE5A;
     std::map<int32_t, Gnss_Synchro> observablesE5B;
+    std::map<int32_t, Gnss_Synchro> observablesE6B;
     std::map<int32_t, Gnss_Synchro>::const_iterator observables_iter;
 
     for (observables_iter = observables.cbegin();
@@ -12424,6 +12674,10 @@ void Rinex_Printer::log_rinex_obs(std::fstream& out, const Gps_Ephemeris& gps_ep
             if ((system_ == "E") && (sig_ == "7X"))
                 {
                     observablesE5B.insert(std::pair<int32_t, Gnss_Synchro>(observables_iter->first, observables_iter->second));
+                }
+            if ((system_ == "E") && (sig_ == "E6"))
+                {
+                    observablesE6B.insert(std::pair<int32_t, Gnss_Synchro>(observables_iter->first, observables_iter->second));
                 }
             if ((system_ == "G") && (sig_ == "2S"))
                 {
@@ -12472,6 +12726,19 @@ void Rinex_Printer::log_rinex_obs(std::fstream& out, const Gps_Ephemeris& gps_ep
 
     for (observables_iter = observablesE5B.cbegin();
          observables_iter != observablesE5B.cend();
+         observables_iter++)
+        {
+            const uint32_t prn_ = observables_iter->second.PRN;
+            total_gal_map.insert(std::pair<uint32_t, Gnss_Synchro>(prn_, observables_iter->second));
+            it = available_gal_prns.find(prn_);
+            if (it == available_gal_prns.end())
+                {
+                    available_gal_prns.insert(prn_);
+                }
+        }
+
+    for (observables_iter = observablesE6B.cbegin();
+         observables_iter != observablesE6B.cend();
          observables_iter++)
         {
             const uint32_t prn_ = observables_iter->second.PRN;

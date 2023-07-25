@@ -49,6 +49,8 @@ class Beidou_Dnav_Almanac;
 class Beidou_Dnav_Ephemeris;
 class Galileo_Almanac;
 class Galileo_Ephemeris;
+class Galileo_HAS_data;
+class Geohash;
 class GeoJSON_Printer;
 class Gps_Almanac;
 class Gps_Ephemeris;
@@ -140,12 +142,14 @@ private:
 
     void msg_handler_telemetry(const pmt::pmt_t& msg);
 
-    void msg_handler_has_data(const pmt::pmt_t& msg) const;
+    void msg_handler_has_data(const pmt::pmt_t& msg);
 
     void initialize_and_apply_carrier_phase_offset();
 
     void apply_rx_clock_offset(std::map<int, Gnss_Synchro>& observables_map,
         double rx_clock_offset_s);
+
+    void update_HAS_corrections();
 
     std::map<int, Gnss_Synchro> interpolate_observables(const std::map<int, Gnss_Synchro>& observables_map_t0,
         const std::map<int, Gnss_Synchro>& observables_map_t1,
@@ -160,7 +164,7 @@ private:
 
     typedef struct
     {
-        long mtype;  // NOLINT(google-runtime-int) required by SysV queue messaging
+        long mtype;  // NOLINT(google-runtime-int)
         double ttff;
     } d_ttff_msgbuf;
     bool send_sys_v_ttff_msg(d_ttff_msgbuf ttff) const;
@@ -194,23 +198,6 @@ private:
     std::vector<bool> d_channel_initialized;
     std::vector<double> d_initial_carrier_phase_offset_estimation_rads;
 
-    enum StringValue_
-    {
-        evGPS_1C,
-        evGPS_2S,
-        evGPS_L5,
-        evSBAS_1C,
-        evGAL_1B,
-        evGAL_5X,
-        evGAL_E6,
-        evGAL_7X,
-        evGLO_1G,
-        evGLO_2G,
-        evBDS_B1,
-        evBDS_B2,
-        evBDS_B3
-    };
-    std::map<std::string, StringValue_> d_mapStringValues;
     std::map<int, Gnss_Synchro> d_gnss_observables_map;
     std::map<int, Gnss_Synchro> d_gnss_observables_map_t0;
     std::map<int, Gnss_Synchro> d_gnss_observables_map_t1;
@@ -218,6 +205,7 @@ private:
     std::queue<GnssTime> d_TimeChannelTagTimestamps;
 
     boost::posix_time::time_duration d_utc_diff_time;
+    std::unique_ptr<Geohash> d_geohash;
 
     size_t d_gps_ephemeris_sptr_type_hash_code;
     size_t d_gps_iono_sptr_type_hash_code;
@@ -243,6 +231,7 @@ private:
     double d_rinex_version;
     double d_rx_time;
     uint64_t d_local_counter_ms;
+    uint64_t d_timestamp_rx_clock_offset_correction_msg_ms;
 
     key_t d_sysv_msg_key;
     int d_sysv_msqid;
@@ -268,6 +257,7 @@ private:
     uint32_t d_nchannels;
     uint32_t d_type_of_rx;
     uint32_t d_observable_interval_ms;
+    uint32_t d_pvt_errors_counter;
 
     bool d_dump;
     bool d_dump_mat;
@@ -282,11 +272,13 @@ private:
     bool d_flag_monitor_pvt_enabled;
     bool d_flag_monitor_ephemeris_enabled;
     bool d_show_local_time_zone;
-    bool d_waiting_obs_block_rx_clock_offset_correction_msg;
     bool d_enable_rx_clock_correction;
     bool d_enable_has_messages;
     bool d_an_printer_enabled;
     bool d_log_timetag;
+    bool d_use_e6_for_pvt;
+    bool d_use_has_corrections;
+    bool d_use_unhealthy_sats;
 };
 
 

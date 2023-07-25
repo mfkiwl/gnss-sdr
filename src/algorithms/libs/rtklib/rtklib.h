@@ -4,7 +4,7 @@
  * \authors <ul>
  *          <li> 2007-2013, T. Takasu
  *          <li> 2017, Javier Arribas
- *          <li> 2017, Carles Fernandez
+ *          <li> 2017-2023, Carles Fernandez
  *          </ul>
  *
  * This is a derived work from RTKLIB http://www.rtklib.com/
@@ -22,7 +22,7 @@
  * -----------------------------------------------------------------------------
  * Copyright (C) 2007-2013, T. Takasu
  * Copyright (C) 2017, Javier Arribas
- * Copyright (C) 2017, Carles Fernandez
+ * Copyright (C) 2017-2023, Carles Fernandez
  * All rights reserved.
  *
  * SPDX-License-Identifier: BSD-2-Clause
@@ -202,7 +202,7 @@ const int NSYSQZS = 0;
 #define ENABDS
 #ifdef ENABDS
 const int MINPRNBDS = 1;                          //!<   min satellite sat number of BeiDou
-const int MAXPRNBDS = 37;                         //!<   max satellite sat number of BeiDou
+const int MAXPRNBDS = 63;                         //!<   max satellite sat number of BeiDou
 const int NSATBDS = (MAXPRNBDS - MINPRNBDS + 1);  //!<   number of BeiDou satellites
 const int NSYSBDS = 1;
 #else
@@ -442,15 +442,20 @@ typedef struct
                            /* SV orbit parameters */
     double A, e, i0, OMG0, omg, M0, deln, OMGd, idot;
     double crc, crs, cuc, cus, cic, cis;
-    double toes;       /* Toe (s) in week */
-    double fit;        /* fit interval (h) */
-    double f0, f1, f2; /* SV clock parameters (af0,af1,af2) */
-    double tgd[4];     /* group delay parameters */
-                       /* GPS/QZS:tgd[0]=TGD */
-                       /* GAL    :tgd[0]=BGD E5a/E1,tgd[1]=BGD E5b/E1 */
-                       /* BDS    :tgd[0]=BGD1,tgd[1]=BGD2 */
-    double isc[4];     /* GPS    :isc[0]=ISCL1, isc[1]=ISCL2, isc[2]=ISCL5I, isc[3]=ISCL5Q */
-    double Adot, ndot; /* Adot,ndot for CNAV */
+    double toes;                              /* Toe (s) in week */
+    double fit;                               /* fit interval (h) */
+    double f0, f1, f2;                        /* SV clock parameters (af0,af1,af2) */
+    double tgd[4];                            /* group delay parameters */
+                                              /* GPS/QZS:tgd[0]=TGD */
+                                              /* GAL    :tgd[0]=BGD E5a/E1,tgd[1]=BGD E5b/E1 */
+                                              /* BDS    :tgd[0]=BGD1,tgd[1]=BGD2 */
+    double isc[4];                            /* GPS    :isc[0]=ISCL1, isc[1]=ISCL2, isc[2]=ISCL5I, isc[3]=ISCL5Q */
+    double Adot, ndot;                        /* Adot,ndot for CNAV */
+    float has_clock_correction_m;             /* Galileo High Accuracy Service clock correction, in [m] */
+    float has_orbit_radial_correction_m;      /* Galileo High Accuracy Service orbit radial correction, in [m] */
+    float has_orbit_in_track_correction_m;    /* Galileo High Accuracy Service orbit in-track correction, in [m] */
+    float has_orbit_cross_track_correction_m; /* Galileo High Accuracy Service orbit cross-track correction, in [m] */
+    bool apply_has_corrections;
 } eph_t;
 
 
@@ -995,6 +1000,7 @@ typedef struct
     exterr_t exterr;              /* extended receiver error model */
     int freqopt;                  /* disable L2-AR */
     char pppopt[256];             /* ppp option */
+    bool bancroft_init;           /* enable Bancroft initialization for the first iteration of the PVT computation */
 } prcopt_t;
 
 
@@ -1108,28 +1114,28 @@ typedef struct
 } serial_t;
 
 
-typedef struct
-{                              /* file control type */
-    FILE *fp;                  /* file pointer */
-    FILE *fp_tag;              /* file pointer of tag file */
-    FILE *fp_tmp;              /* temporary file pointer for swap */
-    FILE *fp_tag_tmp;          /* temporary file pointer of tag file for swap */
-    char path[MAXSTRPATH];     /* file path */
-    char openpath[MAXSTRPATH]; /* open file path */
-    int mode;                  /* file mode */
-    int timetag;               /* time tag flag (0:off,1:on) */
-    int repmode;               /* replay mode (0:master,1:slave) */
-    int offset;                /* time offset (ms) for slave */
-    gtime_t time;              /* start time */
-    gtime_t wtime;             /* write time */
-    unsigned int tick;         /* start tick */
-    unsigned int tick_f;       /* start tick in file */
-    unsigned int fpos;         /* current file position */
-    double start;              /* start offset (s) */
-    double speed;              /* replay speed (time factor) */
-    double swapintv;           /* swap interval (hr) (0: no swap) */
-    lock_t lock;               /* lock flag */
-} file_t;
+struct file_t
+{                               /* file control type */
+    FILE *fp = nullptr;         /* file pointer */
+    FILE *fp_tag = nullptr;     /* file pointer of tag file */
+    FILE *fp_tmp = nullptr;     /* temporary file pointer for swap */
+    FILE *fp_tag_tmp = nullptr; /* temporary file pointer of tag file for swap */
+    std::string path;           /* file path */
+    std::string openpath;       /* open file path */
+    int mode = 0;               /* file mode */
+    int timetag;                /* time tag flag (0:off,1:on) */
+    int repmode = 0;            /* replay mode (0:master,1:slave) */
+    int offset = 0;             /* time offset (ms) for slave */
+    gtime_t time = {};          /* start time */
+    gtime_t wtime = {};         /* write time */
+    unsigned int tick = 0;      /* start tick */
+    unsigned int tick_f = 0;    /* start tick in file */
+    unsigned int fpos = 0;      /* current file position */
+    double start = 0;           /* start offset (s) */
+    double speed = 0;           /* replay speed (time factor) */
+    double swapintv = 0;        /* swap interval (hr) (0: no swap) */
+    lock_t lock;                /* lock flag */
+};
 
 
 typedef struct

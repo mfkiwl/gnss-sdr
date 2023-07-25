@@ -50,17 +50,14 @@ if(GNURADIO_USES_STD_POINTERS)
     )
 endif()
 
-if(NOT GNURADIO_USES_LOG4CPP)
-    target_link_libraries(resampler_gr_blocks
-        PUBLIC
-            fmt::fmt
-            spdlog::spdlog
-    )
+if(GNURADIO_IS_38_OR_GREATER)
+    target_compile_definitions(resampler_gr_blocks
+        PUBLIC -DGR_GREATER_38=1)
 endif()
 
 target_include_directories(resampler_gr_blocks
     PUBLIC
-        ${CMAKE_SOURCE_DIR}/src/core/interfaces
+        ${GNSSSDR_SOURCE_DIR}/src/core/interfaces
 )
 
 if(ENABLE_CLANG_TIDY)

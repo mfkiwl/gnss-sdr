@@ -69,6 +69,7 @@ glonass_l2_ca_telemetry_decoder_gs::glonass_l2_ca_telemetry_decoder_gs(
     this->message_port_register_out(pmt::mp("telemetry"));
     // Control messages to tracking block
     this->message_port_register_out(pmt::mp("telemetry_to_trk"));
+    this->message_port_register_out(pmt::mp("preamble_timestamp_samples"));
 
     if (d_enable_navdata_monitor)
         {
@@ -287,11 +288,11 @@ void glonass_l2_ca_telemetry_decoder_gs::set_channel(int32_t channel)
                         {
                             d_dump_filename.append(std::to_string(d_channel));
                             d_dump_filename.append(".dat");
-                            d_dump_file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                            d_dump_file.exceptions(std::ofstream::failbit | std::ofstream::badbit);
                             d_dump_file.open(d_dump_filename.c_str(), std::ios::out | std::ios::binary);
                             LOG(INFO) << "Telemetry decoder dump enabled on channel " << d_channel << " Log file: " << d_dump_filename.c_str();
                         }
-                    catch (const std::ifstream::failure &e)
+                    catch (const std::ofstream::failure &e)
                         {
                             LOG(WARNING) << "channel " << d_channel << ": exception opening Glonass TLM dump file. " << e.what();
                         }
@@ -366,6 +367,7 @@ int glonass_l2_ca_telemetry_decoder_gs::general_work(int noutput_items __attribu
                             // try to decode frame
                             LOG(INFO) << "Starting string decoder for GLONASS L2 C/A SAT " << this->d_satellite;
                             d_preamble_index = d_sample_counter;  // record the preamble sample stamp
+                            this->message_port_pub(pmt::mp("preamble_timestamp_samples"), pmt::mp(d_preamble_time_samples));
                             d_stat = 2;
                         }
                     else
@@ -495,7 +497,7 @@ int glonass_l2_ca_telemetry_decoder_gs::general_work(int noutput_items __attribu
                     tmp_int = static_cast<int32_t>(current_symbol.PRN);
                     d_dump_file.write(reinterpret_cast<char *>(&tmp_int), sizeof(int32_t));
                 }
-            catch (const std::ifstream::failure &e)
+            catch (const std::ofstream::failure &e)
                 {
                     LOG(WARNING) << "Exception writing observables dump file " << e.what();
                 }

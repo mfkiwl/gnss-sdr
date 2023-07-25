@@ -60,6 +60,7 @@ target_link_libraries(telemetry_decoder_gr_blocks
     PRIVATE
         Gflags::gflags
         Glog::glog
+        Gnuradio::pmt
 )
 
 if(GNURADIO_USES_STD_POINTERS)
@@ -68,22 +69,14 @@ if(GNURADIO_USES_STD_POINTERS)
     )
 endif()
 
-if(GNURADIO_USES_SPDLOG)
-    target_link_libraries(telemetry_decoder_gr_blocks
-        PUBLIC
-            fmt::fmt
-            spdlog::spdlog
-    )
-endif()
-
 target_include_directories(telemetry_decoder_gr_blocks
     PUBLIC
-        ${CMAKE_SOURCE_DIR}/src/core/interfaces
+        ${GNSSSDR_SOURCE_DIR}/src/core/interfaces
 )
 
 target_include_directories(telemetry_decoder_gr_blocks
     PRIVATE
-        ${CMAKE_SOURCE_DIR}/src/algorithms/libs  # for gnss_sdr_make_unique.h
+        ${GNSSSDR_SOURCE_DIR}/src/algorithms/libs  # for gnss_sdr_make_unique.h
 )
 
 if(has_rotl)
@@ -104,6 +97,13 @@ else()
     target_compile_definitions(telemetry_decoder_gr_blocks
         PRIVATE
             -DHAS_GENERIC_LAMBDA=0
+    )
+endif()
+
+if(PMT_USES_BOOST_ANY)
+    target_compile_definitions(telemetry_decoder_gr_blocks
+        PRIVATE
+            -DPMT_USES_BOOST_ANY=1
     )
 endif()
 

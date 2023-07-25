@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# SPDX-FileCopyrightText: 2022 C. Fernandez-Prades carles.fernandez(at)cttc.es
+# SPDX-FileCopyrightText: 2023 C. Fernandez-Prades carles.fernandez(at)cttc.es
 ---
 authors:
   - affiliation: "Centre Tecnològic de Telecomunicacions de Catalunya (CTTC)"
@@ -82,6 +82,11 @@ authors:
     email: cillian.odriscoll@gmail.com
     family-names: "O'Driscoll"
     given-names: Cillian
+  - affiliation: "Finnish Geospatial Research Institute"
+    alias: IntoPa
+    email: into.paakkonen@aalto.fi
+    family-names: "Pääkkönen"
+    given-names: Into
   - affiliation: "Centre Tecnològic de Telecomunicacions de Catalunya (CTTC)"
     email: david.pubill@cttc.cat
     family-names: Pubill
@@ -93,6 +98,10 @@ authors:
     email: jschindehette@geontech.com
     family-names: Schindehette
     given-names: Josh
+  - alias: orlando017
+    email: wsilberm@google.com
+    family-names: Silberman
+    given-names: Will
   - email: tonetto.dev@gmail.com
     family-names: Tonetto
     given-names: Leonardo
@@ -101,7 +110,7 @@ authors:
     family-names: "van der Linden"
     given-names: Stefan
 cff-version: "1.2.0"
-date-released: "2022-04-20"
+date-released: "2023-04-06"
 identifiers:
   - description: "The concept DOI of the work. This is a DOI always pointing to the latest stable release."
     type: doi
@@ -305,24 +314,8 @@ references:
     title: "Design patterns for GNSS software receivers"
     type: conference-paper
     year: 2010
-  - authors:
-    - name: "The GNU Radio Project team"
-    doi: 10.5281/zenodo.2704343
-    repository-code: "https://github.com/gnuradio/gnuradio"
-    scope: "Software dependency: the SDR framework."
-    title: "GNU Radio: The Free & Open Software Radio Ecosystem"
-    type: software
-    url: "https://www.gnuradio.org"
-  - authors:
-    - name: "The VOLK Project team"
-    doi: 10.5281/zenodo.3360942
-    repository-code: "https://github.com/gnuradio/volk"
-    scope: "Software dependency: the portable SIMD library."
-    title: "VOLK: The Vector-Optimized Library of Kernels"
-    type: software
-    url: "https://www.libvolk.org"
 repository-code: "https://github.com/gnss-sdr/gnss-sdr"
 title: GNSS-SDR
 type: software
 url: "https://gnss-sdr.org"
-version: "0.0.17"
+version: "0.0.18"

@@ -42,6 +42,7 @@
 #include <chrono>
 #include <cstdio>  // FPGA read input file
 #include <fcntl.h>
+#include <iomanip>
 #include <iostream>
 #include <unistd.h>
 #include <utility>
@@ -170,7 +171,7 @@ private:
     GpsL1CADllPllTrackingTestFpga_msg_rx();
 
 public:
-    int rx_message;
+    int rx_message{0};
     ~GpsL1CADllPllTrackingTestFpga_msg_rx() override;  //!< Default destructor
 };
 
@@ -200,8 +201,7 @@ void GpsL1CADllPllTrackingTestFpga_msg_rx::msg_handler_channel_events(const pmt:
 GpsL1CADllPllTrackingTestFpga_msg_rx::GpsL1CADllPllTrackingTestFpga_msg_rx()
     : gr::block("GpsL1CADllPllTrackingTestFpga_msg_rx",
           gr::io_signature::make(0, 0, 0),
-          gr::io_signature::make(0, 0, 0)),
-      rx_message(0)
+          gr::io_signature::make(0, 0, 0))
 {
     this->message_port_register_in(pmt::mp("events"));
     this->set_msg_handler(pmt::mp("events"),

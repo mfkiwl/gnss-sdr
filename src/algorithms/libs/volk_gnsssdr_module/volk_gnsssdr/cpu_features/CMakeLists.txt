@@ -55,6 +55,8 @@ set(PROCESSOR_IS_ARM FALSE)
 set(PROCESSOR_IS_AARCH64 FALSE)
 set(PROCESSOR_IS_X86 FALSE)
 set(PROCESSOR_IS_POWER FALSE)
+set(PROCESSOR_IS_S390X FALSE)
+set(PROCESSOR_IS_RISCV FALSE)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^mips")
   set(PROCESSOR_IS_MIPS TRUE)
@@ -66,6 +68,10 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)|(AMD64|amd64)|(^i.86$)")
   set(PROCESSOR_IS_X86 TRUE)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(powerpc|ppc)")
   set(PROCESSOR_IS_POWER TRUE)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(s390x)")
+  set(PROCESSOR_IS_S390X TRUE)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^riscv")
+  set(PROCESSOR_IS_RISCV TRUE)
 endif()
 
 macro(add_cpu_features_headers_and_sources HDRS_LIST_NAME SRCS_LIST_NAME)
@@ -79,11 +85,17 @@ macro(add_cpu_features_headers_and_sources HDRS_LIST_NAME SRCS_LIST_NAME)
       list(APPEND ${HDRS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/cpuinfo_arm.h)
   elseif(PROCESSOR_IS_AARCH64)
       list(APPEND ${HDRS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/cpuinfo_aarch64.h)
+      list(APPEND ${SRCS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/internal/windows_utils.h)
   elseif(PROCESSOR_IS_X86)
       list(APPEND ${HDRS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/cpuinfo_x86.h)
       list(APPEND ${SRCS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/internal/cpuid_x86.h)
+      list(APPEND ${SRCS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/internal/windows_utils.h)
   elseif(PROCESSOR_IS_POWER)
       list(APPEND ${HDRS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/cpuinfo_ppc.h)
+  elseif(PROCESSOR_IS_S390X)
+      list(APPEND ${HDRS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/cpuinfo_s390x.h)
+  elseif(PROCESSOR_IS_RISCV)
+      list(APPEND ${HDRS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/cpuinfo_riscv.h)
   else()
     message(FATAL_ERROR "Unsupported architectures ${CMAKE_SYSTEM_PROCESSOR}")
   endif()
@@ -174,9 +186,9 @@ if(BUILD_TESTING)
   # found.
   enable_language(CXX)
 
-  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD 14)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
-  set(CMAKE_CXX_EXTENSIONS OFF) # prefer use of -std11 instead of -gnustd11
+  set(CMAKE_CXX_EXTENSIONS OFF) # prefer use of -std14 instead of -gnustd14
 
   if(NOT TARGET gtest OR NOT TARGET gmock_main)
     # Download and unpack googletest at configure time.
@@ -210,8 +222,8 @@ if(BUILD_TESTING)
     # Add googletest directly to our build. This defines the gtest and
     # gtest_main targets.
     add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
-        ${CMAKE_BINARY_DIR}/googletest-build
-        EXCLUDE_FROM_ALL)
+      ${CMAKE_BINARY_DIR}/googletest-build
+      EXCLUDE_FROM_ALL)
   endif()
 
   add_subdirectory(test)

@@ -1,5 +1,5 @@
 /*!
- * \file nma_printer_test.cc
+ * \file nmea_printer_test.cc
  * \brief Implements Unit Tests for the Nmea_Printer class.
  * \author Carles Fernandez-Prades, 2017. cfernandez(at)cttc.es
  *
@@ -133,7 +133,8 @@ void NmeaPrinterTest::conf()
         {{}, {}},                                                                          /*  odisp[2][6*11] ocean tide loading parameters {rov,base} */
         {{}, {{}, {}}, {{}, {}}, {}, {}},                                                  /*  exterr_t exterr   extended receiver error model */
         0,                                                                                 /* disable L2-AR */
-        {}                                                                                 /* char pppopt[256]   ppp option   "-GAP_RESION="  default gap to reset iono parameters (ep) */
+        {},                                                                                /* char pppopt[256]   ppp option   "-GAP_RESION="  default gap to reset iono parameters (ep) */
+        true                                                                               /* enable Bancroft initialization for the first iteration of the PVT computation, useful in some geometries */
     };
 
     rtkinit(&rtk, &rtklib_configuration_options);
@@ -143,7 +144,7 @@ void NmeaPrinterTest::conf()
 TEST_F(NmeaPrinterTest, PrintLine)
 {
     std::string filename("nmea_test.nmea");
-    std::shared_ptr<Rtklib_Solver> pvt_solution = std::make_shared<Rtklib_Solver>(rtk, "filename", false, false);
+    std::shared_ptr<Rtklib_Solver> pvt_solution = std::make_shared<Rtklib_Solver>(rtk, "filename", 1, false, false);
 
     boost::posix_time::ptime pt(boost::gregorian::date(1994, boost::date_time::Nov, 19),
         boost::posix_time::hours(22) + boost::posix_time::minutes(54) + boost::posix_time::seconds(46));

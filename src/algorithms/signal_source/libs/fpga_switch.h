@@ -23,6 +23,7 @@
 #ifndef GNSS_SDR_FPGA_SWITCH_H
 #define GNSS_SDR_FPGA_SWITCH_H
 
+#include <cstdint>
 #include <string>
 
 /** \addtogroup Signal_Source
@@ -54,7 +55,7 @@ public:
     void set_switch_position(int32_t switch_position);
 
 private:
-    static const size_t FPGA_PAGE_SIZE = 0x10000;
+    static const size_t FPGA_PAGE_SIZE = 0x1000;
     static const uint32_t TEST_REGISTER_TRACK_WRITEVAL = 0x55AA;
     static const uint32_t MAX_LENGTH_DEVICEIO_NAME = 50;
 

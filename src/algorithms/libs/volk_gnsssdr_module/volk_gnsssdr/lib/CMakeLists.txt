@@ -482,6 +482,7 @@ message(STATUS "Loading version ${VERSION} into constants...")
 
 # double escape for windows backslash path separators
 string(REPLACE "\\" "\\\\" prefix "${prefix}")
+string(REPLACE "${CMAKE_SOURCE_DIR}" "$BUILD_DIR" COMPILER_INFO "${COMPILER_INFO}")
 
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/constants.c.in
@@ -543,6 +544,7 @@ if(NOT (CMAKE_GENERATOR STREQUAL Xcode))
                 PRIVATE
                     $<TARGET_PROPERTY:cpu_features,INTERFACE_INCLUDE_DIRECTORIES>
             )
+            add_dependencies(volk_gnsssdr_obj list_cpu_features)
         endif()
     endif()
     # Configure object target properties
@@ -556,65 +558,72 @@ else()
 endif()
 
 # Add dynamic library
-if(CMAKE_GENERATOR STREQUAL Xcode)
-    add_library(volk_gnsssdr SHARED ${volk_gnsssdr_sources})
-else()
-    add_library(volk_gnsssdr SHARED $<TARGET_OBJECTS:volk_gnsssdr_obj>)
-endif()
-if(USE_CPU_FEATURES)
-    if(CPUFEATURES_FOUND)
-        target_link_libraries(volk_gnsssdr
-            PUBLIC ${volk_gnsssdr_libraries}
-            PRIVATE CpuFeature::cpu_features
-        )
+# Note: new Xcode buildsystem does not allow building both static and dynamic libraries
+# so we only build dynamic if ENABLE_STATIC_LIBS is not enabled in that generator.
+# For other generators than XCode, the dynamic library is always built.
+if(NOT (ENABLE_STATIC_LIBS AND (CMAKE_GENERATOR STREQUAL Xcode)))
+    if(CMAKE_GENERATOR STREQUAL Xcode)
+        add_library(volk_gnsssdr SHARED ${volk_gnsssdr_sources})
     else()
-        target_link_libraries(volk_gnsssdr
-            PUBLIC ${volk_gnsssdr_libraries}
-            PRIVATE cpu_features
-        )
+        add_library(volk_gnsssdr SHARED $<TARGET_OBJECTS:volk_gnsssdr_obj>)
     endif()
-else()
-    target_link_libraries(volk_gnsssdr PUBLIC ${volk_gnsssdr_libraries})
-endif()
-target_include_directories(volk_gnsssdr
-    PUBLIC $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
-    PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-    PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/kernels>
-    PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-    PUBLIC $<INSTALL_INTERFACE:include>
-)
-if(USE_CPU_FEATURES)
-    if(CPUFEATURES_FOUND)
-        target_include_directories(volk_gnsssdr
-            PRIVATE
-                $<TARGET_PROPERTY:CpuFeature::cpu_features,INTERFACE_INCLUDE_DIRECTORIES>
-        )
+    if(USE_CPU_FEATURES)
+        if(CPUFEATURES_FOUND)
+            target_link_libraries(volk_gnsssdr
+                PUBLIC ${volk_gnsssdr_libraries}
+                PRIVATE CpuFeature::cpu_features
+            )
+        else()
+            target_link_libraries(volk_gnsssdr
+                PUBLIC ${volk_gnsssdr_libraries}
+                PRIVATE cpu_features
+            )
+        endif()
     else()
-        target_include_directories(volk_gnsssdr
-            PRIVATE
-                $<TARGET_PROPERTY:cpu_features,INTERFACE_INCLUDE_DIRECTORIES>
-        )
+        target_link_libraries(volk_gnsssdr PUBLIC ${volk_gnsssdr_libraries})
     endif()
-endif()
-# Configure target properties
-if(ORC_FOUND)
-    target_link_libraries(volk_gnsssdr PRIVATE ${ORC_LIBRARIES})
-endif()
-if(NOT MSVC)
-    target_link_libraries(volk_gnsssdr PUBLIC m)
-endif()
-set_target_properties(volk_gnsssdr PROPERTIES VERSION ${VERSION})
-set_target_properties(volk_gnsssdr PROPERTIES SOVERSION ${SOVERSION})
-set_target_properties(volk_gnsssdr PROPERTIES DEFINE_SYMBOL "volk_gnsssdr_EXPORTS")
+    target_include_directories(volk_gnsssdr
+        PUBLIC $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+        PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+        PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/kernels>
+        PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+        PUBLIC $<INSTALL_INTERFACE:include>
+    )
 
-# Install locations
-install(TARGETS volk_gnsssdr
-    EXPORT VOLK_GNSSSDR-export
-    LIBRARY DESTINATION lib${LIB_SUFFIX} COMPONENT "volk_gnsssdr_runtime" # .so file
-    ARCHIVE DESTINATION lib${LIB_SUFFIX} COMPONENT "volk_gnsssdr_devel"   # .lib file
-    RUNTIME DESTINATION bin              COMPONENT "volk_gnsssdr_runtime" # .dll file
-)
+    if(USE_CPU_FEATURES)
+        if(CPUFEATURES_FOUND)
+            target_include_directories(volk_gnsssdr
+                PRIVATE
+                    $<TARGET_PROPERTY:CpuFeature::cpu_features,INTERFACE_INCLUDE_DIRECTORIES>
+            )
+        else()
+            target_include_directories(volk_gnsssdr
+                PRIVATE
+                    $<TARGET_PROPERTY:cpu_features,INTERFACE_INCLUDE_DIRECTORIES>
+            )
+        endif()
+    endif()
+
+    # Configure target properties
+    if(ORC_FOUND)
+        target_link_libraries(volk_gnsssdr PRIVATE ${ORC_LIBRARIES})
+    endif()
+    if(NOT MSVC)
+        target_link_libraries(volk_gnsssdr PUBLIC m)
+    endif()
+    set_target_properties(volk_gnsssdr PROPERTIES VERSION ${VERSION})
+    set_target_properties(volk_gnsssdr PROPERTIES SOVERSION ${SOVERSION})
+    set_target_properties(volk_gnsssdr PROPERTIES DEFINE_SYMBOL "volk_gnsssdr_EXPORTS")
+
+    # Install locations
+    install(TARGETS volk_gnsssdr
+        EXPORT VOLK_GNSSSDR-export
+        LIBRARY DESTINATION lib${LIB_SUFFIX} COMPONENT "volk_gnsssdr_runtime" # .so file
+        ARCHIVE DESTINATION lib${LIB_SUFFIX} COMPONENT "volk_gnsssdr_devel"   # .lib file
+        RUNTIME DESTINATION bin              COMPONENT "volk_gnsssdr_runtime" # .dll file
+    )
+endif()
 
 # Configure static library
 if(ENABLE_STATIC_LIBS)
@@ -638,7 +647,9 @@ if(ENABLE_STATIC_LIBS)
     if(ORC_FOUND)
         target_link_libraries(volk_gnsssdr_static PUBLIC ${ORC_LIBRARIES_STATIC})
     endif()
-    target_link_libraries(volk_gnsssdr_static PRIVATE pthread)
+    if(NOT ANDROID)
+        target_link_libraries(volk_gnsssdr_static PRIVATE pthread)
+    endif()
     if(NOT MSVC)
         target_link_libraries(volk_gnsssdr_static PUBLIC m)
     endif()
@@ -650,7 +661,6 @@ if(ENABLE_STATIC_LIBS)
         PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
     )
-
     set_target_properties(volk_gnsssdr_static PROPERTIES OUTPUT_NAME volk_gnsssdr)
 
     install(TARGETS volk_gnsssdr_static

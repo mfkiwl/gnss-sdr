@@ -158,14 +158,14 @@ flags           : aes,avx,cx16,smx,sse4_1,sse4_2,ssse3
 
 ## What's supported
 
-|         | x86³ |   ARM   | AArch64 |  MIPS⁴  |  POWER  |
-| ------- | :--: | :-----: | :-----: | :-----: | :-----: |
-| Android | yes² |  yes¹   |  yes¹   |  yes¹   |   N/A   |
-| iOS     | N/A  | not yet | not yet |   N/A   |   N/A   |
-| Linux   | yes² |  yes¹   |  yes¹   |  yes¹   |  yes¹   |
-| MacOS   | yes² |   N/A   |  yes²   |   N/A   |   no    |
-| Windows | yes² | not yet | not yet |   N/A   |   N/A   |
-| FreeBSD | yes² | not yet | not yet | not yet | not yet |
+|         | x86³ | AArch64 |   ARM   |  MIPS⁴  |  POWER  | RISCV |  s390x  |
+| ------- | :--: | :-----: | :-----: | :-----: | :-----: | :---: | :-----: |
+| Linux   | yes² |  yes¹   |  yes¹   |  yes¹   |  yes¹   | yes¹  |  yes¹   |
+| FreeBSD | yes² | not yet | not yet | not yet | not yet |  N/A  | not yet |
+| MacOs   | yes² | not yet |   N/A   |   N/A   |   no    |  N/A  |   no    |
+| Windows | yes² | not yet | not yet |   N/A   |   N/A   |  N/A  |   N/A   |
+| Android | yes² |  yes¹   |  yes¹   |  yes¹   |   N/A   |  N/A  |   N/A   |
+| iOS     | N/A  | not yet | not yet |   N/A   |   N/A   |  N/A  |   N/A   |
 
 1.  **Features revealed from Linux.** We gather data from several sources
     depending on availability:
@@ -209,25 +209,41 @@ Please check the [CMake build instructions](cmake/README.md).
 
 - Run `list_cpu_features`
 
-```sh
-cmake -S. -Bbuild -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release -j
-./build/list_cpu_features --json
-```
+  ```sh
+  cmake -S. -Bbuild -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+  cmake --build build --config Release -j
+  ./build/list_cpu_features --json
+  ```
 
-_Note_: Use `--target ALL_BUILD` on the second line for `Visual Studio` and
-`XCode`.
+  _Note_: Use `--target ALL_BUILD` on the second line for `Visual Studio` and
+  `XCode`.
 
 - run tests
 
-```sh
-cmake -S. -Bbuild -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --config Debug -j
-cmake --build build --config Debug --target test
-```
+  ```sh
+  cmake -S. -Bbuild -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
+  cmake --build build --config Debug -j
+  cmake --build build --config Debug --target test
+  ```
 
-_Note_: Use `--target RUN_TESTS` on the last line for `Visual Studio` and
-`--target RUN_TEST` for `XCode`.
+  _Note_: Use `--target RUN_TESTS` on the last line for `Visual Studio` and
+  `--target RUN_TEST` for `XCode`.
+
+- install `cpu_features`
+
+  ```sh
+  cmake --build build --config Release --target install -v
+  ```
+
+  _Note_: Use `--target INSTALL` for `Visual Studio`.
+
+  _Note_: When using `Makefile` or `XCode` generator, you can use
+  [`DESTDIR`](https://www.gnu.org/software/make/manual/html_node/DESTDIR.html)
+  to install on a local repository.<br> e.g.
+
+  ```sh
+  cmake --build build --config Release --target install -v -- DESTDIR=install
+  ```
 
 <a name="bindings"></a>
 

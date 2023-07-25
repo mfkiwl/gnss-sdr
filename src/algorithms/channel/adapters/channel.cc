@@ -34,15 +34,18 @@ Channel::Channel(const ConfigurationInterface* configuration,
     std::shared_ptr<TelemetryDecoderInterface> nav,
     const std::string& role,
     const std::string& signal_str,
-    Concurrent_Queue<pmt::pmt_t>* queue) : acq_(std::move(acq)),
-                                           trk_(std::move(trk)),
-                                           nav_(std::move(nav)),
-                                           role_(role),
-                                           channel_(channel)
+    Concurrent_Queue<pmt::pmt_t>* queue)
+    : acq_(std::move(acq)),
+      trk_(std::move(trk)),
+      nav_(std::move(nav)),
+      role_(role),
+      channel_(channel),
+      glonass_extend_correlation_ms_(configuration->property("Tracking_1G.extend_correlation_ms", 0) + configuration->property("Tracking_2G.extend_correlation_ms", 0)),
+      connected_(false),
+      repeat_(configuration->property("Acquisition_" + signal_str + ".repeat_satellite", false)),
+      flag_enable_fpga_(configuration->property("GNSS-SDR.enable_FPGA", false))
 {
     channel_fsm_ = std::make_shared<ChannelFsm>();
-
-    flag_enable_fpga_ = configuration->property("GNSS-SDR.enable_FPGA", false);
 
     acq_->set_channel(channel_);
     acq_->set_channel_fsm(channel_fsm_);
@@ -53,6 +56,8 @@ Channel::Channel(const ConfigurationInterface* configuration,
     gnss_synchro_.Channel_ID = channel_;
     acq_->set_gnss_synchro(&gnss_synchro_);
     trk_->set_gnss_synchro(&gnss_synchro_);
+
+    repeat_ = configuration->property("Acquisition_" + signal_str + std::to_string(channel_) + ".repeat_satellite", repeat_);
 
     // Provide a warning to the user about the change of parameter name
     if (channel_ == 0)
@@ -89,17 +94,12 @@ Channel::Channel(const ConfigurationInterface* configuration,
     acq_->set_threshold(threshold);
 
     acq_->init();
-    repeat_ = configuration->property("Acquisition_" + signal_str + ".repeat_satellite", false);
-    repeat_ = configuration->property("Acquisition_" + signal_str + std::to_string(channel_) + ".repeat_satellite", repeat_);
-    DLOG(INFO) << "Channel " << channel_ << " satellite repeat = " << repeat_;
 
     channel_fsm_->set_acquisition(acq_);
     channel_fsm_->set_tracking(trk_);
     channel_fsm_->set_telemetry(nav_);
     channel_fsm_->set_channel(channel_);
     channel_fsm_->set_queue(queue);
-
-    connected_ = false;
 
     gnss_signal_ = Gnss_Signal(signal_str);
 
@@ -128,6 +128,10 @@ void Channel::connect(gr::top_block_sptr top_block)
 
     // Message ports
     top_block->msg_connect(nav_->get_left_block(), pmt::mp("telemetry_to_trk"), trk_->get_right_block(), pmt::mp("telemetry_to_trk"));
+    if (glonass_dll_pll_c_aid_tracking_check())
+        {
+            top_block->msg_connect(nav_->get_left_block(), pmt::mp("preamble_timestamp_samples"), trk_->get_right_block(), pmt::mp("preamble_timestamp_samples"));
+        }
     DLOG(INFO) << "tracking -> telemetry_decoder";
 
     // Message ports
@@ -158,6 +162,10 @@ void Channel::disconnect(gr::top_block_sptr top_block)
     nav_->disconnect(top_block);
 
     top_block->msg_disconnect(nav_->get_left_block(), pmt::mp("telemetry_to_trk"), trk_->get_right_block(), pmt::mp("telemetry_to_trk"));
+    if (glonass_dll_pll_c_aid_tracking_check())
+        {
+            top_block->msg_disconnect(nav_->get_left_block(), pmt::mp("preamble_timestamp_samples"), trk_->get_right_block(), pmt::mp("preamble_timestamp_samples"));
+        }
     if (!flag_enable_fpga_)
         {
             top_block->msg_disconnect(acq_->get_right_block(), pmt::mp("events"), channel_msg_rx_, pmt::mp("events"));
@@ -261,4 +269,29 @@ void Channel::start_acquisition()
             return;
         }
     DLOG(INFO) << "Channel start_acquisition()";
+}
+
+bool Channel::glonass_dll_pll_c_aid_tracking_check() const
+{
+    if (glonass_extend_correlation_ms_)
+        {
+            const pmt::pmt_t nav_ports_out = nav_->get_left_block()->message_ports_out();
+            const pmt::pmt_t trk_ports_in = trk_->get_right_block()->message_ports_in();
+            const pmt::pmt_t symbol = pmt::mp("preamble_timestamp_samples");
+            for (unsigned k = 0; k < pmt::length(nav_ports_out); k++)
+                {
+                    if (pmt::vector_ref(nav_ports_out, k) == symbol)
+                        {
+                            for (unsigned j = 0; j < pmt::length(trk_ports_in); j++)
+                                {
+                                    if (pmt::vector_ref(trk_ports_in, j) == symbol)
+                                        {
+                                            return true;
+                                        }
+                                }
+                            return false;
+                        }
+                }
+        }
+    return false;
 }

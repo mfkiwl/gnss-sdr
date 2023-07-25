@@ -34,12 +34,12 @@ set(TRACKING_GR_BLOCKS_SOURCES
     glonass_l1_ca_dll_pll_tracking_cc.cc
     glonass_l1_ca_dll_pll_c_aid_tracking_cc.cc
     glonass_l1_ca_dll_pll_c_aid_tracking_sc.cc
-    gps_l1_ca_kf_tracking_cc.cc
+    gps_l1_ca_gaussian_tracking_cc.cc
     glonass_l2_ca_dll_pll_tracking_cc.cc
     glonass_l2_ca_dll_pll_c_aid_tracking_cc.cc
     glonass_l2_ca_dll_pll_c_aid_tracking_sc.cc
     dll_pll_veml_tracking.cc
-    kf_vtl_tracking.cc
+    kf_tracking.cc
     ${OPT_TRACKING_BLOCKS_SOURCES}
 )
 
@@ -49,12 +49,12 @@ set(TRACKING_GR_BLOCKS_HEADERS
     glonass_l1_ca_dll_pll_tracking_cc.h
     glonass_l1_ca_dll_pll_c_aid_tracking_cc.h
     glonass_l1_ca_dll_pll_c_aid_tracking_sc.h
-    gps_l1_ca_kf_tracking_cc.h
+    gps_l1_ca_gaussian_tracking_cc.h
     glonass_l2_ca_dll_pll_tracking_cc.h
     glonass_l2_ca_dll_pll_c_aid_tracking_cc.h
     glonass_l2_ca_dll_pll_c_aid_tracking_sc.h
     dll_pll_veml_tracking.h
-    kf_vtl_tracking.h
+    kf_tracking.h
     ${OPT_TRACKING_BLOCKS_HEADERS}
 )
 
@@ -96,7 +96,7 @@ endif()
 
 target_include_directories(tracking_gr_blocks
     PUBLIC
-        ${CMAKE_SOURCE_DIR}/src/core/interfaces
+        ${GNSSSDR_SOURCE_DIR}/src/core/interfaces
 )
 
 if(ENABLE_CUDA)
@@ -160,6 +160,13 @@ if(PMT_USES_BOOST_ANY)
     target_link_libraries(tracking_gr_blocks
         PRIVATE
             Boost::headers
+    )
+endif()
+
+if(GNURADIO_IS_38_OR_GREATER)
+    target_compile_definitions(tracking_gr_blocks
+        PRIVATE
+            -DGNURADIO_GREATER_THAN_38=1
     )
 endif()
 

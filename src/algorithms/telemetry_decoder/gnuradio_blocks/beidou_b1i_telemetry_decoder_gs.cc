@@ -264,7 +264,7 @@ void beidou_b1i_telemetry_decoder_gs::decode_subframe(float *frame_symbols)
             d_nav_msg_packet.nav_message = data_bits;
         }
 
-    if (d_satellite.get_PRN() > 0 && d_satellite.get_PRN() < 6)
+    if ((d_satellite.get_PRN() > 0 && d_satellite.get_PRN() < 6) || d_satellite.get_PRN() > 58)
         {
             d_nav.d2_subframe_decoder(data_bits);
         }
@@ -339,7 +339,7 @@ void beidou_b1i_telemetry_decoder_gs::set_satellite(const Gnss_Satellite &satell
     d_nav.set_signal_type(1);  // BDS: data source (0:unknown,1:B1I,2:B1Q,3:B2I,4:B2Q,5:B3I,6:B3Q)
 
     // Update tel dec parameters for D2 NAV Messages
-    if (sat_prn > 0 && sat_prn < 6)
+    if ((sat_prn > 0 && sat_prn < 6) || sat_prn > 58)
         {
             d_symbols_per_preamble = BEIDOU_DNAV_PREAMBLE_LENGTH_SYMBOLS;
             d_samples_per_preamble = BEIDOU_DNAV_PREAMBLE_LENGTH_SYMBOLS;
@@ -402,11 +402,11 @@ void beidou_b1i_telemetry_decoder_gs::set_channel(int32_t channel)
                         {
                             d_dump_filename.append(std::to_string(d_channel));
                             d_dump_filename.append(".dat");
-                            d_dump_file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                            d_dump_file.exceptions(std::ofstream::failbit | std::ofstream::badbit);
                             d_dump_file.open(d_dump_filename.c_str(), std::ios::out | std::ios::binary);
                             LOG(INFO) << "Telemetry decoder dump enabled on channel " << d_channel << " Log file: " << d_dump_filename.c_str();
                         }
-                    catch (const std::ifstream::failure &e)
+                    catch (const std::ofstream::failure &e)
                         {
                             LOG(WARNING) << "channel " << d_channel << ": exception opening Beidou TLM dump file. " << e.what();
                         }
@@ -663,7 +663,7 @@ int beidou_b1i_telemetry_decoder_gs::general_work(int noutput_items __attribute_
                             tmp_int = static_cast<int32_t>(current_symbol.PRN);
                             d_dump_file.write(reinterpret_cast<char *>(&tmp_int), sizeof(int32_t));
                         }
-                    catch (const std::ifstream::failure &e)
+                    catch (const std::ofstream::failure &e)
                         {
                             LOG(WARNING) << "Exception writing Telemetry GPS L5 dump file " << e.what();
                         }

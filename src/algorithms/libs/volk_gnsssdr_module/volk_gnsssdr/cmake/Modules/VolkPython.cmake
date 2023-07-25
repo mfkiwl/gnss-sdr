@@ -16,32 +16,28 @@ set(__INCLUDED_VOLK_PYTHON_CMAKE TRUE)
 # - cmd an additional command to run
 # - have the result variable to set
 ########################################################################
-macro(VOLK_PYTHON_CHECK_MODULE_RAW desc python_code have)
+macro(VOLK_PYTHON_CHECK_MODULE desc mod cmd have)
+    message(STATUS "Python checking for ${desc}")
     execute_process(
-        COMMAND ${PYTHON_EXECUTABLE} -c "${python_code}"
+        COMMAND ${PYTHON_EXECUTABLE} -c "
+#########################################
+try: import ${mod}
+except:
+    try: ${mod}
+    except: exit(-1)
+try: assert ${cmd}
+except: exit(-1)
+#########################################"
         OUTPUT_QUIET ERROR_QUIET
-        RESULT_VARIABLE return_code
+        RESULT_VARIABLE ${have}
     )
-    if(return_code EQUAL 0)
+    if(${have} EQUAL 0)
         message(STATUS "Python checking for ${desc} - found")
         set(${have} TRUE)
     else()
         message(STATUS "Python checking for ${desc} - not found")
         set(${have} FALSE)
     endif()
-endmacro()
-
-macro(VOLK_PYTHON_CHECK_MODULE desc mod cmd have)
-    volk_python_check_module_raw(
-        "${desc}" "
-#########################################
-try:
-    import ${mod}
-    assert ${cmd}
-except (ImportError, AssertionError): exit(-1)
-except: pass
-#########################################"
-    "${have}")
 endmacro()
 
 
@@ -57,6 +53,9 @@ if(CMAKE_VERSION VERSION_LESS 3.12 OR CMAKE_CROSSCOMPILING)
     if(PYTHON_EXECUTABLE)
         message(STATUS "User set python executable ${PYTHON_EXECUTABLE}")
         find_package(PythonInterp ${VOLK_PYTHON_MIN_VERSION} REQUIRED)
+        if(PYTHON_VERSION_STRING VERSION_LESS "3.0")
+            volk_python_check_module("six - python 2 and 3 compatibility library" six "True" SIX_FOUND)
+        endif()
     else()
         message(STATUS "PYTHON_EXECUTABLE not set - trying by default python3")
         message(STATUS "Use -DPYTHON_EXECUTABLE=/path/to/python to build for python 2.7")
@@ -65,12 +64,18 @@ if(CMAKE_VERSION VERSION_LESS 3.12 OR CMAKE_CROSSCOMPILING)
         if(NOT PYTHONINTERP_FOUND)
             message(STATUS "python3 not found - trying with python2.7")
             find_package(PythonInterp ${VOLK_PYTHON_MIN_VERSION} REQUIRED)
+            volk_python_check_module("six - python 2 and 3 compatibility library" six "True" SIX_FOUND)
         endif()
     endif()
+    volk_python_check_module("mako >= 0.4.2" mako "mako.__version__ >= '0.4.2'" MAKO_FOUND)
 else()
     if(PYTHON_EXECUTABLE)
         message(STATUS "User set python executable ${PYTHON_EXECUTABLE}")
         find_package(PythonInterp ${VOLK_PYTHON_MIN_VERSION} REQUIRED)
+        volk_python_check_module("mako >= 0.4.2" mako "mako.__version__ >= '0.4.2'" MAKO_FOUND)
+        if(PYTHON_VERSION_STRING VERSION_LESS "3.0")
+            volk_python_check_module("six - python 2 and 3 compatibility library" six "True" SIX_FOUND)
+        endif()
     else()
         if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
             set(_previous ${CMAKE_FIND_FRAMEWORK})
@@ -98,6 +103,7 @@ else()
             if(NOT MAKO_FOUND OR NOT SIX_FOUND)
                 unset(PYTHON_EXECUTABLE)
                 find_package(PythonInterp ${VOLK_PYTHON_MIN_VERSION})
+                volk_python_check_module("mako >= 0.4.2" mako "mako.__version__ >= '0.4.2'" MAKO_FOUND)
             endif()
         endif()
     endif()
@@ -112,7 +118,18 @@ endif()
 # Sets the python installation directory VOLK_PYTHON_DIR
 ########################################################################
 if(NOT DEFINED VOLK_PYTHON_DIR)
-execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "
+    if(PYTHON_VERSION_STRING VERSION_GREATER "3.9.99")
+        execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "
+import os
+import sys
+if os.name == 'posix':
+    print(os.path.join('lib', 'python' + sys.version[:4], 'dist-packages'))
+if os.name == 'nt':
+    print(os.path.join('Lib', 'site-packages'))
+" OUTPUT_VARIABLE VOLK_PYTHON_DIR OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+    else()
+        execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "
 import os
 import sys
 if os.name == 'posix':
@@ -120,7 +137,8 @@ if os.name == 'posix':
 if os.name == 'nt':
     print(os.path.join('Lib', 'site-packages'))
 " OUTPUT_VARIABLE VOLK_PYTHON_DIR OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+        )
+    endif()
 endif()
 file(TO_CMAKE_PATH ${VOLK_PYTHON_DIR} VOLK_PYTHON_DIR)
 

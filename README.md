@@ -23,16 +23,20 @@ position fixes) the following Global Navigation Satellite System's signals:
 
 In the L1 band:
 
-- &#128752; GLONASS L1 C/A (centered at 1602.00 MHz) :white_check_mark:
-- &#128752; GPS L1 C/A (centered at 1575.42 MHz) :white_check_mark:
-- &#128752; Galileo E1b/c (centered at 1575.42 MHz) :white_check_mark:
+- &#128752; GLONASS L1 C/A (centered at 1602.000 MHz) :white_check_mark:
+- &#128752; GPS L1 C/A (centered at 1575.420 MHz) :white_check_mark:
+- &#128752; Galileo E1b/c (centered at 1575.420 MHz) :white_check_mark:
 - &#128752; BeiDou B1I (centered at 1561.098 MHz) :white_check_mark:
+
+In the E6 band:
+
+- &#128752; Galileo E6B (centered at 1278.750 MHz) :white_check_mark:
 
 In the L2 band:
 
 - &#128752; BeiDou B3I (centered at 1268.520 MHz) :white_check_mark:
-- &#128752; GLONASS L2 C/A (centered at 1246.00 MHz) :white_check_mark:
-- &#128752; GPS L2C (centered at 1227.60 MHz) :white_check_mark:
+- &#128752; GLONASS L2 C/A (centered at 1246.000 MHz) :white_check_mark:
+- &#128752; GPS L2C (centered at 1227.600 MHz) :white_check_mark:
 
 In the L5 band:
 
@@ -55,58 +59,60 @@ information about this open-source, software-defined GNSS receiver.
 <summary><b>(click to expand)</b></summary>
 <!-- MarkdownTOC -->
 
-1. [How to build GNSS-SDR](#how-to-build-gnss-sdr)
+1. [Table of Contents](#table-of-contents)
+2. [How to build GNSS-SDR](#how-to-build-gnss-sdr)
    1. [GNU/Linux](#gnulinux)
       1. [Alternative 1: Install dependencies using software packages](#alternative-1-install-dependencies-using-software-packages)
-         - [Debian / Ubuntu](#debian--ubuntu)
-         - [Arch Linux](#arch-linux)
-         - [CentOS](#centos)
-         - [Fedora](#fedora)
-         - [OpenSUSE](#opensuse)
-         - [Rocky Linux](#rocky-linux)
-      1. [Alternative 2: Install dependencies using PyBOMBS](#alternative-2-install-dependencies-using-pybombs)
-         - [Manual installation of other required dependencies](#manual-installation-of-other-required-dependencies)
-           - [Armadillo](#install-armadillo-a-c-linear-algebra-library)
-           - [gflags](#install-gflags-a-commandline-flags-processing-module-for-c)
-           - [google-glog](#install-glog-a-library-that-implements-application-level-logging)
-           - [googletest](#download-the-google-c-testing-framework-also-known-as-google-test)
-           - [GnuTLS or OpenSSL](#install-the-gnutls-or-openssl-libraries)
-           - [matio](#install-matio-matlab-mat-file-io-library)
-           - [Protocol Buffers](#install-protocol-buffers-a-portable-mechanism-for-serialization-of-structured-data)
-           - [pugixml](#install-pugixml-a-light-weight-c-xml-processing-library)
-      1. [Clone GNSS-SDR's Git repository](#clone-gnss-sdrs-git-repository)
-      1. [Build and install GNSS-SDR](#build-and-install-gnss-sdr)
-         - [Build OsmoSDR support (optional)](#build-osmosdr-support-optional)
-         - [Build IIO support (optional)](#build-fmcomms2-based-sdr-hardware-support-optional)
-         - [Build OpenCL support (optional)](#build-opencl-support-optional)
-         - [Build CUDA support (optional)](#build-cuda-support-optional)
-         - [Build a portable binary](#build-a-portable-binary)
-   1. [macOS](#macos)
+         1. [Debian / Ubuntu](#debian--ubuntu)
+         2. [AlmaLinux](#almalinux)
+         3. [Arch Linux](#arch-linux)
+         4. [CentOS](#centos)
+         5. [Fedora](#fedora)
+         6. [openSUSE](#opensuse)
+         7. [Rocky Linux](#rocky-linux)
+      2. [Alternative 2: Install dependencies using PyBOMBS](#alternative-2-install-dependencies-using-pybombs)
+      3. [Manual installation of other required dependencies](#manual-installation-of-other-required-dependencies)
+         1. [Install Armadillo, a C++ linear algebra library](#install-armadillo-a-c-linear-algebra-library)
+         2. [Install Gflags, a commandline flags processing module for C++](#install-gflags-a-commandline-flags-processing-module-for-c)
+         3. [Install Glog, a library that implements application-level logging](#install-glog-a-library-that-implements-application-level-logging)
+         4. [Install the GnuTLS or OpenSSL libraries](#install-the-gnutls-or-openssl-libraries)
+         5. [Install Matio, MATLAB MAT file I/O library](#install-matio-matlab-mat-file-io-library)
+         6. [Install Protocol Buffers, a portable mechanism for serialization of structured data](#install-protocol-buffers-a-portable-mechanism-for-serialization-of-structured-data)
+         7. [Install Pugixml, a light-weight C++ XML processing library](#install-pugixml-a-light-weight-c-xml-processing-library)
+         8. [Download GoogleTest](#download-googletest)
+      4. [Clone GNSS-SDR's Git repository](#clone-gnss-sdrs-git-repository)
+      5. [Build and install GNSS-SDR](#build-and-install-gnss-sdr)
+         1. [Build OSMOSDR support (OPTIONAL)](#build-osmosdr-support-optional)
+         2. [Build FMCOMMS2 based SDR Hardware support (OPTIONAL)](#build-fmcomms2-based-sdr-hardware-support-optional)
+         3. [Build OpenCL support (OPTIONAL)](#build-opencl-support-optional)
+         4. [Build CUDA support (OPTIONAL)](#build-cuda-support-optional)
+   2. [macOS](#macos)
       1. [Macports](#macports)
-      1. [Homebrew](#homebrew)
-      1. [Build GNSS-SDR](#build-gnss-sdr)
-   1. [Other builds](#other-builds)
-1. [Updating GNSS-SDR](#updating-gnss-sdr)
-1. [Getting started](#getting-started)
-1. [Using GNSS-SDR](#using-gnss-sdr)
-   1. [Control Plane](#control-plane)
+      2. [Homebrew](#homebrew)
+      3. [Other package managers](#other-package-managers)
+      4. [Build GNSS-SDR](#build-gnss-sdr)
+   3. [Other builds](#other-builds)
+3. [Updating GNSS-SDR](#updating-gnss-sdr)
+4. [Getting started](#getting-started)
+5. [Using GNSS-SDR](#using-gnss-sdr)
+   1. [Control plane](#control-plane)
       1. [Configuration](#configuration)
-      1. [GNSS block factory](#gnss-block-factory)
-   1. [Signal Processing Plane](#signal-processing-plane)
+      2. [GNSS block factory](#gnss-block-factory)
+   2. [Signal Processing plane](#signal-processing-plane)
       1. [Signal Source](#signal-source)
-      1. [Signal Conditioner](#signal-conditioner)
-         - [Data type adapter](#data-type-adapter)
-         - [Input filter](#input-filter)
-         - [Resampler](#resampler)
-      1. [Channel](#channel)
-         - [Acquisition](#acquisition)
-         - [Tracking](#tracking)
-         - [Decoding of the navigation message](#decoding-of-the-navigation-message)
-      1. [Observables](#observables)
-      1. [Computation of Position, Velocity and Time](#computation-of-position-velocity-and-time)
-1. [About the software license](#about-the-software-license)
-1. [Publications and Credits](#publications-and-credits)
-1. [Ok, now what?](#ok-now-what)
+      2. [Signal Conditioner](#signal-conditioner)
+         1. [Data type adapter](#data-type-adapter)
+         2. [Input filter](#input-filter)
+         3. [Resampler](#resampler)
+      3. [Channel](#channel)
+         1. [Acquisition](#acquisition)
+         2. [Tracking](#tracking)
+         3. [Decoding of the navigation message](#decoding-of-the-navigation-message)
+      4. [Observables](#observables)
+      5. [Computation of Position, Velocity, and Time](#computation-of-position-velocity-and-time)
+6. [About the software license](#about-the-software-license)
+7. [Publications and Credits](#publications-and-credits)
+8. [Ok, now what?](#ok-now-what)
 
 <!-- /MarkdownTOC -->
 </details>
@@ -114,12 +120,12 @@ information about this open-source, software-defined GNSS receiver.
 # How to build GNSS-SDR
 
 This section describes how to set up the compilation environment in GNU/Linux or
-[macOS / Mac OS X](#macosx), and to build GNSS-SDR. See also our
+[macOS / Mac OS X](#macos), and to build GNSS-SDR. See also our
 [build and install page](https://gnss-sdr.org/build-and-install/ "GNSS-SDR's Build and Install").
 
 ## GNU/Linux
 
-- Tested distributions: Ubuntu 14.04 LTS and above; Debian 8.0 "jessie" and
+- Tested distributions: Ubuntu 14.04 LTS and above; Debian 9.0 "stretch" and
   above; Arch Linux; CentOS 7; Fedora 26 and above; OpenSUSE 42.3 and above.
 - Supported microprocessor architectures:
   - i386: Intel x86 instruction set (32-bit microprocessors).
@@ -136,6 +142,7 @@ This section describes how to set up the compilation environment in GNU/Linux or
     Motorola (now Freescale), and Apple.
   - ppc64: 64-bit big-endian PowerPC architecture.
   - ppc64el: 64-bit little-endian PowerPC architecture.
+  - riscv64: 64-bit RISC-V open standard instruction set architecture.
   - s390x: IBM System z architecture for mainframe computers.
 
 Older distribution releases might work as well, but you will need GCC 4.7 or
@@ -153,7 +160,7 @@ packages.
 
 #### Debian / Ubuntu
 
-If you are using Debian 8, Ubuntu 14.10 or above, this can be done by copying
+If you are using Debian 9, Ubuntu 14.10 or above, this can be done by copying
 and pasting the following line in a terminal:
 
 ```
@@ -165,10 +172,9 @@ $ sudo apt-get install build-essential cmake git pkg-config libboost-dev libboos
        libprotobuf-dev protobuf-compiler python3-mako
 ```
 
-Please note that the required files from `libgtest-dev` were moved to
-`googletest` in Debian 9 "stretch" and Ubuntu 18.04 "bionic", and moved back
-again to `libgtest-dev` in Debian 10 "buster" and Ubuntu 18.10 "cosmic" (and
-above).
+Please note that the required files from `libgtest-dev` were named `googletest`
+in Debian 9 "stretch" and Ubuntu 18.04 "bionic", and renamed to `libgtest-dev`
+in Debian 10 "buster" and above.
 
 Since Ubuntu 21.04 Hirsute / Debian 11, the package `libcpu-features-dev` is
 also required.
@@ -188,12 +194,28 @@ In distributions older than Ubuntu 16.04 or Debian 9, `python3-mako` must be
 replaced by `python-mako`. For Ubuntu 14.04, you will need to add the package
 `python-six` to the list of dependencies.
 
-**Note for Debian 8 "jessie" users:** please see the note about `libmatio-dev`
-above. Install `libtool`, `automake` and `libhdf5-dev` instead. You will also
-need `python-six`.
+Once you have installed these packages, you can jump directly to
+[download the source code and build GNSS-SDR](#clone-gnss-sdrs-git-repository).
+
+#### AlmaLinux
+
+If you are using AlmaLinux:
+
+```
+# dnf update -y
+# dnf install -y 'dnf-command(config-manager)'
+# dnf config-manager --set-enabled powertools
+# dnf install -y epel-release
+# dnf install -y make gcc gcc-c++ kernel-devel cmake git boost-devel \
+      boost-date-time boost-system boost-thread boost-chrono \
+      boost-serialization log4cpp-devel gmp-devel uhd-devel gnuradio-devel \
+      pugixml-devel matio-devel protobuf-devel glog-devel libpcap-devel \
+      blas-devel lapack-devel armadillo-devel openssl-devel python3-mako \
+      libarchive
+```
 
 Once you have installed these packages, you can jump directly to
-[download the source code and build GNSS-SDR](#download-and-build-linux).
+[download the source code and build GNSS-SDR](#clone-gnss-sdrs-git-repository).
 
 #### Arch Linux
 
@@ -206,7 +228,7 @@ $ pacman -S gcc make cmake pkgconf git boost boost-libs log4cpp libvolk gnuradio
 ```
 
 Once you have installed these packages, you can jump directly to
-[download the source code and build GNSS-SDR](#download-and-build-linux).
+[download the source code and build GNSS-SDR](#clone-gnss-sdrs-git-repository).
 
 #### CentOS
 
@@ -225,7 +247,7 @@ $ sudo yum install make automake gcc gcc-c++ kernel-devel libtool \
 ```
 
 Once you have installed these packages, you can jump directly to
-[download the source code and build GNSS-SDR](#download-and-build-linux).
+[download the source code and build GNSS-SDR](#clone-gnss-sdrs-git-repository).
 
 #### Fedora
 
@@ -271,7 +293,7 @@ $ zypper install cmake git gcc-c++ boost-devel libboost_atomic-devel \
 ```
 
 Once you have installed these packages, you can jump directly to
-[download the source code and build GNSS-SDR](#download-and-build-linux).
+[download the source code and build GNSS-SDR](#clone-gnss-sdrs-git-repository).
 
 #### Rocky Linux
 
@@ -289,7 +311,7 @@ $ yum install -y make gcc gcc-c++ kernel-devel cmake git boost-devel \
 ```
 
 Once you have installed these packages, you can jump directly to
-[download the source code and build GNSS-SDR](#download-and-build-linux).
+[download the source code and build GNSS-SDR](#clone-gnss-sdrs-git-repository).
 
 ### Alternative 2: Install dependencies using PyBOMBS
 
@@ -370,20 +392,20 @@ $ pybombs install armadillo gflags glog gnutls matio
 ```
 
 or manually as explained below, and then please follow instructions on how to
-[download the source code and build GNSS-SDR](#download-and-build-linux).
+[download the source code and build GNSS-SDR](#clone-gnss-sdrs-git-repository).
 
 ### Manual installation of other required dependencies
 
-#### Install [Armadillo](http://arma.sourceforge.net/ "Armadillo's Homepage"), a C++ linear algebra library:
+#### Install [Armadillo](http://arma.sourceforge.net/ "Armadillo's Homepage"), a C++ linear algebra library
 
 ```
 $ sudo apt-get install libblas-dev liblapack-dev       # For Debian/Ubuntu/LinuxMint
 $ sudo yum install lapack-devel blas-devel             # For Fedora/CentOS/RHEL
 $ sudo zypper install lapack-devel blas-devel          # For OpenSUSE
 $ sudo pacman -S blas lapack                           # For Arch Linux
-$ wget https://sourceforge.net/projects/arma/files/armadillo-10.8.0.tar.xz
-$ tar xvfz armadillo-10.8.0.tar.xz
-$ cd armadillo-10.8.0
+$ wget https://sourceforge.net/projects/arma/files/armadillo-12.0.1.tar.xz
+$ tar xvfz armadillo-12.0.1.tar.xz
+$ cd armadillo-12.0.1
 $ cmake .
 $ make
 $ sudo make install
@@ -396,7 +418,7 @@ correspondingly. CMake will also generate a run-time armadillo library, which is
 a combined alias for all the relevant libraries present on your system (e.g.,
 BLAS, LAPACK, and ATLAS).
 
-#### Install [Gflags](https://github.com/gflags/gflags "Gflags' Homepage"), a commandline flags processing module for C++:
+#### Install [Gflags](https://github.com/gflags/gflags "Gflags' Homepage"), a commandline flags processing module for C++
 
 ```
 $ wget https://github.com/gflags/gflags/archive/v2.2.2.tar.gz
@@ -408,12 +430,12 @@ $ sudo make install
 $ sudo ldconfig
 ```
 
-#### Install [Glog](https://github.com/google/glog "Glog's Homepage"), a library that implements application-level logging:
+#### Install [Glog](https://github.com/google/glog "Glog's Homepage"), a library that implements application-level logging
 
 ```
-$ wget https://github.com/google/glog/archive/v0.5.0.tar.gz
-$ tar xvfz v0.5.0.tar.gz
-$ cd glog-0.5.0
+$ wget https://github.com/google/glog/archive/v0.6.0.tar.gz
+$ tar xvfz v0.6.0.tar.gz
+$ cd glog-0.6.0
 $ mkdir build && cd build
 $ cmake ..
 $ make
@@ -421,11 +443,67 @@ $ sudo make install
 $ sudo ldconfig
 ```
 
-#### Download the [Google C++ Testing Framework](https://github.com/google/googletest "Googletest Homepage"), also known as Google Test:
+#### Install the GnuTLS or OpenSSL libraries
 
 ```
-$ wget https://github.com/google/googletest/archive/release-1.11.0.zip
-$ unzip release-1.11.0.zip
+$ sudo apt-get install libgnutls-openssl-dev    # For Debian/Ubuntu/LinuxMint
+$ sudo yum install openssl-devel                # For Fedora/CentOS/RHEL
+$ sudo zypper install openssl-devel             # For OpenSUSE
+$ sudo pacman -S openssl                        # For Arch Linux
+```
+
+In case the [GnuTLS](https://www.gnutls.org/ "GnuTLS's Homepage") library with
+openssl extensions package is not available in your GNU/Linux distribution,
+GNSS-SDR can also work well with
+[OpenSSL](https://www.openssl.org/ "OpenSSL's Homepage").
+
+#### Install [Matio](https://github.com/tbeu/matio "Matio's Homepage"), MATLAB MAT file I/O library
+
+```
+$ wget https://github.com/tbeu/matio/releases/download/v1.5.23/matio-1.5.23.tar.gz
+$ tar xvfz matio-1.5.23.tar.gz
+$ cd matio-1.5.23
+$ ./configure
+$ make
+$ sudo make install
+$ sudo ldconfig
+```
+
+#### Install [Protocol Buffers](https://developers.google.com/protocol-buffers/ "Protocol Buffers' Homepage"), a portable mechanism for serialization of structured data
+
+GNSS-SDR requires Protocol Buffers v3.0.0 or later. If the packages that come
+with your distribution are older than that (_e.g._, Ubuntu 16.04 Xenial came
+with an older versions), then you will need to install it manually:
+
+```
+$ git clone --recursive https://github.com/protocolbuffers/protobuf.git
+$ cd protobuf
+$ cmake -DABSL_PROPAGATE_CXX_STD=ON -Dprotobuf_BUILD_TESTS=OFF .
+$ cmake --build --config Release --target install .
+$ sudo ldconfig
+```
+
+For more options, please check the
+[Protocol Buffers' installation instructions](https://github.com/protocolbuffers/protobuf/blob/main/src/README.md/).
+
+#### Install [Pugixml](https://pugixml.org/ "Pugixml's Homepage"), a light-weight C++ XML processing library
+
+```
+$ wget https://github.com/zeux/pugixml/releases/download/v1.13/pugixml-1.13.tar.gz
+$ tar xvfz pugixml-1.13.tar.gz
+$ cd pugixml-1.13
+$ mkdir build && cd build
+$ cmake ..
+$ make
+$ sudo make install
+$ sudo ldconfig
+```
+
+#### Download [GoogleTest](https://github.com/google/googletest "Googletest Homepage")
+
+```
+$ wget https://github.com/google/googletest/archive/refs/tags/v1.13.0.zip
+$ unzip v1.13.0.zip
 ```
 
 Please **DO NOT build or install** Google Test. Every user needs to compile
@@ -449,77 +527,18 @@ downloaded resides. Just type in your terminal (or add it to your
 `$HOME/.bashrc` file for a permanent solution) the following line:
 
 ```
-export GTEST_DIR=/home/username/googletest-release-1.11.0
+export GTEST_DIR=/home/username/googletest-1.13.0
 ```
 
-changing `/home/username/googletest-release-1.11.0` by the actual path where you
+changing `/home/username/googletest-1.13.0` by the actual path where you
 unpacked Google Test. If the CMake script does not find that folder, or the
 environment variable is not defined, or the source code is not installed by a
 package, then it will download a fresh copy of the Google Test source code and
 will compile and link it for you.
 
-#### Install the [GnuTLS](https://www.gnutls.org/ "GnuTLS's Homepage") or [OpenSSL](https://www.openssl.org/ "OpenSSL's Homepage") libraries:
+<a name="download-and-build-linux"></a>
 
-```
-$ sudo apt-get install libgnutls-openssl-dev    # For Debian/Ubuntu/LinuxMint
-$ sudo yum install openssl-devel                # For Fedora/CentOS/RHEL
-$ sudo zypper install openssl-devel             # For OpenSUSE
-$ sudo pacman -S openssl                        # For Arch Linux
-```
-
-In case the GnuTLS library with openssl extensions package is not available in
-your GNU/Linux distribution, GNSS-SDR can also work well with OpenSSL.
-
-#### Install [Matio](https://github.com/tbeu/matio "Matio's Homepage"), MATLAB MAT file I/O library:
-
-```
-$ wget https://github.com/tbeu/matio/releases/download/v1.5.23/matio-1.5.23.tar.gz
-$ tar xvfz matio-1.5.23.tar.gz
-$ cd matio-1.5.23
-$ ./configure
-$ make
-$ sudo make install
-$ sudo ldconfig
-```
-
-#### Install [Protocol Buffers](https://developers.google.com/protocol-buffers/ "Protocol Buffers' Homepage"), a portable mechanism for serialization of structured data:
-
-GNSS-SDR requires Protocol Buffers v3.0.0 or later. If the packages that come
-with your distribution are older than that (_e.g._, Ubuntu 16.04 Xenial and
-Debian 8 Jessie came with older versions), then you will need to install it
-manually. First, install the dependencies:
-
-```
-$ sudo apt-get install autoconf automake libtool curl make g++ unzip
-```
-
-and then:
-
-```
-$ wget https://github.com/protocolbuffers/protobuf/releases/download/v3.20.0/protobuf-cpp-3.20.0.tar.gz
-$ tar xvfz protobuf-cpp-3.20.0.tar.gz
-$ cd protobuf-3.20.0
-$ ./autogen.sh
-$ ./configure
-$ make
-$ sudo make install
-$ sudo ldconfig
-```
-
-#### Install [Pugixml](https://pugixml.org/ "Pugixml's Homepage"), a light-weight C++ XML processing library:
-
-```
-$ wget https://github.com/zeux/pugixml/releases/download/v1.12/pugixml-1.12.tar.gz
-$ tar xvfz pugixml-1.12.tar.gz
-$ cd pugixml-1.12
-$ mkdir build && cd build
-$ cmake ..
-$ make
-$ sudo make install
-$ sudo ldconfig
-```
-
-### <a name="download-and-build-linux">Clone GNSS-SDR's Git repository</a>:
+### Clone GNSS-SDR's Git repository
 
 ```
 $ git clone https://github.com/gnss-sdr/gnss-sdr
@@ -658,7 +677,7 @@ and then import the created project into Eclipse:
 After building the project, you will find the generated binaries at
 `eclipse/install`.
 
-###### Build OSMOSDR support (OPTIONAL):
+#### Build OSMOSDR support (OPTIONAL)
 
 Install the [OsmoSDR](https://osmocom.org/projects/sdr "OsmoSDR's Homepage")
 library and GNU Radio's source block:
@@ -694,7 +713,7 @@ $ sudo make install
 (in order to disable the `Osmosdr_Signal_Source` compilation, you can pass
 `-DENABLE_OSMOSDR=OFF` to cmake and build GNSS-SDR again).
 
-###### Build FMCOMMS2 based SDR Hardware support (OPTIONAL):
+#### Build FMCOMMS2 based SDR Hardware support (OPTIONAL)
 
 Install the [libiio](https://github.com/analogdevicesinc/libiio.git) (>=v0.11),
 [libad9361](https://github.com/analogdevicesinc/libad9361-iio.git) (>=v0.1-1)
@@ -750,7 +769,7 @@ The `Plutosdr_Signal_Source` offers a simpler manner to use the ADALM-PLUTO
 because implements only a subset of FMCOMMS2's parameters valid for those
 devices.
 
-###### Build OpenCL support (OPTIONAL):
+#### Build OpenCL support (OPTIONAL)
 
 In order to enable the building of blocks that use OpenCL, type:
 
@@ -760,7 +779,7 @@ $ make
 $ sudo make install
 ```
 
-###### Build CUDA support (OPTIONAL):
+#### Build CUDA support (OPTIONAL)
 
 In order to enable the building of blocks that use CUDA, NVIDIA's parallel
 programming model that enables graphics processing unit (GPU) acceleration for
@@ -777,27 +796,7 @@ $ sudo make install
 Of course, you will also need a GPU that
 [supports CUDA](https://developer.nvidia.com/cuda-gpus "CUDA GPUs").
 
-###### Build a portable binary
-
-In order to build an executable that not depends on the specific SIMD
-instruction set that is present in the processor of the compiling machine, so
-other users can execute it in other machines without those particular sets, use:
-
-```
-$ cmake -DENABLE_GENERIC_ARCH=ON ..
-$ make
-$ sudo make install
-```
-
-Using this option, all SIMD instructions are exclusively accessed via VOLK,
-which automatically includes versions of each function for different SIMD
-instruction sets, then detects at runtime which to use, or if there are none,
-substitutes a generic, non-SIMD implementation.
-
-More details can be found in our tutorial about
-[GNSS-SDR configuration options at building time](https://gnss-sdr.org/docs/tutorials/using-git/ "Configuration options at building time").
-
-## <a name="macosx">macOS</a>
+## macOS
 
 GNSS-SDR can be built on macOS (or the former Mac OS X), starting from 10.9
 (Mavericks) and including 11 (Big Sur). If you still have not installed
@@ -820,7 +819,7 @@ $ sudo xcodebuild -license
 Software pre-requisites can be installed using either [Macports](#macports) or
 [Homebrew](#homebrew).
 
-#### <a name="macports">Macports</a>
+### Macports
 
 First, [install Macports](https://www.macports.org/install.php). If you are
 upgrading from a previous installation, please follow the
@@ -850,7 +849,7 @@ and you can activate a certain version by typing:
 $ sudo port select --set python python37
 ```
 
-#### <a name="homebrew">Homebrew</a>
+### Homebrew
 
 First, install [Homebrew](https://brew.sh/). Paste this in a terminal prompt:
 
@@ -879,7 +878,32 @@ $ brew install --cask mactex  # when completed, restart Terminal
 $ brew install graphviz doxygen
 ```
 
-#### Build GNSS-SDR
+### Other package managers
+
+GNU Radio and other dependencies can also be installed using other package
+managers than Macports, such as [Fink](http://www.finkproject.org/ "Fink").
+Since the version of Python that ships with OS X is great for learning but it is
+not good for development, you could have another Python executable in a
+non-standard location. If that is the case, you need to inform GNSS-SDR's
+configuration system by defining the `PYTHON_EXECUTABLE` variable as:
+
+```
+$ cmake -DPYTHON_EXECUTABLE=/path/to/bin/python3 ..
+```
+
+In case you have installed Macports in a non-standard location, you can use:
+
+```
+$ cmake -DCMAKE_PREFIX_PATH=/opt/local -DUSE_MACPORTS_PYTHON=/opt/local/bin/python ..
+```
+
+changing `/opt/local` by the base directory in which your software is installed.
+
+The CMake script will create Makefiles that download, build and link Armadillo,
+Gflags, Glog, Matio, Protocol Buffers, PugiXML and Google Test on the fly at
+compile time if they are not detected in your machine.
+
+### Build GNSS-SDR
 
 Finally, you are ready to clone the GNSS-SDR repository, configure and build the
 software:
@@ -926,32 +950,6 @@ the function to execute. It mimics GNU Radio's [VOLK](https://www.libvolk.org/)
 library, so if you still have not run `volk_profile`, this is a good moment to
 do so.
 
-###### Other package managers
-
-GNU Radio and other dependencies can also be installed using other package
-managers than Macports, such as [Fink](http://www.finkproject.org/ "Fink") or
-[Homebrew](https://brew.sh/ "Homebrew"). Since the version of Python that ships
-with OS X is great for learning but it is not good for development, you could
-have another Python executable in a non-standard location. If that is the case,
-you need to inform GNSS-SDR's configuration system by defining the
-`PYTHON_EXECUTABLE` variable as:
-
-```
-cmake -DPYTHON_EXECUTABLE=/path/to/bin/python3 ..
-```
-
-In case you have installed Macports in a non-standard location, you can use:
-
-```
-$ cmake -DCMAKE_PREFIX_PATH=/opt/local -DUSE_MACPORTS_PYTHON=/opt/local/bin/python ..
-```
-
-changing `/opt/local` by the base directory in which your software is installed.
-
-The CMake script will create Makefiles that download, build and link Armadillo,
-Gflags, Glog, Matio, Protocol Buffers, PugiXML and Google Test on the fly at
-compile time if they are not detected in your machine.
-
 ## Other builds
 
 - **Docker image**: A technology providing operating-system-level virtualization
@@ -975,10 +973,10 @@ compile time if they are not detected in your machine.
 - **GNSS-SDR in embedded platforms**: we provide a Software Development Kit
   (SDK) based on [OpenEmbedded](http://www.openembedded.org/wiki/Main_Page) for
   cross-compiling GNSS-SDR in your desktop computer and for producing
-  executables that can run in embedded platforms, such as a Zedboard or a
-  Raspberry Pi 3. Visit
-  [Cross-compiling GNSS-SDR](https://gnss-sdr.org/docs/tutorials/cross-compiling/)
-  for instructions.
+  executables that can run in embedded platforms, such as Xilinx's Zynq and
+  ZynqMP architectures, Raspberry Pi, and many others. Please check
+  [yocto-geniux](https://github.com/carlesfernandez/yocto-geniux) for
+  instructions on how to build bootable images.
 
 # Updating GNSS-SDR
 
@@ -1660,6 +1658,7 @@ identifiers:
 | Galileo E1b/c  |       1B       |
 | Glonass L1 C/A |       1G       |
 | Beidou B1I     |       B1       |
+| Galileo E6B    |       E6       |
 | Beidou B3I     |       B3       |
 | GPS L2 L2C(M)  |       2S       |
 | Glonass L2 C/A |       2G       |
@@ -1913,7 +1912,7 @@ TelemetryDecoder_1B.dump=false
 More documentation at the
 [Telemetry Decoder Blocks page](https://gnss-sdr.org/docs/sp-blocks/telemetry-decoder/).
 
-#### Observables
+### Observables
 
 GNSS systems provide different kinds of observations. The most commonly used are
 the code observations, also called pseudoranges. The _pseudo_ comes from the
@@ -1941,7 +1940,7 @@ Observables.dump_filename=./observables.dat
 More documentation at the
 [Observables Blocks page](https://gnss-sdr.org/docs/sp-blocks/observables/).
 
-#### Computation of Position, Velocity and Time
+### Computation of Position, Velocity, and Time
 
 Although data processing for obtaining high-accuracy PVT solutions is out of the
 scope of GNSS-SDR, we provide a module that can compute position fixes (stored
@@ -2039,10 +2038,10 @@ PVT.rtcm_MT1077_rate_ms=1000
   the user to post-process the received data to produce a more accurate result
   (usually with other data unknown to the original receiver, such as better
   models of the atmospheric conditions at time of measurement). RINEX files can
-  be used by software packages such as [GPSTk](https://github.com/SGL-UT/GPSTk),
-  [RTKLIB](http://www.rtklib.com/), and [gLAB](https://gage.upc.edu/gLAB/).
-  GNSS-SDR by default generates RINEX version
-  [3.02](ftp://igs.org/pub/data/format/rinex302.pdf). If
+  be used by software packages such as
+  [GNSSTK](https://github.com/SGL-UT/gnsstk), [RTKLIB](http://www.rtklib.com/),
+  and [gLAB](https://gage.upc.edu/gLAB/). GNSS-SDR by default generates RINEX
+  version [3.02](ftp://igs.org/pub/data/format/rinex302.pdf). If
   [2.11](ftp://igs.org/pub/data/format/rinex211.txt) is needed, it can be
   requested through the `rinex_version` parameter in the configuration file:
 

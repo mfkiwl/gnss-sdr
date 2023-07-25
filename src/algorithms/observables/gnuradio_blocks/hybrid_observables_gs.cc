@@ -26,6 +26,7 @@
 #include <glog/logging.h>
 #include <gnuradio/io_signature.h>
 #include <matio.h>
+#include <pmt/pmt.h>
 #include <algorithm>  // for std::min
 #include <array>
 #include <cmath>      // for round
@@ -99,20 +100,6 @@ hybrid_observables_gs::hybrid_observables_gs(const Obs_Conf &conf_)
     d_channel_last_pseudorange_smooth = std::vector<double>(d_nchannels_out, 0.0);
     d_channel_last_carrier_phase_rads = std::vector<double>(d_nchannels_out, 0.0);
 
-    d_mapStringValues["1C"] = evGPS_1C;
-    d_mapStringValues["2S"] = evGPS_2S;
-    d_mapStringValues["L5"] = evGPS_L5;
-    d_mapStringValues["1B"] = evGAL_1B;
-    d_mapStringValues["5X"] = evGAL_5X;
-    d_mapStringValues["E6"] = evGAL_E6;
-    d_mapStringValues["7X"] = evGAL_7X;
-    d_mapStringValues["1G"] = evGLO_1G;
-    d_mapStringValues["2G"] = evGLO_2G;
-    d_mapStringValues["B1"] = evBDS_B1;
-    d_mapStringValues["B2"] = evBDS_B2;
-    d_mapStringValues["B3"] = evBDS_B3;
-
-
     d_SourceTagTimestamps = std::vector<std::queue<GnssTime>>(d_nchannels_out);
 
     set_tag_propagation_policy(TPP_DONT);  // no tag propagation, the time tag will be adjusted and regenerated in work()
@@ -149,13 +136,13 @@ hybrid_observables_gs::hybrid_observables_gs(const Obs_Conf &conf_)
                     std::cerr << "GNSS-SDR cannot create dump file for the Observables block. Wrong permissions?\n";
                     d_dump = false;
                 }
-            d_dump_file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+            d_dump_file.exceptions(std::ofstream::failbit | std::ofstream::badbit);
             try
                 {
                     d_dump_file.open(d_dump_filename.c_str(), std::ios::out | std::ios::binary);
                     LOG(INFO) << "Observables dump enabled Log file: " << d_dump_filename.c_str();
                 }
-            catch (const std::ifstream::failure &e)
+            catch (const std::ofstream::failure &e)
                 {
                     LOG(WARNING) << "Exception opening observables dump file " << e.what();
                     d_dump = false;
@@ -225,6 +212,25 @@ void hybrid_observables_gs::msg_handler_pvt_to_observables(const pmt::pmt_t &msg
                         }
 
                     LOG(INFO) << "Corrected new RX Time offset: " << static_cast<int>(round(new_rx_clock_offset_s * 1000.0)) << "[ms]";
+                }
+            if (pmt::any_ref(msg).type().hash_code() == d_int_type_hash_code)
+                {
+                    const auto command_from_pvt = wht::any_cast<int>(pmt::any_ref(msg));
+                    switch (command_from_pvt)
+                        {
+                        case 1:  // reset TOW
+                            d_T_rx_TOW_ms = 0;
+                            d_last_rx_clock_round20ms_error = 0;
+                            d_T_rx_TOW_set = false;
+                            for (uint32_t n = 0; n < d_nchannels_out; n++)
+                                {
+                                    d_gnss_synchro_history->clear(n);
+                                }
+                            LOG(INFO) << "Received reset observables TOW command from PVT";
+                            break;
+                        default:
+                            break;
+                        }
                 }
         }
     catch (const wht::bad_any_cast &e)
@@ -562,44 +568,11 @@ void hybrid_observables_gs::smooth_pseudoranges(std::vector<Gnss_Synchro> &data)
             if (it->Flag_valid_pseudorange)
                 {
                     // 0. get wavelength for the current signal
-                    double wavelength_m = 0;
-                    switch (d_mapStringValues[it->Signal])
+                    double wavelength_m = 0.0;
+                    const auto it_freq_map = SIGNAL_FREQ_MAP.find(std::string(it->Signal, 2));
+                    if (it_freq_map != SIGNAL_FREQ_MAP.cend())
                         {
-                        case evGPS_1C:
-                        case evSBAS_1C:
-                        case evGAL_1B:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ1;
-                            break;
-                        case evGPS_L5:
-                        case evGAL_5X:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ5;
-                            break;
-                        case evGAL_E6:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ6;
-                            break;
-                        case evGAL_7X:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ7;
-                            break;
-                        case evGPS_2S:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ2;
-                            break;
-                        case evBDS_B3:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ3_BDS;
-                            break;
-                        case evGLO_1G:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ1_GLO;
-                            break;
-                        case evGLO_2G:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ2_GLO;
-                            break;
-                        case evBDS_B1:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ1_BDS;
-                            break;
-                        case evBDS_B2:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ2_BDS;
-                            break;
-                        default:
-                            break;
+                            wavelength_m = SPEED_OF_LIGHT_M_S / it_freq_map->second;
                         }
 
                     // todo: propagate the PLL lock status in Gnss_Synchro
@@ -695,7 +668,7 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
                         {
                             if (pmt::any_ref(it.value).type().hash_code() == typeid(const std::shared_ptr<GnssTime>).hash_code())
                                 {
-                                    const auto timetag = boost::any_cast<const std::shared_ptr<GnssTime>>(pmt::any_ref(it.value));
+                                    const auto timetag = wht::any_cast<const std::shared_ptr<GnssTime>>(pmt::any_ref(it.value));
                                     // std::cout << "[Time ch ] timetag: " << timetag->rx_time << "\n";
                                     d_TimeChannelTagTimestamps.push(*timetag);
                                 }
@@ -704,7 +677,7 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
                                     std::cout << "hash code not match\n";
                                 }
                         }
-                    catch (const boost::bad_any_cast &e)
+                    catch (const wht::bad_any_cast &e)
                         {
                             std::cout << "msg Bad any_cast: " << e.what();
                         }
@@ -717,7 +690,7 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
     // Push the tracking observables into buffers to allow the observable interpolation at the desired Rx clock
     for (uint32_t n = 0; n < d_nchannels_out; n++)
         {
-            //**************** time tags ****************
+            // *************** time tags ****************
             //            std::vector<gr::tag_t> tags_vec;
             //            this->get_tags_in_range(tags_vec, n, this->nitems_read(n), this->nitems_read(n) + ninput_items[n]);
             //            for (std::vector<gr::tag_t>::iterator it = tags_vec.begin(); it != tags_vec.end(); ++it)
@@ -726,7 +699,7 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
             //                        {
             //                            if (pmt::any_ref(it->value).type().hash_code() == typeid(const std::shared_ptr<GnssTime>).hash_code())
             //                                {
-            //                                    const std::shared_ptr<GnssTime> timetag = boost::any_cast<const std::shared_ptr<GnssTime>>(pmt::any_ref(it->value));
+            //                                    const std::shared_ptr<GnssTime> timetag = wht::any_cast<const std::shared_ptr<GnssTime>>(pmt::any_ref(it->value));
             //                                    //std::cout << "[ch " << n << "] timetag: " << timetag->rx_time << "\n";
             //                                    d_SourceTagTimestamps.at(n).push(*timetag);
             //                                }
@@ -735,13 +708,13 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
             //                                    std::cout << "hash code not match\n";
             //                                }
             //                        }
-            //                    catch (const boost::bad_any_cast &e)
+            //                    catch (const wht::bad_any_cast &e)
             //                        {
             //                            std::cout << "msg Bad any_cast: " << e.what();
             //                        }
             //                }
 
-            //************* end time tags **************
+            // ************ end time tags **************
             for (int32_t m = 0; m < ninput_items[n]; m++)
                 {
                     // Push the valid tracking Gnss_Synchros to their corresponding deque
@@ -786,7 +759,6 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
                         }
                     epoch_data[n] = interpolated_gnss_synchro;
                 }
-
             if (d_T_rx_TOW_set)
                 {
                     update_TOW(epoch_data);
@@ -853,7 +825,7 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
                                     d_dump_file.write(reinterpret_cast<char *>(&tmp_double), sizeof(double));
                                 }
                         }
-                    catch (const std::ifstream::failure &e)
+                    catch (const std::ofstream::failure &e)
                         {
                             LOG(WARNING) << "Exception writing observables dump file " << e.what();
                             d_dump = false;

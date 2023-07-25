@@ -83,7 +83,7 @@ void glonass_l2_ca_dll_pll_c_aid_tracking_sc::msg_handler_preamble_index(const p
     DLOG(INFO) << "Extended correlation enabled for Tracking CH " << d_channel << ": Satellite " << Gnss_Satellite(systemName[sys], d_acquisition_gnss_synchro->PRN);
     if (d_enable_extended_integration == false)  // avoid re-setting preamble indicator
         {
-            d_preamble_timestamp_s = pmt::to_double(msg);
+            d_preamble_timestamp_samples = pmt::to_double(msg);
             d_enable_extended_integration = true;
             d_preamble_synchronized = false;
         }
@@ -125,17 +125,17 @@ glonass_l2_ca_dll_pll_c_aid_tracking_sc::glonass_l2_ca_dll_pll_c_aid_tracking_sc
       d_code_phase_step_chips(0.0),
       d_carrier_doppler_hz(0.0),
       d_carrier_frequency_hz(0.0),
-      d_carrier_doppler_old_hz(0.0),
+      d_carrier_frequency_old_hz(0.0),
       d_carrier_phase_step_rad(0.0),
       d_acc_carrier_phase_cycles(0.0),
       d_code_phase_samples(0.0),
       d_pll_to_dll_assist_secs_Ti(0.0),
       d_carr_phase_error_secs_Ti(0.0),
       d_code_error_chips_Ti(0.0),
-      d_preamble_timestamp_s(0.0),
-      d_extend_correlation_ms(extend_correlation_ms),
+      d_preamble_timestamp_samples(0.0),
       d_code_error_filt_chips_s(0.0),
       d_code_error_filt_chips_Ti(0.0),
+      d_extend_correlation_ms(extend_correlation_ms),
       d_correlation_length_samples(static_cast<int32_t>(d_vector_length)),
       d_sample_counter(0ULL),
       d_acq_sample_stamp(0),
@@ -152,8 +152,8 @@ glonass_l2_ca_dll_pll_c_aid_tracking_sc::glonass_l2_ca_dll_pll_c_aid_tracking_sc
       d_dump(dump)
 {
     // Telemetry bit synchronization message port input
-    this->message_port_register_in(pmt::mp("preamble_timestamp_s"));
-    this->set_msg_handler(pmt::mp("preamble_timestamp_s"),
+    this->message_port_register_in(pmt::mp("preamble_timestamp_samples"));
+    this->set_msg_handler(pmt::mp("preamble_timestamp_samples"),
 #if HAS_GENERIC_LAMBDA
         [this](auto &&PH1) { msg_handler_preamble_index(PH1); });
 #else
@@ -187,7 +187,11 @@ glonass_l2_ca_dll_pll_c_aid_tracking_sc::glonass_l2_ca_dll_pll_c_aid_tracking_sc
 
     systemName["R"] = std::string("Glonass");
 
-    set_relative_rate(1.0 / static_cast<double>(d_vector_length));
+#if GNURADIO_GREATER_THAN_38
+    this->set_relative_rate(1, static_cast<uint64_t>(d_vector_length));
+#else
+    this->set_relative_rate(1.0 / static_cast<double>(d_vector_length));
+#endif
     // set_min_output_buffer((int64_t)300);
 }
 
@@ -206,7 +210,7 @@ void glonass_l2_ca_dll_pll_c_aid_tracking_sc::start_tracking()
     const double acq_trk_diff_seconds = static_cast<double>(acq_trk_diff_samples) / static_cast<double>(d_fs_in);
     // Doppler effect
     // Fd=(C/(C+Vr))*F
-    d_glonass_freq_ch = GLONASS_L2_CA_FREQ_HZ + (GLONASS_L2_CA_FREQ_HZ * GLONASS_PRN.at(d_acquisition_gnss_synchro->PRN));
+    d_glonass_freq_ch = GLONASS_L2_CA_FREQ_HZ + (DFRQ2_GLO * GLONASS_PRN.at(d_acquisition_gnss_synchro->PRN));
     const double radial_velocity = (d_glonass_freq_ch + d_acq_carrier_doppler_hz) / d_glonass_freq_ch;
     // new chip and prn sequence periods based on acq Doppler
     d_code_freq_chips = radial_velocity * GLONASS_L2_CA_CODE_RATE_CPS;
@@ -269,8 +273,8 @@ void glonass_l2_ca_dll_pll_c_aid_tracking_sc::start_tracking()
     // enable tracking
     d_pull_in = true;
     d_enable_tracking = true;
-    d_enable_extended_integration = true;
-    d_preamble_synchronized = true;
+    d_enable_extended_integration = false;
+    d_preamble_synchronized = false;
     d_acc_carrier_phase_initialized = false;
 
     LOG(INFO) << "PULL-IN Doppler [Hz]=" << d_carrier_doppler_hz
@@ -509,11 +513,11 @@ void glonass_l2_ca_dll_pll_c_aid_tracking_sc::set_channel(uint32_t channel)
                         {
                             d_dump_filename.append(std::to_string(d_channel));
                             d_dump_filename.append(".dat");
-                            d_dump_file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+                            d_dump_file.exceptions(std::ofstream::failbit | std::ofstream::badbit);
                             d_dump_file.open(d_dump_filename.c_str(), std::ios::out | std::ios::binary);
                             LOG(INFO) << "Tracking dump enabled on channel " << d_channel << " Log file: " << d_dump_filename.c_str() << '\n';
                         }
-                    catch (const std::ifstream::failure &e)
+                    catch (const std::ofstream::failure &e)
                         {
                             LOG(WARNING) << "channel " << d_channel << " Exception opening trk dump file " << e.what();
                         }
@@ -601,7 +605,7 @@ int glonass_l2_ca_dll_pll_c_aid_tracking_sc::general_work(int noutput_items __at
             bool enable_dll_pll;
             if (d_enable_extended_integration == true)
                 {
-                    const int64_t symbol_diff = round(1000.0 * ((static_cast<double>(d_sample_counter) + d_rem_code_phase_samples) / static_cast<double>(d_fs_in) - d_preamble_timestamp_s));
+                    const int64_t symbol_diff = round(1000.0 * ((static_cast<double>(d_sample_counter) + d_rem_code_phase_samples - d_preamble_timestamp_samples) / static_cast<double>(d_fs_in)));
                     if (symbol_diff > 0 and symbol_diff % d_extend_correlation_ms == 0)
                         {
                             // compute coherent integration and enable tracking loop
@@ -663,6 +667,7 @@ int glonass_l2_ca_dll_pll_c_aid_tracking_sc::general_work(int noutput_items __at
                                     //  perform basic (1ms) correlation
                                     // UPDATE INTEGRATION TIME
                                     CURRENT_INTEGRATION_TIME_S = static_cast<double>(d_correlation_length_samples) / static_cast<double>(d_fs_in);
+                                    d_code_loop_filter.set_pdi(static_cast<float>(CURRENT_INTEGRATION_TIME_S));
                                     enable_dll_pll = true;
                                 }
                         }
@@ -679,15 +684,16 @@ int glonass_l2_ca_dll_pll_c_aid_tracking_sc::general_work(int noutput_items __at
                     // ################## PLL ##########################################################
                     // Update PLL discriminator [rads/Ti -> Secs/Ti]
                     d_carr_phase_error_secs_Ti = pll_cloop_two_quadrant_atan(std::complex<float>(d_correlator_outs_16sc[1].real(), d_correlator_outs_16sc[1].imag())) / TWO_PI;  // prompt output
-                    d_carrier_doppler_old_hz = d_carrier_doppler_hz;
+                    d_carrier_frequency_old_hz = d_carrier_frequency_hz;
                     // Carrier discriminator filter
                     // NOTICE: The carrier loop filter includes the Carrier Doppler accumulator, as described in Kaplan
                     // Input [s/Ti] -> output [Hz]
-                    d_carrier_doppler_hz = d_carrier_loop_filter.get_carrier_error(0.0, static_cast<float>(d_carr_phase_error_secs_Ti), static_cast<float>(CURRENT_INTEGRATION_TIME_S));
+                    d_carrier_frequency_hz = d_carrier_loop_filter.get_carrier_error(0.0, static_cast<float>(d_carr_phase_error_secs_Ti), static_cast<float>(CURRENT_INTEGRATION_TIME_S));
+                    d_carrier_doppler_hz = d_carrier_frequency_hz - DFRQ2_GLO * GLONASS_PRN.at(d_acquisition_gnss_synchro->PRN);
                     // PLL to DLL assistance [Secs/Ti]
-                    d_pll_to_dll_assist_secs_Ti = (d_carrier_doppler_hz * CURRENT_INTEGRATION_TIME_S) / d_glonass_freq_ch;
+                    d_pll_to_dll_assist_secs_Ti = (d_carrier_frequency_hz * CURRENT_INTEGRATION_TIME_S) / d_glonass_freq_ch;
                     // code Doppler frequency update
-                    d_code_freq_chips = GLONASS_L2_CA_CODE_RATE_CPS + (((d_carrier_doppler_hz - d_carrier_doppler_old_hz) * GLONASS_L2_CA_CODE_RATE_CPS) / d_glonass_freq_ch);
+                    d_code_freq_chips = GLONASS_L2_CA_CODE_RATE_CPS + (((d_carrier_frequency_hz - d_carrier_frequency_old_hz) * GLONASS_L2_CA_CODE_RATE_CPS) / d_glonass_freq_ch);
 
                     // ################## DLL ##########################################################
                     // DLL discriminator
@@ -713,12 +719,12 @@ int glonass_l2_ca_dll_pll_c_aid_tracking_sc::general_work(int noutput_items __at
 
                     // ################### PLL COMMANDS #################################################
                     // carrier phase step (NCO phase increment per sample) [rads/sample]
-                    d_carrier_phase_step_rad = TWO_PI * d_carrier_doppler_hz / static_cast<double>(d_fs_in);
+                    d_carrier_phase_step_rad = TWO_PI * d_carrier_frequency_hz / static_cast<double>(d_fs_in);
                     d_acc_carrier_phase_cycles -= d_carrier_phase_step_rad * d_correlation_length_samples / TWO_PI;
                     // UPDATE ACCUMULATED CARRIER PHASE
                     CORRECTED_INTEGRATION_TIME_S = (static_cast<double>(d_correlation_length_samples) / static_cast<double>(d_fs_in));
                     // remnant carrier phase [rad]
-                    d_rem_carrier_phase_rad = fmod(d_rem_carrier_phase_rad + TWO_PI * d_carrier_doppler_hz * CORRECTED_INTEGRATION_TIME_S, TWO_PI);
+                    d_rem_carrier_phase_rad = fmod(d_rem_carrier_phase_rad + TWO_PI * d_carrier_frequency_hz * CORRECTED_INTEGRATION_TIME_S, TWO_PI);
 
                     // ################### DLL COMMANDS #################################################
                     // code phase step (Code resampler phase increment per sample) [chips/sample]
@@ -866,7 +872,7 @@ int glonass_l2_ca_dll_pll_c_aid_tracking_sc::general_work(int noutput_items __at
                     uint32_t prn_ = d_acquisition_gnss_synchro->PRN;
                     d_dump_file.write(reinterpret_cast<char *>(&prn_), sizeof(uint32_t));
                 }
-            catch (const std::ifstream::failure &e)
+            catch (const std::ofstream::failure &e)
                 {
                     LOG(WARNING) << "Exception writing trk dump file " << e.what();
                 }
