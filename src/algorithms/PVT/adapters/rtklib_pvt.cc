@@ -74,6 +74,13 @@ Rtklib_Pvt::Rtklib_Pvt(const ConfigurationInterface* configuration,
     // display rate
     pvt_output_parameters.display_rate_ms = bc::lcm(pvt_output_parameters.output_rate_ms, configuration->property(role + ".display_rate_ms", 500));
 
+    // PVT KF settings
+    pvt_output_parameters.enable_pvt_kf = configuration->property(role + ".enable_pvt_kf", false);
+    pvt_output_parameters.measures_ecef_pos_sd_m = configuration->property(role + ".kf_measures_ecef_pos_sd_m", 1.0);
+    pvt_output_parameters.measures_ecef_vel_sd_ms = configuration->property(role + ".kf_measures_ecef_vel_sd_ms", 0.1);
+    pvt_output_parameters.system_ecef_pos_sd_m = configuration->property(role + ".kf_system_ecef_pos_sd_m", 2.0);
+    pvt_output_parameters.system_ecef_vel_sd_ms = configuration->property(role + ".kf_system_ecef_vel_sd_ms", 0.5);
+
     // NMEA Printer settings
     pvt_output_parameters.flag_nmea_tty_port = configuration->property(role + ".flag_nmea_tty_port", false);
     pvt_output_parameters.nmea_dump_filename = configuration->property(role + ".nmea_dump_filename", default_nmea_dump_filename);
@@ -404,6 +411,10 @@ Rtklib_Pvt::Rtklib_Pvt(const ConfigurationInterface* configuration,
     if ((gps_1C_count != 0) && (gps_2S_count == 0) && (gps_L5_count == 0) && (gal_1B_count == 0) && (gal_E5a_count == 0) && (gal_E5b_count == 0) && (gal_E6_count != 0) && (glo_1G_count == 0) && (glo_2G_count == 0) && (bds_B1_count == 0) && (bds_B3_count == 0))
         {
             pvt_output_parameters.type_of_receiver = 107;  // GPS L1 C/A + Galileo E6B
+        }
+    if ((gps_1C_count != 0) && (gps_2S_count == 0) && (gps_L5_count != 0) && (gal_1B_count != 0) && (gal_E5a_count != 0) && (gal_E5b_count == 0) && (gal_E6_count != 0) && (glo_1G_count == 0) && (glo_2G_count == 0) && (bds_B1_count == 0) && (bds_B3_count == 0))
+        {
+            pvt_output_parameters.type_of_receiver = 108;  // GPS L1 C/A + Galileo E1B + GPS L5 + Galileo E5a + Galileo E6B
         }
     // BeiDou B1I Receiver
     if ((gps_1C_count == 0) && (gps_2S_count == 0) && (gps_L5_count == 0) && (gal_1B_count == 0) && (gal_E5a_count == 0) && (gal_E5b_count == 0) && (gal_E6_count == 0) && (glo_1G_count == 0) && (glo_2G_count == 0) && (bds_B1_count != 0) && (bds_B3_count == 0))
@@ -850,6 +861,7 @@ Rtklib_Pvt::Rtklib_Pvt(const ConfigurationInterface* configuration,
     pvt_output_parameters.xml_output_path = configuration->property(role + ".xml_output_path", default_output_path);
     pvt_output_parameters.nmea_output_file_path = configuration->property(role + ".nmea_output_file_path", default_output_path);
     pvt_output_parameters.rtcm_output_file_path = configuration->property(role + ".rtcm_output_file_path", default_output_path);
+    pvt_output_parameters.has_output_file_path = configuration->property(role + ".has_output_file_path", default_output_path);
 
     // Read PVT MONITOR Configuration
     pvt_output_parameters.monitor_enabled = configuration->property(role + ".enable_monitor", false);

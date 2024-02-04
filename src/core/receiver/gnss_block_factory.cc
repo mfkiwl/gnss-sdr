@@ -41,6 +41,7 @@
 #include "file_signal_source.h"
 #include "file_timestamp_signal_source.h"
 #include "fir_filter.h"
+#include "four_bit_cpx_file_signal_source.h"
 #include "freq_xlating_fir_filter.h"
 #include "galileo_e1_dll_pll_veml_tracking.h"
 #include "galileo_e1_pcps_8ms_ambiguous_acquisition.h"
@@ -152,6 +153,7 @@
 #endif
 
 #if PLUTOSDR_DRIVER
+#include "ad936x_custom_signal_source.h"
 #include "plutosdr_signal_source.h"
 #endif
 
@@ -190,15 +192,15 @@ auto const item_prop = ".item_type"s;       // "item_type" property
 template <typename To, typename From>
 std::unique_ptr<To> dynamic_unique_cast(std::unique_ptr<From>&& p)
 {
-    std::unique_ptr<To> result;
-
     if (To* cast = dynamic_cast<To*>(p.get()))
         {
-            result.reset(cast);
+            std::unique_ptr<To> result(cast);
             p.release();  // NOLINT(bugprone-unused-return-value)
+            return result;
         }
-    return result;
+    return std::unique_ptr<To>(nullptr);
 }
+
 
 auto findRole(ConfigurationInterface const* configuration, std::string const& base, int ID) -> std::string
 {
@@ -698,6 +700,12 @@ std::unique_ptr<GNSSBlockInterface> GNSSBlockFactory::GetBlock(
                         out_streams, queue);
                     block = std::move(block_);
                 }
+            else if (implementation == "Four_Bit_Cpx_File_Signal_Source")
+                {
+                    std::unique_ptr<GNSSBlockInterface> block_ = std::make_unique<FourBitCpxFileSignalSource>(configuration, role, in_streams,
+                        out_streams, queue);
+                    block = std::move(block_);
+                }
             else if (implementation == "Two_Bit_Packed_File_Signal_Source")
                 {
                     std::unique_ptr<GNSSBlockInterface> block_ = std::make_unique<TwoBitPackedFileSignalSource>(configuration, role, in_streams,
@@ -769,6 +777,12 @@ std::unique_ptr<GNSSBlockInterface> GNSSBlockFactory::GetBlock(
             else if (implementation == "Plutosdr_Signal_Source")
                 {
                     std::unique_ptr<GNSSBlockInterface> block_ = std::make_unique<PlutosdrSignalSource>(configuration, role, in_streams,
+                        out_streams, queue);
+                    block = std::move(block_);
+                }
+            else if (implementation == "Ad936x_Custom_Signal_Source")
+                {
+                    std::unique_ptr<GNSSBlockInterface> block_ = std::make_unique<Ad936xCustomSignalSource>(configuration, role, in_streams,
                         out_streams, queue);
                     block = std::move(block_);
                 }

@@ -1,7 +1,7 @@
 # GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# SPDX-FileCopyrightText: 2010-2023 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-FileCopyrightText: 2010-2024 C. Fernandez-Prades cfernandez(at)cttc.es
 # SPDX-License-Identifier: BSD-3-Clause
 
 ################################################################################
@@ -16,7 +16,7 @@ endif()
 # Build type can still be overridden by setting -DCMAKE_BUILD_TYPE=
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "")
 
-cmake_minimum_required(VERSION 2.8.12...3.26)
+cmake_minimum_required(VERSION 2.8.12...3.28)
 project(gnss-sdr CXX C)
 
 set(GNSSSDR_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}) # Allows to be a sub-project
@@ -39,6 +39,8 @@ option(ENABLE_LIMESDR "Enable the use of LimeSDR and Custom LimeSDR as signal so
 option(ENABLE_FMCOMMS2 "Enable the use of FMCOMMS4-EBZ + ZedBoard hardware, requires gr-iio" OFF)
 
 option(ENABLE_PLUTOSDR "Enable the use of ADALM-PLUTO Evaluation Boards (Analog Devices Inc.), requires gr-iio" OFF)
+
+option(ENABLE_AD936X_SDR "Enable the use of AD936X front-ends using libiio, requires libiio" OFF)
 
 option(ENABLE_AD9361 "Enable the use of AD9361 direct to FPGA hardware, requires libiio" OFF)
 
@@ -176,9 +178,9 @@ endif()
 set(VERSION_INFO_MAJOR_VERSION 0)
 set(VERSION_INFO_API_COMPAT 0)
 if(${THIS_IS_A_RELEASE})
-    set(VERSION_INFO_MINOR_VERSION 18)
+    set(VERSION_INFO_MINOR_VERSION 19)
 else()
-    set(VERSION_INFO_MINOR_VERSION 18.git-${GIT_BRANCH}-${GIT_COMMIT_HASH})
+    set(VERSION_INFO_MINOR_VERSION 19.git-${GIT_BRANCH}-${GIT_COMMIT_HASH})
 endif()
 
 set(VERSION ${VERSION_INFO_MAJOR_VERSION}.${VERSION_INFO_API_COMPAT}.${VERSION_INFO_MINOR_VERSION})
@@ -333,16 +335,16 @@ set(GNSSSDR_PYTHON3_MIN_VERSION "3.4")
 ################################################################################
 # Versions to download and build (but not to install system-wide) if not found
 ################################################################################
-set(GNSSSDR_ARMADILLO_LOCAL_VERSION "12.2.x")
+set(GNSSSDR_ARMADILLO_LOCAL_VERSION "12.6.x")
 set(GNSSSDR_GFLAGS_LOCAL_VERSION "2.2.2")
 set(GNSSSDR_GLOG_LOCAL_VERSION "0.6.0")
-set(GNSSSDR_MATIO_LOCAL_VERSION "1.5.23")
-set(GNSSSDR_PROTOCOLBUFFERS_LOCAL_VERSION "22.2")
-set(GNSSSDR_PUGIXML_LOCAL_VERSION "1.13")
+set(GNSSSDR_MATIO_LOCAL_VERSION "1.5.26")
+set(GNSSSDR_PROTOCOLBUFFERS_LOCAL_VERSION "25.0")
+set(GNSSSDR_PUGIXML_LOCAL_VERSION "1.14")
 set(GNSSSDR_GTEST_LOCAL_VERSION "1.13.0")
 set(GNSSSDR_GNSS_SIM_LOCAL_VERSION "master")
 set(GNSSSDR_GNSSTK_LOCAL_VERSION "14.0.0")
-set(GNSSSDR_BENCHMARK_LOCAL_VERSION "1.7.1")
+set(GNSSSDR_BENCHMARK_LOCAL_VERSION "1.8.3")
 set(GNSSSDR_MATHJAX_EXTERNAL_VERSION "2.7.7")
 
 # Downgrade versions if requirements are not met
@@ -357,6 +359,13 @@ endif()
 if(CMAKE_VERSION VERSION_LESS "3.0.2")
     set(GNSSSDR_GFLAGS_LOCAL_VERSION "2.2.1")  # Fix for CentOS 7
     set(GNSSSDR_GLOG_LOCAL_VERSION "0.3.4")    # Fix for Ubuntu 14.04
+endif()
+
+if(CMAKE_VERSION VERSION_LESS "3.5")
+    set(GNSSSDR_PUGIXML_LOCAL_VERSION "1.13")
+endif()
+if(CMAKE_VERSION VERSION_LESS "3.4")
+    set(GNSSSDR_PUGIXML_LOCAL_VERSION "1.10")
 endif()
 
 if(CMAKE_CROSSCOMPILING OR CMAKE_VERSION VERSION_LESS "3.13")
@@ -902,6 +911,11 @@ if((Boost_VERSION_STRING VERSION_GREATER 1.71) AND (Boost_VERSION_STRING VERSION
     endif()
 endif()
 
+# Workaround for macOS Sonoma
+if((CMAKE_CXX_STANDARD EQUAL 17) AND ((${CMAKE_SYSTEM_NAME} MATCHES "Darwin") AND ("${DARWIN_VERSION}" VERSION_GREATER "22.99")))
+    add_definitions(-D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION=1)
+endif()
+
 # Fix for Boost Asio < 1.70 when using Clang in macOS
 if(Boost_VERSION_STRING VERSION_LESS 1.70.0)
     # Check if we have std::string_view
@@ -1107,7 +1121,7 @@ if(NOT VOLKGNSSSDR_FOUND)
         endif()
     endif()
 
-    if(PYTHONINTERP_FOUND)
+    if(CMAKE_VERSION VERSION_LESS 3.27 AND PYTHONINTERP_FOUND)
         set_package_properties(PythonInterp PROPERTIES
             URL "https://www.python.org/"
             DESCRIPTION "An interpreted, high-level, general-purpose programming language (found: v${PYTHON_VERSION_STRING})"
@@ -1199,8 +1213,14 @@ if(NOT VOLKGNSSSDR_FOUND)
     endif()
     include(GNUInstallDirs)
     set(SUPPORTED_CPU_FEATURES_ARCH FALSE)
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES
-        "(^mips)|(^arm)|(^aarch64)|(x86_64)|(AMD64|amd64)|(^i.86$)|(^powerpc)|(^ppc)|(^s390x)|^riscv")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^mips" OR
+    CMAKE_SYSTEM_PROCESSOR MATCHES "(^aarch64)|(^arm64)|(^ARM64)" OR
+    CMAKE_SYSTEM_PROCESSOR MATCHES "^arm" OR
+    CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(x86_64)|(AMD64|amd64)|(^i.86$)" OR
+    CMAKE_SYSTEM_PROCESSOR MATCHES "^(powerpc|ppc)" OR
+    CMAKE_SYSTEM_PROCESSOR MATCHES "^(s390x)" OR
+    CMAKE_SYSTEM_PROCESSOR MATCHES "^riscv" OR
+    CMAKE_SYSTEM_PROCESSOR MATCHES "^loongarch")
         set(SUPPORTED_CPU_FEATURES_ARCH TRUE)
     endif()
     if(${CMAKE_INSTALL_LIBDIR} MATCHES lib64)
@@ -1239,14 +1259,14 @@ if(NOT VOLKGNSSSDR_FOUND)
                 set_package_properties(CPUFEATURES PROPERTIES
                     DESCRIPTION "A cross platform C99 library to get CPU features at runtime (version: ${CPUFEATURES_VERSION})"
                 )
-                if((CMAKE_SYSTEM_PROCESSOR MATCHES "(^s390x)|^riscv") AND (CPUFEATURES_VERSION VERSION_LESS "0.8.0")) # detect cpu_features without s390x / riscv support
+                if((CMAKE_SYSTEM_PROCESSOR MATCHES "(^s390x)|(^riscv)|(^loongarch)") AND (CPUFEATURES_VERSION VERSION_LESS "0.8.0")) # detect cpu_features without s390x / riscv support
                     set(ENABLE_CPUFEATURES OFF)
                 endif()
             else()
                 set_package_properties(CPUFEATURES PROPERTIES
                     DESCRIPTION "A cross platform C99 library to get CPU features at runtime"
                 )
-                if(DEFINED VOLK_VERSION AND VOLK_VERSION VERSION_GREATER "2.3") # avoid clash with volk's cpufeatures.
+                if((DEFINED VOLK_VERSION AND VOLK_VERSION VERSION_GREATER "2.3") OR (CMAKE_VERSION VERSION_LESS "3.13")) # avoid clash with volk's cpufeatures.
                     set(ENABLE_CPUFEATURES OFF)
                 else()
                     set_package_properties(CPUFEATURES PROPERTIES
@@ -1808,7 +1828,7 @@ endif()
 # Check that BLAS (Basic Linear Algebra Subprograms) is found in the system
 # See https://www.netlib.org/blas/
 ################################################################################
-if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+if((${CMAKE_SYSTEM_NAME} MATCHES "Darwin") AND ("${DARWIN_VERSION}" VERSION_LESS "23"))
     # Avoid using the implementation that comes with the Accelerate framework
     include(AvoidAccelerate)
 else()
@@ -1855,7 +1875,7 @@ endif()
 # Check that LAPACK (Linear Algebra PACKage) is found in the system
 # See https://www.netlib.org/lapack/
 ################################################################################
-if(NOT (${CMAKE_SYSTEM_NAME} MATCHES "Darwin"))
+if(NOT((${CMAKE_SYSTEM_NAME} MATCHES "Darwin") AND ("${DARWIN_VERSION}" VERSION_LESS "23")))
     find_package(LAPACK)
     set_package_properties(LAPACK PROPERTIES
         URL "https://www.netlib.org/lapack/"
@@ -1866,13 +1886,15 @@ if(NOT (${CMAKE_SYSTEM_NAME} MATCHES "Darwin"))
 endif()
 if(NOT LAPACK_FOUND)
     message(" The LAPACK library has not been found.")
-    message(" You can try to install it by typing:")
-    if(${LINUX_DISTRIBUTION} MATCHES "Fedora" OR ${LINUX_DISTRIBUTION} MATCHES "Red Hat")
-        message(" sudo yum install lapack-devel")
-    elseif(${LINUX_DISTRIBUTION} MATCHES "openSUSE")
-        message(" sudo zypper install lapack-devel")
-    else()
-        message(" sudo apt-get install liblapack-dev")
+    if(LINUX_DISTRIBUTION)
+        message(" You can try to install it by typing:")
+        if(${LINUX_DISTRIBUTION} MATCHES "Fedora" OR ${LINUX_DISTRIBUTION} MATCHES "Red Hat")
+            message(" sudo yum install lapack-devel")
+        elseif(${LINUX_DISTRIBUTION} MATCHES "openSUSE")
+            message(" sudo zypper install lapack-devel")
+        else()
+            message(" sudo apt-get install liblapack-dev")
+        endif()
     endif()
     message(FATAL_ERROR "LAPACK is required to build gnss-sdr")
 endif()
@@ -2039,7 +2061,7 @@ if(NOT ARMADILLO_FOUND OR ENABLE_OWN_ARMADILLO)
         IMPORTED_LOCATION_RELWITHDEBINFO ${ARMADILLO_STATIC_LIBRARY}
         IMPORTED_LOCATION_MINSIZEREL ${ARMADILLO_STATIC_LIBRARY}
         INTERFACE_INCLUDE_DIRECTORIES ${GNSSSDR_BINARY_DIR}/thirdparty/armadillo/armadillo-${armadillo_RELEASE}/include
-        INTERFACE_LINK_LIBRARIES ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GFORTRAN} ${ARMADILLO_STATIC_LIBRARY}
+        INTERFACE_LINK_LIBRARIES "${BLAS_LIBRARIES};${LAPACK_LIBRARIES};${GFORTRAN};${ARMADILLO_STATIC_LIBRARY}"
     )
     if((CMAKE_GENERATOR STREQUAL Xcode) OR MSVC)
         set_target_properties(Armadillo::armadillo PROPERTIES
@@ -2047,7 +2069,7 @@ if(NOT ARMADILLO_FOUND OR ENABLE_OWN_ARMADILLO)
             IMPORTED_LOCATION_RELEASE ${binary_dir}/Release/${CMAKE_FIND_LIBRARY_PREFIXES}armadillo${CMAKE_STATIC_LIBRARY_SUFFIX}
             IMPORTED_LOCATION_RELWITHDEBINFO ${binary_dir}/RelWithDebInfo/${CMAKE_FIND_LIBRARY_PREFIXES}armadillo${CMAKE_STATIC_LIBRARY_SUFFIX}
             IMPORTED_LOCATION_MINSIZEREL ${binary_dir}/MinSizeRel/${CMAKE_FIND_LIBRARY_PREFIXES}armadillo${CMAKE_STATIC_LIBRARY_SUFFIX}
-            INTERFACE_LINK_LIBRARIES ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${GFORTRAN} ${binary_dir}/${CMAKE_FIND_LIBRARY_PREFIXES}armadillo${CMAKE_STATIC_LIBRARY_SUFFIX}/$<$<CONFIG:Debug>:Debug/>$<$<CONFIG:Release>:Release/>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo/>$<$<CONFIG:MinSizeRel>:MinSizeRel/>${CMAKE_FIND_LIBRARY_PREFIXES}armadillo${CMAKE_STATIC_LIBRARY_SUFFIX}
+            INTERFACE_LINK_LIBRARIES "${BLAS_LIBRARIES};${LAPACK_LIBRARIES};${GFORTRAN};${binary_dir}/$<$<CONFIG:Debug>:Debug/>$<$<CONFIG:Release>:Release/>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo/>$<$<CONFIG:MinSizeRel>:MinSizeRel/>${CMAKE_FIND_LIBRARY_PREFIXES}armadillo${CMAKE_STATIC_LIBRARY_SUFFIX}"
         )
     endif()
     set_package_properties(Armadillo PROPERTIES
@@ -3152,6 +3174,7 @@ set_package_properties(LIBAD9361 PROPERTIES
 )
 if(NOT LIBAD9361_FOUND)
     set(ENABLE_AD9361 OFF)
+    set(ENABLE_AD936X_SDR OFF)
     set(ENABLE_FMCOMMS2 OFF)
 endif()
 if(ENABLE_PLUTOSDR OR ENABLE_FMCOMMS2)
@@ -3191,6 +3214,7 @@ if(ENABLE_AD9361 OR ENABLE_FMCOMMS2)
         message(STATUS " * gnuradio-iio from https://github.com/analogdevicesinc/gr-iio")
         if(ENABLE_PACKAGING)
             set(ENABLE_AD9361 OFF)
+            set(ENABLE_AD936X_SDR OFF)
             set(ENABLE_FMCOMMS2 OFF)
         else()
             message(FATAL_ERROR "libiio is required for building gnss-sdr with -DENABLE_AD9361=ON.")
@@ -3404,6 +3428,7 @@ add_feature_info(ENABLE_LIMESDR ENABLE_LIMESDR "Enables Limesdr_Signal_Source. R
 add_feature_info(ENABLE_FMCOMMS2 ENABLE_FMCOMMS2 "Enables Fmcomms2_Signal_Source for FMCOMMS2/3/4 devices. Requires gr-iio and libad9361-dev.")
 add_feature_info(ENABLE_PLUTOSDR ENABLE_PLUTOSDR "Enables Plutosdr_Signal_Source for using ADALM-PLUTO boards. Requires gr-iio.")
 add_feature_info(ENABLE_AD9361 ENABLE_AD9361 "Enables Ad9361_Fpga_Signal_Source for devices with the AD9361 chipset. Requires libiio and libad9361-dev.")
+add_feature_info(ENABLE_AD936X_SDR ENABLE_AD936X_SDR "Enables Ad936x_Iio_Signal_Source to access AD936X front-ends using libiio. Requires libiio and libad9361-dev.")
 add_feature_info(ENABLE_RAW_UDP ENABLE_RAW_UDP "Enables Custom_UDP_Signal_Source for custom UDP packet sample source. Requires libpcap.")
 add_feature_info(ENABLE_FLEXIBAND ENABLE_FLEXIBAND "Enables Flexiband_Signal_Source for using Teleorbit's Flexiband RF front-end. Requires gr-teleorbit.")
 add_feature_info(ENABLE_ARRAY ENABLE_ARRAY "Enables Raw_Array_Signal_Source and Array_Signal_Conditioner for using CTTC's antenna array. Requires gr-dbfcttc.")

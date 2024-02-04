@@ -45,19 +45,17 @@
 
 
 Rtklib_Solver::Rtklib_Solver(const rtk_t &rtk,
+    const Pvt_Conf &conf,
     const std::string &dump_filename,
     uint32_t type_of_rx,
     bool flag_dump_to_file,
-    bool flag_dump_to_mat,
-    bool use_e6_for_pvt) : d_dump_filename(dump_filename),
-                           d_rtk(rtk),
-                           d_type_of_rx(type_of_rx),
-                           d_flag_dump_enabled(flag_dump_to_file),
-                           d_flag_dump_mat_enabled(flag_dump_to_mat),
-                           d_use_e6_for_pvt(use_e6_for_pvt)
+    bool flag_dump_to_mat) : d_dump_filename(dump_filename),
+                             d_rtk(rtk),
+                             d_conf(conf),
+                             d_type_of_rx(type_of_rx),
+                             d_flag_dump_enabled(flag_dump_to_file),
+                             d_flag_dump_mat_enabled(flag_dump_to_mat)
 {
-    this->set_averaging_flag(false);
-
     // see freq index at src/algorithms/libs/rtklib/rtklib_rtkcmn.cc
     // function: satwavelen
     d_rtklib_freq_index[0] = 0;
@@ -129,6 +127,10 @@ Rtklib_Solver::Rtklib_Solver(const rtk_t &rtk,
         case 107:  // GPS L1 C/A + Galileo E6B
             d_rtklib_band_index["E6"] = 1;
             d_rtklib_freq_index[1] = 3;
+            break;
+        case 108:  // GPS L1 C/A + Galileo E1B + GPS L5 + Galileo E5a + Galileo E6B
+            d_rtklib_band_index["E6"] = 2;
+            d_rtklib_freq_index[2] = 3;
             break;
         }
     // auto empty_map = std::map < int, HAS_obs_corrections >> ();
@@ -900,7 +902,7 @@ void Rtklib_Solver::get_current_has_obs_correction(const std::string &signal, ui
 }
 
 
-bool Rtklib_Solver::get_PVT(const std::map<int, Gnss_Synchro> &gnss_observables_map, bool flag_averaging)
+bool Rtklib_Solver::get_PVT(const std::map<int, Gnss_Synchro> &gnss_observables_map, double kf_update_interval_s)
 {
     std::map<int, Gnss_Synchro>::const_iterator gnss_observables_iter;
     std::map<int, Galileo_Ephemeris>::const_iterator galileo_ephemeris_iter;
@@ -910,8 +912,6 @@ bool Rtklib_Solver::get_PVT(const std::map<int, Gnss_Synchro> &gnss_observables_
     std::map<int, Beidou_Dnav_Ephemeris>::const_iterator beidou_ephemeris_iter;
 
     const Glonass_Gnav_Utc_Model &gnav_utc = this->glonass_gnav_utc_model;
-
-    this->set_averaging_flag(flag_averaging);
 
     // ********************************************************************************
     // ****** PREPARE THE DATA (SV EPHEMERIS AND OBSERVATIONS) ************************
@@ -1039,7 +1039,7 @@ bool Rtklib_Solver::get_PVT(const std::map<int, Gnss_Synchro> &gnss_observables_
                                         DLOG(INFO) << "No ephemeris data for SV " << gnss_observables_iter->second.PRN;
                                     }
                             }
-                        if (sig_ == "E6" && d_use_e6_for_pvt)
+                        if (sig_ == "E6" && d_conf.use_e6_for_pvt)
                             {
                                 galileo_ephemeris_iter = galileo_ephemeris_map.find(gnss_observables_iter->second.PRN);
                                 if (galileo_ephemeris_iter != galileo_ephemeris_map.cend())
@@ -1075,6 +1075,47 @@ bool Rtklib_Solver::get_PVT(const std::map<int, Gnss_Synchro> &gnss_observables_
                                                     d_has_obs_corr_map,
                                                     galileo_ephemeris_iter->second.WN,
                                                     d_rtklib_band_index[sig_]);
+                                                valid_obs++;
+                                            }
+                                    }
+                                else  // the ephemeris are not available for this SV
+                                    {
+                                        DLOG(INFO) << "No ephemeris data for SV " << gnss_observables_iter->second.PRN;
+                                    }
+                            }
+                        if (sig_ == "E6")
+                            {
+                                galileo_ephemeris_iter = galileo_ephemeris_map.find(gnss_observables_iter->second.PRN);
+                                if (galileo_ephemeris_iter != galileo_ephemeris_map.cend())
+                                    {
+                                        bool found_E1_obs = false;
+                                        for (int i = 0; i < valid_obs; i++)
+                                            {
+                                                if (eph_data[i].sat == (static_cast<int>(gnss_observables_iter->second.PRN + NSATGPS + NSATGLO)))
+                                                    {
+                                                        d_obs_data[i + glo_valid_obs] = insert_obs_to_rtklib(d_obs_data[i + glo_valid_obs],
+                                                            gnss_observables_iter->second,
+                                                            galileo_ephemeris_iter->second.WN,
+                                                            2);  // Band E6
+                                                        found_E1_obs = true;
+                                                        break;
+                                                    }
+                                            }
+                                        if (!found_E1_obs)
+                                            {
+                                                // insert Galileo E6 obs as new obs and also insert its ephemeris
+                                                // convert ephemeris from GNSS-SDR class to RTKLIB structure
+                                                eph_data[valid_obs] = eph_to_rtklib(galileo_ephemeris_iter->second);
+                                                // convert observation from GNSS-SDR class to RTKLIB structure
+                                                const auto default_code_ = static_cast<unsigned char>(CODE_NONE);
+                                                obsd_t newobs = {{0, 0}, '0', '0', {}, {},
+                                                    {default_code_, default_code_, default_code_},
+                                                    {}, {0.0, 0.0, 0.0}, {}};
+                                                d_obs_data[valid_obs + glo_valid_obs] = insert_obs_to_rtklib(newobs,
+                                                    gnss_observables_iter->second,
+                                                    galileo_ephemeris_iter->second.WN,
+                                                    2);  // Band E6
+                                                // std::cout << "Week " << galileo_ephemeris_iter->second.WN << '\n';
                                                 valid_obs++;
                                             }
                                     }
@@ -1466,6 +1507,10 @@ bool Rtklib_Solver::get_PVT(const std::map<int, Gnss_Synchro> &gnss_observables_
                     d_rtk.neb = 0;                 // clear error buffer to avoid repeating the error message
                     this->set_time_offset_s(0.0);  // reset rx time estimation
                     this->set_num_valid_observations(0);
+                    if (d_conf.enable_pvt_kf == true)
+                        {
+                            d_pvt_kf.reset_Kf();
+                        }
                 }
             else
                 {
@@ -1500,9 +1545,41 @@ bool Rtklib_Solver::get_PVT(const std::map<int, Gnss_Synchro> &gnss_observables_
                         }
                     this->set_valid_position(true);
                     std::array<double, 4> rx_position_and_time{};
+
+                    if (d_conf.enable_pvt_kf == true)
+                        {
+                            if (d_pvt_kf.is_initialized() == false)
+                                {
+                                    arma::vec p = {pvt_sol.rr[0], pvt_sol.rr[1], pvt_sol.rr[2]};
+                                    arma::vec v = {pvt_sol.rr[3], pvt_sol.rr[4], pvt_sol.rr[5]};
+
+                                    d_pvt_kf.init_Kf(p,
+                                        v,
+                                        kf_update_interval_s,
+                                        d_conf.measures_ecef_pos_sd_m,
+                                        d_conf.measures_ecef_vel_sd_ms,
+                                        d_conf.system_ecef_pos_sd_m,
+                                        d_conf.system_ecef_vel_sd_ms);
+                                }
+                            else
+                                {
+                                    arma::vec p = {pvt_sol.rr[0], pvt_sol.rr[1], pvt_sol.rr[2]};
+                                    arma::vec v = {pvt_sol.rr[3], pvt_sol.rr[4], pvt_sol.rr[5]};
+                                    d_pvt_kf.run_Kf(p, v);
+                                    d_pvt_kf.get_pv_Kf(p, v);
+                                    pvt_sol.rr[0] = p[0];  // [m]
+                                    pvt_sol.rr[1] = p[1];  // [m]
+                                    pvt_sol.rr[2] = p[2];  // [m]
+                                    pvt_sol.rr[3] = v[0];  // [ms]
+                                    pvt_sol.rr[4] = v[1];  // [ms]
+                                    pvt_sol.rr[5] = v[2];  // [ms]
+                                }
+                        }
+
                     rx_position_and_time[0] = pvt_sol.rr[0];  // [m]
                     rx_position_and_time[1] = pvt_sol.rr[1];  // [m]
                     rx_position_and_time[2] = pvt_sol.rr[2];  // [m]
+
                     // todo: fix this ambiguity in the RTKLIB units in receiver clock offset!
                     if (d_rtk.opt.mode == PMODE_SINGLE)
                         {
@@ -1525,7 +1602,7 @@ bool Rtklib_Solver::get_PVT(const std::map<int, Gnss_Synchro> &gnss_observables_
                     ecef2pos(pvt_sol.rr, pos.data());
                     ecef2enu(pos.data(), &pvt_sol.rr[3], enuv.data());
                     this->set_speed_over_ground(norm_rtk(enuv.data(), 2));
-                    double new_cog;
+                    double new_cog = -9999.0;  // COG not estimated due to insuficient velocity
                     if (ground_speed_ms >= 1.0)
                         {
                             new_cog = atan2(enuv[0], enuv[1]) * R2D;
@@ -1607,11 +1684,40 @@ bool Rtklib_Solver::get_PVT(const std::map<int, Gnss_Synchro> &gnss_observables_
 
                     this->set_rx_vel({enuv[0], enuv[1], enuv[2]});
 
+                    // ENU vel [m/s]
+                    d_monitor_pvt.vel_e = enuv[0];
+                    d_monitor_pvt.vel_n = enuv[1];
+                    d_monitor_pvt.vel_u = enuv[2];
+
+                    // Course Over Ground (cog) [deg]
+                    d_monitor_pvt.cog = new_cog;
+
+                    // Galileo HAS status: 1- HAS messages decoded and applied, 0 - HAS not avaliable
+                    if (d_has_obs_corr_map.empty())
+                        {
+                            d_monitor_pvt.galhas_status = 0;
+                        }
+                    else
+                        {
+                            d_monitor_pvt.galhas_status = 1;
+                        }
+
                     const double clock_drift_ppm = pvt_sol.dtr[5] / SPEED_OF_LIGHT_M_S * 1e6;
 
                     this->set_clock_drift_ppm(clock_drift_ppm);
                     // User clock drift [ppm]
                     d_monitor_pvt.user_clk_drift_ppm = clock_drift_ppm;
+
+                    // write UTC time string
+
+                    // Use a facet to display time in a custom format (only hour and minutes).
+                    auto *facet = new boost::posix_time::time_facet();
+                    facet->format("%Y-%m-%dT%H:%M:%S%F");
+                    std::stringstream stream;
+                    stream.imbue(std::locale(std::locale::classic(), facet));
+                    stream << p_time;
+                    stream << 'Z';
+                    d_monitor_pvt.utc_time = stream.str();
 
                     // ######## LOG FILE #########
                     if (d_flag_dump_enabled == true)
