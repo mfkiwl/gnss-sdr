@@ -29,7 +29,6 @@
 #include "in_memory_configuration.h"
 #include "test_flags.h"
 #include <boost/make_shared.hpp>
-#include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <pmt/pmt.h>
 #include <chrono>
@@ -37,6 +36,12 @@
 #include <fcntl.h>  // for O_WRONLY
 #include <pthread.h>
 #include <utility>
+
+#if USE_GLOG_AND_GFLAGS
+#include <glog/logging.h>
+#else
+#include <absl/log/log.h>
+#endif
 
 #ifdef GR_GREATER_38
 #include <gnuradio/analog/sig_source.h>
@@ -62,7 +67,7 @@ class GalileoE1PcpsAmbiguousAcquisitionTestFpga : public ::testing::Test
 {
 public:
     bool acquire_signal();
-    std::string implementation = "GPS_L1_CA_DLL_PLL_Tracking_Fpga";
+    std::string implementation = "GPS_L1_CA_DLL_PLL_Tracking_FPGA";
     std::vector<Gnss_Synchro> gnss_synchro_vec;
 
     const int32_t TEST_ACQ_SKIP_SAMPLES = 1024;
@@ -91,6 +96,7 @@ GalileoE1PcpsAmbiguousAcquisitionTestFpga::GalileoE1PcpsAmbiguousAcquisitionTest
 
     doppler_max = 5000;
     doppler_step = 100;
+    nsamples_to_transfer = 0;
 }
 
 
@@ -280,7 +286,7 @@ public:
     }
 
 private:
-    bool acquisition_successful;
+    bool acquisition_successful{};
 };
 
 
@@ -310,12 +316,12 @@ bool GalileoE1PcpsAmbiguousAcquisitionTestFpga::acquire_signal()
     args.scaling_factor = DMA_SIGNAL_SCALING_FACTOR;
 
     std::string file = "data/Galileo_E1_ID_1_Fs_4Msps_8ms.dat";
-    args.file = file;  // DMA file configuration
+    args.file = std::move(file);  // DMA file configuration
 
     // instantiate the FPGA switch and set the
     // switch position to DMA.
     std::shared_ptr<Fpga_Switch> switch_fpga;
-    switch_fpga = std::make_shared<Fpga_Switch>("/dev/uio1");
+    switch_fpga = std::make_shared<Fpga_Switch>();
     switch_fpga->set_switch_position(0);  // set switch position to DMA
 
     // create the correspondign acquisition block according to the desired tracking signal
@@ -348,7 +354,7 @@ bool GalileoE1PcpsAmbiguousAcquisitionTestFpga::acquire_signal()
     args.nsamples_tx = nsamples_to_transfer;
 
     // run the acquisition. The acquisition must run in a separate thread because it is a blocking function
-    args_acq.acquisition = acquisition;
+    args_acq.acquisition = std::move(acquisition);
 
     if (pthread_create(&thread_acquisition, nullptr, handler_acquisition_galileo_e1_pcps_ambiguous_acq_test, reinterpret_cast<void*>(&args_acq)) < 0)
         {
@@ -391,7 +397,7 @@ bool GalileoE1PcpsAmbiguousAcquisitionTestFpga::acquire_signal()
 void GalileoE1PcpsAmbiguousAcquisitionTestFpga::init()
 {
     config->set_property("GNSS-SDR.internal_fs_sps", "4000000");
-    config->set_property("Acquisition.implementation", "Galileo_E1_PCPS_Ambiguous_Acquisition_Fpga");
+    config->set_property("Acquisition.implementation", "Galileo_E1_PCPS_Ambiguous_Acquisition_FPGA");
     config->set_property("Acquisition.threshold", "0.00001");
     config->set_property("Acquisition.doppler_max", std::to_string(doppler_max));
     config->set_property("Acquisition.doppler_step", std::to_string(doppler_step));

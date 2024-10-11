@@ -1,12 +1,14 @@
 # GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# SPDX-FileCopyrightText: 2010-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-FileCopyrightText: 2010-2024 C. Fernandez-Prades cfernandez(at)cttc.es
 # SPDX-License-Identifier: BSD-3-Clause
 
 
 add_subdirectory(unit-tests/signal-processing-blocks/libs)
 add_subdirectory(system-tests/libs)
+
+include(XcodeRemoveWarningDuplicates)
 
 ################################################################################
 # Google Test - https://github.com/google/googletest
@@ -35,13 +37,7 @@ if(NOT GOOGLETEST_FOUND)
         set(GTEST_BUILD_COMMAND ${GTEST_BUILD_COMMAND} "--parallel 1")
     endif()
     if(CMAKE_GENERATOR STREQUAL Xcode)
-        set(GTEST_BUILD_COMMAND "xcodebuild" "-configuration" $<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo>$<$<CONFIG:MinSizeRel>:MinSizeRel> "-target" "gtest_main")
-    endif()
-    if((CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.0) OR
-      (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.0))
-        set(GOOGLETEST_GIT_TAG v${GNSSSDR_GTEST_LOCAL_VERSION})
-    else()
-        set(GOOGLETEST_GIT_TAG release-${GNSSSDR_GTEST_LOCAL_VERSION})
+        set(GTEST_BUILD_COMMAND "xcodebuild" "-configuration" $<$<CONFIG:None>:None>$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo>$<$<CONFIG:MinSizeRel>:MinSizeRel>$<$<CONFIG:NoOptWithASM>:NoOptWithASM>$<$<CONFIG:Coverage>:Coverage>$<$<CONFIG:O2WithASM>:O2WithASM>$<$<CONFIG:O3WithASM>:O3WithASM>$<$<CONFIG:ASAN>:Debug> "-target" "gtest_main")
     endif()
     if(GNSSSDR_GTEST_LOCAL_VERSION VERSION_LESS 1.12.0)
         set(DEBUG_DECORATION "d")
@@ -51,7 +47,7 @@ if(NOT GOOGLETEST_FOUND)
     if(CMAKE_VERSION VERSION_LESS 3.2)
         ExternalProject_Add(gtest-${GNSSSDR_GTEST_LOCAL_VERSION}
             GIT_REPOSITORY https://github.com/google/googletest
-            GIT_TAG ${GOOGLETEST_GIT_TAG}
+            GIT_TAG v${GNSSSDR_GTEST_LOCAL_VERSION}
             SOURCE_DIR ${GNSSSDR_BINARY_DIR}/thirdparty/gtest/gtest-${GNSSSDR_GTEST_LOCAL_VERSION}
             BINARY_DIR ${GNSSSDR_BINARY_DIR}/gtest-${GNSSSDR_GTEST_LOCAL_VERSION}
             CMAKE_ARGS ${GTEST_COMPILER}
@@ -80,7 +76,7 @@ if(NOT GOOGLETEST_FOUND)
         endif()
         ExternalProject_Add(gtest-${GNSSSDR_GTEST_LOCAL_VERSION}
             GIT_REPOSITORY https://github.com/google/googletest
-            GIT_TAG ${GOOGLETEST_GIT_TAG}
+            GIT_TAG v${GNSSSDR_GTEST_LOCAL_VERSION}
             SOURCE_DIR ${GNSSSDR_BINARY_DIR}/thirdparty/gtest/gtest-${GNSSSDR_GTEST_LOCAL_VERSION}
             BINARY_DIR ${GNSSSDR_BINARY_DIR}/gtest-${GNSSSDR_GTEST_LOCAL_VERSION}
             CMAKE_ARGS ${GTEST_COMPILER}
@@ -250,6 +246,10 @@ if(ARMADILLO_VERSION_STRING VERSION_GREATER 8.400)
     add_definitions(-DARMADILLO_HAVE_MVNRND=1)
 endif()
 
+if(ENABLE_PACKAGING)
+    add_definitions(-DEXCLUDE_TESTS_REQUIRING_BINARIES=1)
+endif()
+
 if(has_std_plus_void)
     add_definitions(-DCOMPILER_HAS_STD_PLUS_VOID=1)
 endif()
@@ -305,7 +305,7 @@ if(ENABLE_UNIT_TESTING_EXTRA OR ENABLE_SYSTEM_TESTING_EXTRA OR ENABLE_FPGA)
     else()
         set(GNSS_SIM_BUILD_COMMAND "${CMAKE_MAKE_PROGRAM}")
         if(CMAKE_GENERATOR STREQUAL Xcode)
-            set(GNSS_SIM_BUILD_COMMAND "xcodebuild" "-configuration" "${CMAKE_BUILD_TYPE}" "-target" "gnss_sim")
+            set(GNSS_SIM_BUILD_COMMAND "xcodebuild" "-configuration" $<$<CONFIG:None>:None>$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo>$<$<CONFIG:MinSizeRel>:MinSizeRel>$<$<CONFIG:NoOptWithASM>:NoOptWithASM>$<$<CONFIG:Coverage>:Coverage>$<$<CONFIG:O2WithASM>:O2WithASM>$<$<CONFIG:O3WithASM>:O3WithASM>$<$<CONFIG:ASAN>:Debug> "-target" "gnss_sim")
         endif()
         if(TOOLCHAIN_ARG)
             set(TOOLCHAIN_ARG_GNSS_SIM "-DCMAKE_NO_SYSTEM_FROM_IMPORTED=ON")
@@ -334,7 +334,7 @@ if(ENABLE_UNIT_TESTING_EXTRA OR ENABLE_SYSTEM_TESTING_EXTRA OR ENABLE_FPGA)
         else()
             set(SW_GENERATOR_BIN ${GNSSSDR_BINARY_DIR}/gnss-sim/gnss_sim)
             if(CMAKE_GENERATOR STREQUAL Xcode)
-                set(SW_GENERATOR_BIN ${GNSSSDR_BINARY_DIR}/gnss-sim/${CMAKE_BUILD_TYPE}/gnss_sim)
+                set(SW_GENERATOR_BIN ${GNSSSDR_BINARY_DIR}/gnss-sim/$<$<CONFIG:None>:None>$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo>$<$<CONFIG:MinSizeRel>:MinSizeRel>$<$<CONFIG:NoOptWithASM>:NoOptWithASM>$<$<CONFIG:Coverage>:Coverage>$<$<CONFIG:O2WithASM>:O2WithASM>$<$<CONFIG:O3WithASM>:O3WithASM>$<$<CONFIG:ASAN>:Debug>/gnss_sim)
             endif()
             add_definitions(-DSW_GENERATOR_BIN="${SW_GENERATOR_BIN}")
             add_definitions(-DDEFAULT_RINEX_NAV="${GNSSSDR_BINARY_DIR}/thirdparty/gnss-sim/brdc3540.14n")
@@ -355,17 +355,26 @@ if(ENABLE_UNIT_TESTING_EXTRA OR ENABLE_SYSTEM_TESTING_EXTRA OR ENABLE_FPGA)
         endif()
         set(GNSSTK_BUILD_COMMAND "${CMAKE_MAKE_PROGRAM}")
         if(CMAKE_GENERATOR STREQUAL Xcode)
-            set(GNSSTK_BUILD_COMMAND "xcodebuild" "-configuration" "${CMAKE_BUILD_TYPE}")
+            set(GNSSTK_BUILD_COMMAND "xcodebuild" "-configuration" $<$<CONFIG:None>:None>$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo>$<$<CONFIG:MinSizeRel>:MinSizeRel>$<$<CONFIG:NoOptWithASM>:NoOptWithASM>$<$<CONFIG:Coverage>:Coverage>$<$<CONFIG:O2WithASM>:O2WithASM>$<$<CONFIG:O3WithASM>:O3WithASM>$<$<CONFIG:ASAN>:Debug>)
         endif()
         include(GNUInstallDirs)
         find_program(Patch_EXECUTABLE NAME patch PATHS ENV PATH)
         if(NOT Patch_EXECUTABLE)
             message(FATAL_ERROR "The patch command is not found. It is required to build GNSSTk. Please check your OS documentation and install the patch command.")
         endif()
-        set(GNSSTK_PATCH_COMMAND
-            cd ${GNSSSDR_BINARY_DIR}/thirdparty/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION} &&
-            ${Patch_EXECUTABLE} ${GNSSSDR_BINARY_DIR}/thirdparty/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/CMakeLists.txt < ${GNSSSDR_SOURCE_DIR}/src/tests/data/gnsstk_static13.patch
-        )
+        if(CMAKE_VERSION VERSION_GREATER 3.17.0)
+            set(GNSSTK_PATCH_COMMAND
+                cd ${GNSSSDR_BINARY_DIR}/thirdparty/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION} &&
+                ${Patch_EXECUTABLE} ${GNSSSDR_BINARY_DIR}/thirdparty/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/CMakeLists.txt < ${GNSSSDR_SOURCE_DIR}/src/tests/data/gnsstk_static14.patch &&
+                ${Patch_EXECUTABLE} ${GNSSSDR_BINARY_DIR}/thirdparty/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/core/lib/GNSSCore/ObsID.hpp < ${GNSSSDR_SOURCE_DIR}/src/tests/data/gnsstk_gcc13.patch
+            )
+        else()
+            set(GNSSTK_PATCH_COMMAND
+                cd ${GNSSSDR_BINARY_DIR}/thirdparty/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION} &&
+                ${Patch_EXECUTABLE} ${GNSSSDR_BINARY_DIR}/thirdparty/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/CMakeLists.txt < ${GNSSSDR_SOURCE_DIR}/src/tests/data/gnsstk_static13.patch &&
+                ${Patch_EXECUTABLE} ${GNSSSDR_BINARY_DIR}/thirdparty/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/core/lib/GNSSCore/ObsID.hpp < ${GNSSSDR_SOURCE_DIR}/src/tests/data/gnsstk_gcc13.patch
+            )
+        endif()
         # Patch only once
         if(EXISTS ${GNSSSDR_BINARY_DIR}/thirdparty/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/CMakeLists.txt)
             set(GNSSTK_PATCH_COMMAND "")
@@ -397,26 +406,56 @@ if(ENABLE_UNIT_TESTING_EXTRA OR ENABLE_SYSTEM_TESTING_EXTRA OR ENABLE_FPGA)
                     set(GNSSTK_PARALLEL_BUILD "-j${NUMBER_OF_PROCESSORS}")
                 endif()
             endif()
-
-            ExternalProject_Add(gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}
-                GIT_REPOSITORY https://github.com/SGL-UT/gnsstk
-                GIT_TAG v${GNSSSDR_GNSSTK_LOCAL_VERSION}
-                SOURCE_DIR ${GNSSSDR_BINARY_DIR}/thirdparty/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}
-                BINARY_DIR ${GNSSSDR_BINARY_DIR}/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}
-                PATCH_COMMAND ${GNSSTK_PATCH_COMMAND}
-                CMAKE_ARGS ${GTEST_COMPILER} ${TOOLCHAIN_ARG}
-                    -DCMAKE_INSTALL_PREFIX=${GNSSSDR_BINARY_DIR}/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/install
-                    -DBUILD_EXT=ON
-                    -DBUILD_PYTHON=OFF
-                    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                    -DCMAKE_CXX_STANDARD=14
-                    -DCMAKE_CXX_EXTENSIONS=ON
-                    -DCMAKE_C_STANDARD=11
-                    -DCMAKE_C_EXTENSIONS=ON
-                BUILD_COMMAND ${GNSSTK_BUILD_COMMAND} ${GNSSTK_PARALLEL_BUILD}
-                BUILD_BYPRODUCTS ${GNSSSDR_BINARY_DIR}/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/install/lib/${CMAKE_FIND_LIBRARY_PREFIXES}gnsstk${CMAKE_STATIC_LIBRARY_SUFFIX}
-                UPDATE_COMMAND ""
-            )
+            if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+                set(GNSSTK_FLAGS "-DCMAKE_CXX_FLAGS:STRING=-w")  # Fix for clang in aarch64
+            endif()
+            if(CMAKE_VERSION VERSION_GREATER 3.17.0)
+                set(GNSSTK_CXX_STANDARD 17)
+                if((${CMAKE_SYSTEM_NAME} MATCHES "Darwin") AND ("${DARWIN_VERSION}" VERSION_GREATER_EQUAL "14"))
+                    set(GNSSTK_CXX_STANDARD 14)
+                endif()
+                ExternalProject_Add(gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}
+                    GIT_REPOSITORY https://github.com/SGL-UT/gnsstk
+                    GIT_TAG v${GNSSSDR_GNSSTK_LOCAL_VERSION}
+                    GIT_SUBMODULES_RECURSE OFF
+                    GIT_SUBMODULES ""
+                    SOURCE_DIR ${GNSSSDR_BINARY_DIR}/thirdparty/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}
+                    BINARY_DIR ${GNSSSDR_BINARY_DIR}/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}
+                    PATCH_COMMAND ${GNSSTK_PATCH_COMMAND}
+                    CMAKE_ARGS ${GTEST_COMPILER} ${TOOLCHAIN_ARG}
+                        -DCMAKE_INSTALL_PREFIX=${GNSSSDR_BINARY_DIR}/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/install
+                        -DBUILD_EXT=ON
+                        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                        -DCMAKE_CXX_STANDARD=${GNSSTK_CXX_STANDARD}
+                        -DCMAKE_CXX_EXTENSIONS=ON
+                        -DCMAKE_C_STANDARD=11
+                        -DCMAKE_C_EXTENSIONS=ON
+                        "${GNSSTK_FLAGS}"
+                    BUILD_COMMAND ${GNSSTK_BUILD_COMMAND} ${GNSSTK_PARALLEL_BUILD}
+                    BUILD_BYPRODUCTS ${GNSSSDR_BINARY_DIR}/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/install/lib/${CMAKE_FIND_LIBRARY_PREFIXES}gnsstk${CMAKE_STATIC_LIBRARY_SUFFIX}
+                    UPDATE_COMMAND ""
+                )
+            else()
+                ExternalProject_Add(gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}
+                    GIT_REPOSITORY https://github.com/SGL-UT/gnsstk
+                    GIT_TAG v${GNSSSDR_GNSSTK_LOCAL_VERSION}
+                    SOURCE_DIR ${GNSSSDR_BINARY_DIR}/thirdparty/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}
+                    BINARY_DIR ${GNSSSDR_BINARY_DIR}/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}
+                    PATCH_COMMAND ${GNSSTK_PATCH_COMMAND}
+                    CMAKE_ARGS ${GTEST_COMPILER} ${TOOLCHAIN_ARG}
+                        -DCMAKE_INSTALL_PREFIX=${GNSSSDR_BINARY_DIR}/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/install
+                        -DBUILD_EXT=ON
+                        -DBUILD_PYTHON=OFF
+                        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                        -DCMAKE_CXX_STANDARD=14
+                        -DCMAKE_CXX_EXTENSIONS=ON
+                        -DCMAKE_C_STANDARD=11
+                        -DCMAKE_C_EXTENSIONS=ON
+                    BUILD_COMMAND ${GNSSTK_BUILD_COMMAND} ${GNSSTK_PARALLEL_BUILD}
+                    BUILD_BYPRODUCTS ${GNSSSDR_BINARY_DIR}/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/install/lib/${CMAKE_FIND_LIBRARY_PREFIXES}gnsstk${CMAKE_STATIC_LIBRARY_SUFFIX}
+                    UPDATE_COMMAND ""
+                )
+            endif()
         endif()
         set(GNSSTK_INCLUDE_DIRS ${GNSSSDR_BINARY_DIR}/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/install/include CACHE PATH "Local GNSSTK headers")
         set(GNSSTK_LIBRARY ${GNSSSDR_BINARY_DIR}/gnsstk-${GNSSSDR_GNSSTK_LOCAL_VERSION}/install/lib/${CMAKE_FIND_LIBRARY_PREFIXES}gnsstk${CMAKE_STATIC_LIBRARY_SUFFIX})
@@ -438,34 +477,74 @@ if(ENABLE_UNIT_TESTING_EXTRA OR ENABLE_SYSTEM_TESTING_EXTRA OR ENABLE_FPGA)
     endif()
 endif()
 
+if(NOT (ENABLE_PACKAGING OR ENABLE_UNIT_TESTING_MINIMAL))
+    message(STATUS "Downloading some data files for testing ...")
+    if(NOT EXISTS ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/Galileo_E1_ID_1_Fs_4Msps_8ms.dat)
+        message(STATUS "Downloading file: Galileo_E1_ID_1_Fs_4Msps_8ms.dat")
+        file(DOWNLOAD https://sourceforge.net/projects/gnss-sdr/files/data/Galileo_E1_ID_1_Fs_4Msps_8ms.dat
+                ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/Galileo_E1_ID_1_Fs_4Msps_8ms.dat
+            SHOW_PROGRESS
+            EXPECTED_HASH MD5=d57a02d3c7361bba2e137329b66458ef
+        )
+    endif()
+    if(NOT EXISTS ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/GPS_L1_CA_ID_1_Fs_4Msps_2ms.dat)
+        message(STATUS "Downloading file: GPS_L1_CA_ID_1_Fs_4Msps_2ms.dat")
+        file(DOWNLOAD https://sourceforge.net/projects/gnss-sdr/files/data/GPS_L1_CA_ID_1_Fs_4Msps_2ms.dat
+                ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/GPS_L1_CA_ID_1_Fs_4Msps_2ms.dat
+            SHOW_PROGRESS
+            EXPECTED_HASH MD5=f12ada80a2ad1bab061262e010643529
+        )
+    endif()
+    if(NOT EXISTS ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/GSoC_CTTC_capture_2012_07_26_4Msps_4ms.dat)
+        message(STATUS "Downloading file: GSoC_CTTC_capture_2012_07_26_4Msps_4ms.dat")
+        file(DOWNLOAD https://sourceforge.net/projects/gnss-sdr/files/data/GSoC_CTTC_capture_2012_07_26_4Msps_4ms.dat
+                ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/GSoC_CTTC_capture_2012_07_26_4Msps_4ms.dat
+            SHOW_PROGRESS
+            EXPECTED_HASH MD5=b98d6d82885354f168f279817de284b5
+        )
+    endif()
+    if(NOT EXISTS ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/NT1065_GLONASS_L1_20160831_fs6625e6_if0e3_4ms.bin)
+        message(STATUS "Downloading file: NT1065_GLONASS_L1_20160831_fs6625e6_if0e3_4ms.bin")
+        file(DOWNLOAD https://sourceforge.net/projects/gnss-sdr/files/data/NT1065_GLONASS_L1_20160831_fs6625e6_if0e3_4ms.bin
+                ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/NT1065_GLONASS_L1_20160831_fs6625e6_if0e3_4ms.bin
+            SHOW_PROGRESS
+            EXPECTED_HASH MD5=0e2dc212309141d236897bc0af187074
+        )
+    endif()
+    message(STATUS "Done.")
+endif()
 
 if(ENABLE_UNIT_TESTING_EXTRA)
     add_definitions(-DEXTRA_TESTS)
-    message(STATUS "Downloading some data files for testing...")
+    message(STATUS "Downloading some extra data files for testing ...")
     if(NOT EXISTS ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/gps_l2c_m_prn7_5msps.dat)
         message(STATUS "Downloading file: gps_l2c_m_prn7_5msps.dat")
-        file(DOWNLOAD https://sourceforge.net/projects/gnss-sdr/files/data/gps_l2c_m_prn7_5msps.dat ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/gps_l2c_m_prn7_5msps.dat
+        file(DOWNLOAD https://sourceforge.net/projects/gnss-sdr/files/data/gps_l2c_m_prn7_5msps.dat
+                ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/gps_l2c_m_prn7_5msps.dat
             SHOW_PROGRESS
             EXPECTED_HASH MD5=a6fcbefe155137945d3c33c5ef7bd0f9
         )
     endif()
     if(NOT EXISTS ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/Glonass_L1_CA_SIM_Fs_62Msps_4ms.dat)
         message(STATUS "Downloading file: Glonass_L1_CA_SIM_Fs_62Msps_4ms.dat")
-        file(DOWNLOAD https://sourceforge.net/projects/gnss-sdr/files/data/Glonass_L1_CA_SIM_Fs_62Msps_4ms.dat ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/Glonass_L1_CA_SIM_Fs_62Msps_4ms.dat
+        file(DOWNLOAD https://sourceforge.net/projects/gnss-sdr/files/data/Glonass_L1_CA_SIM_Fs_62Msps_4ms.dat
+                ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/Glonass_L1_CA_SIM_Fs_62Msps_4ms.dat
             SHOW_PROGRESS
             EXPECTED_HASH MD5=ffb72fc63c116be58d5e5ccb1daaed3a
         )
     endif()
     if(NOT EXISTS ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/BdsB1IStr01_fs25e6_if0_4ms.dat)
         message(STATUS "Downloading file: BdsB1IStr01_fs25e6_if0_4ms.dat")
-        file(DOWNLOAD https://sourceforge.net/projects/gnss-sdr/files/data/BdsB1IStr01_fs25e6_if0_4ms.dat ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/BdsB1IStr01_fs25e6_if0_4ms.dat
+        file(DOWNLOAD https://sourceforge.net/projects/gnss-sdr/files/data/BdsB1IStr01_fs25e6_if0_4ms.dat
+                ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/BdsB1IStr01_fs25e6_if0_4ms.dat
             SHOW_PROGRESS
             EXPECTED_HASH MD5=5a4336dad9d80f3313a16dec4fff9233
         )
     endif()
     if(NOT EXISTS ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/BdsB3IStr01_fs50e6_if0_4ms.dat)
         message(STATUS "Downloading file: BdsB3IStr01_fs50e6_if0_4ms.dat")
-        file(DOWNLOAD https://sourceforge.net/projects/gnss-sdr/files/data/BdsB3IStr01_fs50e6_if0_4ms.dat ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/BdsB3IStr01_fs50e6_if0_4ms.dat
+        file(DOWNLOAD https://sourceforge.net/projects/gnss-sdr/files/data/BdsB3IStr01_fs50e6_if0_4ms.dat
+                ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/BdsB3IStr01_fs50e6_if0_4ms.dat
             SHOW_PROGRESS
             EXPECTED_HASH MD5=066d0d8434a8bc81e161778b7c34cc07
         )
@@ -479,22 +558,20 @@ if(ENABLE_UNIT_TESTING_EXTRA)
     endif()
 endif()
 
-if(ENABLE_INSTALL_TESTS)
-    install(FILES ${GNSSSDR_SOURCE_DIR}/src/tests/signal_samples/GSoC_CTTC_capture_2012_07_26_4Msps_4ms.dat DESTINATION share/gnss-sdr/signal_samples)
-    install(FILES ${GNSSSDR_SOURCE_DIR}/src/tests/signal_samples/Galileo_E1_ID_1_Fs_4Msps_8ms.dat DESTINATION share/gnss-sdr/signal_samples)
-    install(FILES ${GNSSSDR_SOURCE_DIR}/src/tests/signal_samples/GPS_L1_CA_ID_1_Fs_4Msps_2ms.dat DESTINATION share/gnss-sdr/signal_samples)
-    install(FILES ${GNSSSDR_SOURCE_DIR}/src/tests/signal_samples/NT1065_GLONASS_L1_20160831_fs6625e6_if0e3_4ms.bin DESTINATION share/gnss-sdr/signal_samples)
-    install(FILES ${GNSSSDR_SOURCE_DIR}/src/tests/data/rtklib_test/obs_test1.xml DESTINATION share/gnss-sdr/data/rtklib_test)
-    install(FILES ${GNSSSDR_SOURCE_DIR}/src/tests/data/rtklib_test/eph_GPS_L1CA_test1.xml DESTINATION share/gnss-sdr/data/rtklib_test)
-    add_definitions(-DTEST_PATH="${CMAKE_INSTALL_PREFIX}/share/gnss-sdr/")
-else()
-    file(COPY ${GNSSSDR_SOURCE_DIR}/src/tests/signal_samples/GSoC_CTTC_capture_2012_07_26_4Msps_4ms.dat DESTINATION ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples)
-    file(COPY ${GNSSSDR_SOURCE_DIR}/src/tests/signal_samples/Galileo_E1_ID_1_Fs_4Msps_8ms.dat DESTINATION ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples)
-    file(COPY ${GNSSSDR_SOURCE_DIR}/src/tests/signal_samples/GPS_L1_CA_ID_1_Fs_4Msps_2ms.dat DESTINATION ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples)
-    file(COPY ${GNSSSDR_SOURCE_DIR}/src/tests/signal_samples/NT1065_GLONASS_L1_20160831_fs6625e6_if0e3_4ms.bin DESTINATION ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples)
-    file(COPY ${GNSSSDR_SOURCE_DIR}/src/tests/data/rtklib_test/obs_test1.xml DESTINATION ${GNSSSDR_BINARY_DIR}/thirdparty/data/rtklib_test)
-    file(COPY ${GNSSSDR_SOURCE_DIR}/src/tests/data/rtklib_test/eph_GPS_L1CA_test1.xml DESTINATION ${GNSSSDR_BINARY_DIR}/thirdparty/data/rtklib_test)
-    add_definitions(-DTEST_PATH="${GNSSSDR_BINARY_DIR}/thirdparty/")
+if(NOT ENABLE_PACKAGING)
+    if(ENABLE_INSTALL_TESTS)
+        install(FILES ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/GSoC_CTTC_capture_2012_07_26_4Msps_4ms.dat DESTINATION share/gnss-sdr/signal_samples)
+        install(FILES ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/Galileo_E1_ID_1_Fs_4Msps_8ms.dat DESTINATION share/gnss-sdr/signal_samples)
+        install(FILES ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/GPS_L1_CA_ID_1_Fs_4Msps_2ms.dat DESTINATION share/gnss-sdr/signal_samples)
+        install(FILES ${GNSSSDR_BINARY_DIR}/thirdparty/signal_samples/NT1065_GLONASS_L1_20160831_fs6625e6_if0e3_4ms.bin DESTINATION share/gnss-sdr/signal_samples)
+        install(FILES ${GNSSSDR_SOURCE_DIR}/src/tests/data/rtklib_test/obs_test1.xml DESTINATION share/gnss-sdr/data/rtklib_test)
+        install(FILES ${GNSSSDR_SOURCE_DIR}/src/tests/data/rtklib_test/eph_GPS_L1CA_test1.xml DESTINATION share/gnss-sdr/data/rtklib_test)
+        add_definitions(-DTEST_PATH="${CMAKE_INSTALL_PREFIX}/share/gnss-sdr/")
+    else()
+        file(COPY ${GNSSSDR_SOURCE_DIR}/src/tests/data/rtklib_test/obs_test1.xml DESTINATION ${GNSSSDR_BINARY_DIR}/thirdparty/data/rtklib_test)
+        file(COPY ${GNSSSDR_SOURCE_DIR}/src/tests/data/rtklib_test/eph_GPS_L1CA_test1.xml DESTINATION ${GNSSSDR_BINARY_DIR}/thirdparty/data/rtklib_test)
+        add_definitions(-DTEST_PATH="${GNSSSDR_BINARY_DIR}/thirdparty/")
+    endif()
 endif()
 
 
@@ -514,8 +591,6 @@ if(ENABLE_UNIT_TESTING)
         PRIVATE
             Boost::thread
             Armadillo::armadillo
-            Gflags::gflags
-            Glog::glog
             Gnuradio::runtime
             Gnuradio::blocks
             Gnuradio::filter
@@ -544,6 +619,13 @@ if(ENABLE_UNIT_TESTING)
             system_testing_lib
             core_receiver
     )
+    if(ENABLE_GLOG_AND_GFLAGS)
+        target_link_libraries(run_tests PRIVATE Gflags::gflags Glog::glog)
+        target_compile_definitions(run_tests PRIVATE -DUSE_GLOG_AND_GFLAGS=1)
+    else()
+        target_link_libraries(run_tests PRIVATE absl::flags absl::flags_parse absl::log absl::log_initialize)
+        target_link_libraries(run_tests INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,absl::log_flags>")
+    endif()
     target_include_directories(run_tests
         INTERFACE
             ${GNSSSDR_SOURCE_DIR}/src/tests/common-files
@@ -570,6 +652,7 @@ if(ENABLE_UNIT_TESTING)
             target_compile_definitions(run_tests PRIVATE -DGNSSTK_OLDER_THAN_9=1)
         endif()
     endif()
+    xcode_remove_warning_duplicates(run_tests)
     if(ENABLE_STRIP)
         set_target_properties(run_tests PROPERTIES LINK_FLAGS "-s")
     endif()
@@ -674,8 +757,6 @@ if(ENABLE_FPGA)
         PRIVATE
             Armadillo::armadillo
             Boost::thread
-            Gflags::gflags
-            Glog::glog
             Gnuradio::runtime
             Gnuradio::blocks
             GTest::GTest
@@ -689,9 +770,17 @@ if(ENABLE_FPGA)
             algorithms_libs
             core_receiver
     )
+    if(ENABLE_GLOG_AND_GFLAGS)
+        target_link_libraries(gps_l1_ca_dll_pll_tracking_test_fpga PRIVATE Gflags::gflags Glog::glog)
+        target_compile_definitions(gps_l1_ca_dll_pll_tracking_test_fpga PRIVATE -DUSE_GLOG_AND_GFLAGS=1)
+    else()
+        target_link_libraries(gps_l1_ca_dll_pll_tracking_test_fpga PRIVATE absl::flags absl::flags_parse absl::log absl::log_initialize)
+        target_link_libraries(gps_l1_ca_dll_pll_tracking_test_fpga INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,absl::log_flags>")
+    endif()
     target_include_directories(gps_l1_ca_dll_pll_tracking_test_fpga
         INTERFACE ${GNSSSDR_SOURCE_DIR}/src/tests/common-files
     )
+    xcode_remove_warning_duplicates(gps_l1_ca_dll_pll_tracking_test_fpga)
     install(TARGETS gps_l1_ca_dll_pll_tracking_test_fpga
         RUNTIME DESTINATION bin
         COMPONENT "fpga-test"
@@ -727,6 +816,9 @@ function(add_system_test executable)
         INTERFACE ${GNSSSDR_SOURCE_DIR}/src/tests/common-files
     )
     target_link_libraries(${executable} PRIVATE ${OPT_LIBS_} algorithms_libs)
+    if(NOT ENABLE_GLOG_AND_GFLAGS)
+        target_link_libraries(${executable} INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,absl::log_flags>")
+    endif()
     if(GNURADIO_USES_STD_POINTERS)
         target_compile_definitions(${executable}
             PRIVATE -DGNURADIO_USES_STD_POINTERS=1
@@ -748,6 +840,9 @@ function(add_system_test executable)
             ${LOCAL_INSTALL_BASE_DIR}/install/$<TARGET_FILE_NAME:${executable}>
         )
     endif()
+
+    xcode_remove_warning_duplicates(${executable})
+
     if(ENABLE_CLANG_TIDY)
         if(CLANG_TIDY_EXE)
             set_target_properties(${executable}
@@ -773,25 +868,47 @@ if(ENABLE_SYSTEM_TESTING)
 
     #### TTFF
     set(OPT_LIBS_ Boost::thread Boost::date_time
-        Threads::Threads Gflags::gflags Glog::glog
+        Threads::Threads
         Gnuradio::runtime GTest::GTest GTest::Main
         Gnuradio::blocks Gnuradio::filter
         Gnuradio::analog algorithms_libs
         core_receiver
     )
-    add_system_test(ttff)
+    if(ENABLE_GLOG_AND_GFLAGS)
+        set(OPT_LIBS_ ${OPT_LIBS_} Gflags::gflags Glog::glog)
+    else()
+        set(OPT_LIBS_ ${OPT_LIBS_} absl::flags_parse absl::flags absl::log absl::log_initialize absl::log_sink absl::log_sink_registry)
+    endif()
+    if(NOT ENABLE_PACKAGING)
+        add_system_test(ttff
+            CMAKE_ARGS -DCMAKE_BUILD_TYPE=$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo>$<$<CONFIG:MinSizeRel>:MinSizeRel>$<$<CONFIG:NoOptWithASM>:Debug>$<$<CONFIG:Coverage>:Debug>$<$<CONFIG:O2WithASM>:RelWithDebInfo>$<$<CONFIG:O3WithASM>:RelWithDebInfo>$<$<CONFIG:ASAN>:Debug>
+        )
+        if(ENABLE_GLOG_AND_GFLAGS)
+            target_compile_definitions(ttff PRIVATE -DUSE_GLOG_AND_GFLAGS=1)
+        endif()
+    endif()
 
     if(ENABLE_SYSTEM_TESTING_EXTRA)
         #### POSITION_TEST
         set(OPT_LIBS_
             algorithms_libs core_receiver core_system_parameters gnss_sdr_flags
             system_testing_lib signal_processing_testing_lib
-            Boost::thread Threads::Threads Gflags::gflags Glog::glog
+            Boost::thread Threads::Threads
             GTest::GTest GTest::Main Gnuradio::runtime
             Gnuradio::blocks Gnuradio::filter
             Gnuradio::analog Matio::matio Volkgnsssdr::volkgnsssdr
         )
-        add_system_test(position_test)
+        if(ENABLE_GLOG_AND_GFLAGS)
+            set(OPT_LIBS_ ${OPT_LIBS_} Gflags::gflags Glog::glog)
+        else()
+            set(OPT_LIBS_ ${OPT_LIBS_} absl::flags_parse absl::log absl::log_initialize absl::log_sink absl::log_sink_registry)
+        endif()
+        add_system_test(position_test
+            CMAKE_ARGS -DCMAKE_BUILD_TYPE=$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:RelWithDebInfo>$<$<CONFIG:MinSizeRel>:MinSizeRel>$<$<CONFIG:NoOptWithASM>:Debug>$<$<CONFIG:Coverage>:Debug>$<$<CONFIG:O2WithASM>:RelWithDebInfo>$<$<CONFIG:O3WithASM>:RelWithDebInfo>$<$<CONFIG:ASAN>:Debug>
+            )
+        if(ENABLE_GLOG_AND_GFLAGS)
+            target_compile_definitions(position_test PRIVATE -DUSE_GLOG_AND_GFLAGS=1)
+        endif()
         if(ENABLE_GPERFTOOLS)
             if(GPERFTOOLS_FOUND)
                 target_link_libraries(position_test
@@ -843,8 +960,6 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
     target_link_libraries(flowgraph_test
         PRIVATE
             Boost::thread
-            Gflags::gflags
-            Glog::glog
             Gnuradio::runtime
             GTest::GTest
             GTest::Main
@@ -855,11 +970,20 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
             core_receiver
             algorithms_libs
     )
+    if(ENABLE_GLOG_AND_GFLAGS)
+        target_link_libraries(flowgraph_test PRIVATE Gflags::gflags Glog::glog)
+        target_compile_definitions(flowgraph_test PRIVATE -DUSE_GLOG_AND_GFLAGS=1)
+    else()
+        target_link_libraries(flowgraph_test PRIVATE absl::flags absl::flags_parse absl::log absl::log_initialize)
+        target_link_libraries(flowgraph_test INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,absl::log_flags>")
+    endif()
 
     target_include_directories(flowgraph_test
         PRIVATE
             ${GNSSSDR_SOURCE_DIR}/src/algorithms/libs
     )
+
+    xcode_remove_warning_duplicates(flowgraph_test)
 
     add_test(flowgraph_test flowgraph_test)
 
@@ -890,8 +1014,6 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
     target_link_libraries(gnss_block_test
         PRIVATE
             Boost::thread
-            Gflags::gflags
-            Glog::glog
             Gnuradio::runtime
             Gnuradio::blocks
             Gnuradio::filter
@@ -906,6 +1028,13 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
             core_receiver
             algorithms_libs
     )
+    if(ENABLE_GLOG_AND_GFLAGS)
+        target_link_libraries(gnss_block_test PRIVATE Gflags::gflags Glog::glog)
+        target_compile_definitions(gnss_block_test PRIVATE -DUSE_GLOG_AND_GFLAGS=1)
+    else()
+        target_link_libraries(gnss_block_test PRIVATE absl::flags absl::flags_parse absl::log absl::log_initialize)
+        target_link_libraries(gnss_block_test INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,absl::log_flags>")
+    endif()
 
     target_include_directories(gnss_block_test
         PRIVATE ${GNSSSDR_SOURCE_DIR}/src/algorithms/libs
@@ -915,6 +1044,8 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
     if(ENABLE_FPGA)
         target_compile_definitions(gnss_block_test PRIVATE -DENABLE_FPGA=1)
     endif()
+
+    xcode_remove_warning_duplicates(gnss_block_test)
 
     add_test(gnss_block_test gnss_block_test)
 
@@ -938,8 +1069,6 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
     target_link_libraries(gnuradio_block_test
         PRIVATE
             Boost::thread
-            Gflags::gflags
-            Glog::glog
             Gnuradio::runtime
             Gnuradio::blocks
             Gnuradio::filter
@@ -952,6 +1081,15 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
             core_receiver
             algorithms_libs
     )
+    if(ENABLE_GLOG_AND_GFLAGS)
+        target_link_libraries(gnuradio_block_test PRIVATE Gflags::gflags Glog::glog)
+        target_compile_definitions(gnuradio_block_test PRIVATE -DUSE_GLOG_AND_GFLAGS=1)
+    else()
+        target_link_libraries(gnuradio_block_test PRIVATE absl::flags absl::flags_parse absl::log absl::log_initialize)
+        target_link_libraries(gnuradio_block_test INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,absl::log_flags>")
+    endif()
+
+    xcode_remove_warning_duplicates(gnuradio_block_test)
 
     add_test(gnuradio_block_test gnuradio_block_test)
 
@@ -974,18 +1112,26 @@ endif()
 target_link_libraries(matio_test
     PRIVATE
         algorithms_libs
-        Gflags::gflags
-        Glog::glog
         GTest::GTest
         GTest::Main
         Matio::matio
         core_receiver
 )
 
+if(ENABLE_GLOG_AND_GFLAGS)
+    target_link_libraries(matio_test PRIVATE Gflags::gflags Glog::glog)
+    target_compile_definitions(matio_test PRIVATE -DUSE_GLOG_AND_GFLAGS=1)
+else()
+    target_link_libraries(matio_test PRIVATE absl::flags absl::flags_parse absl::log absl::log_initialize)
+    target_link_libraries(matio_test INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,absl::log_flags>")
+endif()
+
 target_include_directories(matio_test
     INTERFACE
         ${GNSSSDR_SOURCE_DIR}/src/tests/common-files
 )
+
+xcode_remove_warning_duplicates(matio_test)
 
 add_test(matio_test matio_test)
 
@@ -1008,8 +1154,6 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
     target_link_libraries(acq_test
         PRIVATE
             Boost::thread
-            Gflags::gflags
-            Glog::glog
             Gnuradio::runtime
             Gnuradio::blocks
             Gnuradio::filter
@@ -1025,6 +1169,13 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
             signal_processing_testing_lib
             core_receiver
     )
+    if(ENABLE_GLOG_AND_GFLAGS)
+        target_link_libraries(acq_test PRIVATE Gflags::gflags Glog::glog)
+        target_compile_definitions(acq_test PRIVATE -DUSE_GLOG_AND_GFLAGS=1)
+    else()
+        target_link_libraries(acq_test PRIVATE absl::flags absl::flags_parse absl::log absl::log_initialize)
+        target_link_libraries(acq_test INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,absl::log_flags>")
+    endif()
     target_include_directories(acq_test
         INTERFACE
             ${GNSSSDR_SOURCE_DIR}/src/tests/common-files
@@ -1035,6 +1186,9 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
                 -DPMT_USES_BOOST_ANY=1
         )
     endif()
+
+    xcode_remove_warning_duplicates(acq_test)
+
     add_test(acq_test acq_test)
 
     if(USE_GENERIC_LAMBDAS)
@@ -1088,8 +1242,6 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
     target_link_libraries(trk_test
         PRIVATE
             Boost::thread
-            Gflags::gflags
-            Glog::glog
             Gnuradio::runtime
             Gnuradio::blocks
             Gnuradio::filter
@@ -1104,6 +1256,13 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
             signal_generator_gr_blocks
             core_receiver
     )
+    if(ENABLE_GLOG_AND_GFLAGS)
+        target_link_libraries(trk_test PRIVATE Gflags::gflags Glog::glog)
+        target_compile_definitions(trk_test PRIVATE -DUSE_GLOG_AND_GFLAGS=1)
+    else()
+        target_link_libraries(trk_test PRIVATE absl::flags absl::flags_parse absl::log absl::log_initialize)
+        target_link_libraries(trk_test INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,absl::log_flags>")
+    endif()
     if(USE_GENERIC_LAMBDAS)
         set(has_generic_lambdas HAS_GENERIC_LAMBDA=1)
         set(no_has_generic_lambdas HAS_GENERIC_LAMBDA=0)
@@ -1131,6 +1290,8 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
         )
     endif()
 
+    xcode_remove_warning_duplicates(trk_test)
+
     add_test(trk_test trk_test)
 
     set_property(TEST trk_test PROPERTY TIMEOUT 30)
@@ -1153,14 +1314,21 @@ if(NOT ENABLE_PACKAGING AND NOT ENABLE_FPGA)
     target_link_libraries(control_thread_test
         PRIVATE
             Boost::thread
-            Gflags::gflags
-            Glog::glog
             GTest::GTest
             GTest::Main
             signal_source_adapters
             algorithms_libs
             core_receiver
     )
+    if(ENABLE_GLOG_AND_GFLAGS)
+        target_link_libraries(control_thread_test PRIVATE Gflags::gflags Glog::glog)
+        target_compile_definitions(control_thread_test PRIVATE -DUSE_GLOG_AND_GFLAGS=1)
+    else()
+        target_link_libraries(control_thread_test PRIVATE absl::flags absl::flags_parse absl::log absl::log_initialize)
+        target_link_libraries(control_thread_test INTERFACE "$<LINK_LIBRARY:WHOLE_ARCHIVE,absl::log_flags>")
+    endif()
+
+    xcode_remove_warning_duplicates(control_thread_test)
 
     add_test(control_thread_test control_thread_test)
 

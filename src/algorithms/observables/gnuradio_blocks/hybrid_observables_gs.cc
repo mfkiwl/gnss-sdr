@@ -23,7 +23,6 @@
 #include "gnss_sdr_filesystem.h"
 #include "gnss_sdr_make_unique.h"
 #include "gnss_synchro.h"
-#include <glog/logging.h>
 #include <gnuradio/io_signature.h>
 #include <matio.h>
 #include <pmt/pmt.h>
@@ -35,6 +34,12 @@
 #include <iostream>   // for cerr, cout
 #include <limits>     // for numeric_limits
 #include <utility>    // for move
+
+#if USE_GLOG_AND_GFLAGS
+#include <glog/logging.h>
+#else
+#include <absl/log/log.h>
+#endif
 
 #if PMT_USES_BOOST_ANY
 #include <boost/any.hpp>
@@ -93,25 +98,12 @@ hybrid_observables_gs::hybrid_observables_gs(const Obs_Conf &conf_)
 
     d_gnss_synchro_history = std::make_unique<Gnss_circular_deque<Gnss_Synchro>>(1000, d_nchannels_out);
 
-    d_Rx_clock_buffer.set_capacity(std::min(std::max(200U / d_T_rx_step_ms, 3U), 10U));
+    d_Rx_clock_buffer.set_capacity(std::min(std::max(300U / d_T_rx_step_ms, 3U), 20U));
     d_Rx_clock_buffer.clear();
 
     d_channel_last_pll_lock = std::vector<bool>(d_nchannels_out, false);
     d_channel_last_pseudorange_smooth = std::vector<double>(d_nchannels_out, 0.0);
     d_channel_last_carrier_phase_rads = std::vector<double>(d_nchannels_out, 0.0);
-
-    d_mapStringValues["1C"] = evGPS_1C;
-    d_mapStringValues["2S"] = evGPS_2S;
-    d_mapStringValues["L5"] = evGPS_L5;
-    d_mapStringValues["1B"] = evGAL_1B;
-    d_mapStringValues["5X"] = evGAL_5X;
-    d_mapStringValues["E6"] = evGAL_E6;
-    d_mapStringValues["7X"] = evGAL_7X;
-    d_mapStringValues["1G"] = evGLO_1G;
-    d_mapStringValues["2G"] = evGLO_2G;
-    d_mapStringValues["B1"] = evBDS_B1;
-    d_mapStringValues["B2"] = evBDS_B2;
-    d_mapStringValues["B3"] = evBDS_B3;
 
     d_SourceTagTimestamps = std::vector<std::queue<GnssTime>>(d_nchannels_out);
 
@@ -126,7 +118,7 @@ hybrid_observables_gs::hybrid_observables_gs(const Obs_Conf &conf_)
                 {
                     std::string dump_filename_ = d_dump_filename.substr(d_dump_filename.find_last_of('/') + 1);
                     dump_path = d_dump_filename.substr(0, d_dump_filename.find_last_of('/'));
-                    d_dump_filename = dump_filename_;
+                    d_dump_filename = std::move(dump_filename_);
                 }
             else
                 {
@@ -149,13 +141,13 @@ hybrid_observables_gs::hybrid_observables_gs(const Obs_Conf &conf_)
                     std::cerr << "GNSS-SDR cannot create dump file for the Observables block. Wrong permissions?\n";
                     d_dump = false;
                 }
-            d_dump_file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+            d_dump_file.exceptions(std::ofstream::failbit | std::ofstream::badbit);
             try
                 {
                     d_dump_file.open(d_dump_filename.c_str(), std::ios::out | std::ios::binary);
                     LOG(INFO) << "Observables dump enabled Log file: " << d_dump_filename.c_str();
                 }
-            catch (const std::ifstream::failure &e)
+            catch (const std::ofstream::failure &e)
                 {
                     LOG(WARNING) << "Exception opening observables dump file " << e.what();
                     d_dump = false;
@@ -444,6 +436,10 @@ bool hybrid_observables_gs::interp_trk_obs(Gnss_Synchro &interpolated_obs, uint3
 
                             // 1st: copy the nearest gnss_synchro data for that channel
                             interpolated_obs = d_gnss_synchro_history->get(ch, nearest_element);
+                            if (interpolated_obs.fs == 0LL)
+                                {
+                                    return false;
+                                }
 
                             // 2nd: Linear interpolation: y(t) = y(t1) + (y(t2) - y(t1)) * (t - t1) / (t2 - t1)
                             const double T_rx_s = static_cast<double>(rx_clock) / static_cast<double>(interpolated_obs.fs);
@@ -581,44 +577,11 @@ void hybrid_observables_gs::smooth_pseudoranges(std::vector<Gnss_Synchro> &data)
             if (it->Flag_valid_pseudorange)
                 {
                     // 0. get wavelength for the current signal
-                    double wavelength_m = 0;
-                    switch (d_mapStringValues[it->Signal])
+                    double wavelength_m = 0.0;
+                    const auto it_freq_map = SIGNAL_FREQ_MAP.find(std::string(it->Signal, 2));
+                    if (it_freq_map != SIGNAL_FREQ_MAP.cend())
                         {
-                        case evGPS_1C:
-                        case evSBAS_1C:
-                        case evGAL_1B:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ1;
-                            break;
-                        case evGPS_L5:
-                        case evGAL_5X:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ5;
-                            break;
-                        case evGAL_E6:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ6;
-                            break;
-                        case evGAL_7X:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ7;
-                            break;
-                        case evGPS_2S:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ2;
-                            break;
-                        case evBDS_B3:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ3_BDS;
-                            break;
-                        case evGLO_1G:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ1_GLO;
-                            break;
-                        case evGLO_2G:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ2_GLO;
-                            break;
-                        case evBDS_B1:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ1_BDS;
-                            break;
-                        case evBDS_B2:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ2_BDS;
-                            break;
-                        default:
-                            break;
+                            wavelength_m = SPEED_OF_LIGHT_M_S / it_freq_map->second;
                         }
 
                     // todo: propagate the PLL lock status in Gnss_Synchro
@@ -766,6 +729,13 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
                     // Push the valid tracking Gnss_Synchros to their corresponding deque
                     if (in[n][m].Flag_valid_word)
                         {
+                            if (std::string(in[n][m].Signal, 2) == std::string("E6"))
+                                {
+                                    if (d_conf.enable_E6 == false)
+                                        {
+                                            continue;
+                                        }
+                                }
                             if (d_gnss_synchro_history->size(n) > 0)
                                 {
                                     // Check if the last Gnss_Synchro comes from the same satellite as the previous ones
@@ -803,7 +773,7 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
                         {
                             n_valid++;
                         }
-                    epoch_data[n] = interpolated_gnss_synchro;
+                    epoch_data[n] = std::move(interpolated_gnss_synchro);
                 }
             if (d_T_rx_TOW_set)
                 {
@@ -871,7 +841,7 @@ int hybrid_observables_gs::general_work(int noutput_items __attribute__((unused)
                                     d_dump_file.write(reinterpret_cast<char *>(&tmp_double), sizeof(double));
                                 }
                         }
-                    catch (const std::ifstream::failure &e)
+                    catch (const std::ofstream::failure &e)
                         {
                             LOG(WARNING) << "Exception writing observables dump file " << e.what();
                             d_dump = false;

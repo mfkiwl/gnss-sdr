@@ -17,7 +17,6 @@
 #include "sbas_l1_telemetry_decoder_gs.h"
 #include "gnss_synchro.h"
 #include "viterbi_decoder_sbas.h"
-#include <glog/logging.h>
 #include <gnuradio/io_signature.h>
 #include <pmt/pmt_sugar.h>  // for mp
 #include <algorithm>        // for copy
@@ -25,6 +24,13 @@
 #include <cmath>      // for abs
 #include <exception>  // for exception
 #include <iomanip>    // for operator<<, setw
+#include <utility>    // for std::move
+
+#if USE_GLOG_AND_GFLAGS
+#include <glog/logging.h>
+#else
+#include <absl/log/log.h>
+#endif
 
 // logging levels
 #define EVENT 2      // logs important events which don't occur every block
@@ -470,7 +476,7 @@ int sbas_l1_telemetry_decoder_gs::general_work(int noutput_items __attribute__((
     // UPDATE GNSS SYNCHRO DATA
     // actually the SBAS telemetry decoder doesn't support ranging
     current_symbol.Flag_valid_word = false;  // indicate to observable block that this synchro object isn't valid for pseudorange computation
-    out[0] = current_symbol;
+    out[0] = std::move(current_symbol);
     consume_each(1);  // tell scheduler input items consumed
     return 1;         // tell scheduler output items produced
 }

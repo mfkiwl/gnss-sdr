@@ -16,7 +16,6 @@
 
 #include "pcps_quicksync_acquisition_cc.h"
 #include "MATH_CONSTANTS.h"
-#include <glog/logging.h>
 #include <gnuradio/io_signature.h>
 #include <volk/volk.h>
 #include <volk_gnsssdr/volk_gnsssdr.h>
@@ -24,6 +23,12 @@
 #include <cmath>
 #include <exception>
 #include <sstream>
+
+#if USE_GLOG_AND_GFLAGS
+#include <glog/logging.h>
+#else
+#include <absl/log/log.h>
+#endif
 
 
 pcps_quicksync_acquisition_cc_sptr pcps_quicksync_make_acquisition_cc(
@@ -507,7 +512,7 @@ int pcps_quicksync_acquisition_cc::general_work(int noutput_items,
                         auto** out = reinterpret_cast<Gnss_Synchro**>(&output_items[0]);
                         Gnss_Synchro current_synchro_data = Gnss_Synchro();
                         current_synchro_data = *d_gnss_synchro;
-                        *out[0] = current_synchro_data;
+                        *out[0] = std::move(current_synchro_data);
                         noutput_items = 1;  // Number of Gnss_Synchro objects produced
                     }
 

@@ -29,12 +29,16 @@
 #include "gnss_sdr_flags.h"
 #include "gnss_sdr_string_literals.h"
 #include "gnss_sdr_valve.h"
-#include <glog/logging.h>
 #include <algorithm>  // for std::max
 #include <cmath>      // for ceil, floor
 #include <iostream>   // for std::cout, std:cerr
 #include <utility>    // for std::move
 
+#if USE_GLOG_AND_GFLAGS
+#include <glog/logging.h>
+#else
+#include <absl/log/log.h>
+#endif
 
 using namespace std::string_literals;
 
@@ -93,7 +97,8 @@ FileSourceBase::FileSourceBase(ConfigurationInterface const* configuration, std:
                 }
         }
 
-    // override value with commandline flag, if present
+// override value with commandline flag, if present
+#if USE_GLOG_AND_GFLAGS
     if (FLAGS_signal_source != "-")
         {
             filename_ = FLAGS_signal_source;
@@ -102,6 +107,16 @@ FileSourceBase::FileSourceBase(ConfigurationInterface const* configuration, std:
         {
             filename_ = FLAGS_s;
         }
+#else
+    if (absl::GetFlag(FLAGS_signal_source) != "-")
+        {
+            filename_ = absl::GetFlag(FLAGS_signal_source);
+        }
+    if (absl::GetFlag(FLAGS_s) != "-")
+        {
+            filename_ = absl::GetFlag(FLAGS_s);
+        }
+#endif
     if (sampling_frequency_ == 0)
         {
             std::cerr << "Warning: parameter " << role_ << ".sampling_frequency is not set, this could lead to wrong results.\n"
@@ -171,7 +186,7 @@ void FileSourceBase::connect(gr::top_block_sptr top_block)
     // VALVE
     if (valve())
         {
-            top_block->connect(input, 0, valve(), 0);
+            top_block->connect(std::move(input), 0, valve(), 0);
             DLOG(INFO) << "connected source to valve";
 
             output = valve();
@@ -186,11 +201,11 @@ void FileSourceBase::connect(gr::top_block_sptr top_block)
     // DUMP
     if (sink())
         {
-            top_block->connect(output, 0, sink(), 0);
+            top_block->connect(std::move(output), 0, sink(), 0);
             DLOG(INFO) << "connected output to file sink";
         }
 
-    post_connect_hook(top_block);
+    post_connect_hook(std::move(top_block));
 }
 
 
@@ -219,7 +234,7 @@ void FileSourceBase::disconnect(gr::top_block_sptr top_block)
     // VALVE
     if (valve())
         {
-            top_block->disconnect(input, 0, valve(), 0);
+            top_block->disconnect(std::move(input), 0, valve(), 0);
             DLOG(INFO) << "disconnected source to valve";
 
             output = valve();
@@ -234,11 +249,11 @@ void FileSourceBase::disconnect(gr::top_block_sptr top_block)
     // DUMP
     if (sink())
         {
-            top_block->disconnect(output, 0, sink(), 0);
+            top_block->disconnect(std::move(output), 0, sink(), 0);
             DLOG(INFO) << "disconnected output to file sink";
         }
 
-    post_disconnect_hook(top_block);
+    post_disconnect_hook(std::move(top_block));
 }
 
 
@@ -383,7 +398,7 @@ size_t FileSourceBase::samplesToSkip() const
 
 size_t FileSourceBase::computeSamplesInFile() const
 {
-    auto n_samples = static_cast<size_t>(samples());
+    auto n_samples = samples();
 
     // this could throw, but the existence of the file has been proven before we get here.
     const auto size = fs::file_size(filename());

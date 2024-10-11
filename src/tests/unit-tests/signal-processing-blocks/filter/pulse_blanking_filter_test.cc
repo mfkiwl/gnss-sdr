@@ -14,13 +14,13 @@
  * -----------------------------------------------------------------------------
  */
 
-#include <gflags/gflags.h>
 #include <gnuradio/analog/sig_source_waveform.h>
 #include <gnuradio/top_block.h>
 #include <chrono>
 #include <complex>
 #include <cstdint>
 #include <thread>
+#include <utility>
 #ifdef GR_GREATER_38
 #include <gnuradio/analog/sig_source.h>
 #else
@@ -37,32 +37,43 @@
 #include <gnuradio/blocks/null_sink.h>
 #include <gtest/gtest.h>
 
-
+#if USE_GLOG_AND_GFLAGS
+#include <gflags/gflags.h>
 DEFINE_int32(pb_filter_test_nsamples, 1000000, "Number of samples to filter in the tests (max: 2147483647)");
+#else
+#include <absl/flags/flag.h>
+ABSL_FLAG(int32_t, pb_filter_test_nsamples, 1000000, "Number of samples to filter in the tests (max: 2147483647)");
+#endif
 
 class PulseBlankingFilterTest : public ::testing::Test
 {
 protected:
-    PulseBlankingFilterTest() : item_size(sizeof(gr_complex)), nsamples(FLAGS_pb_filter_test_nsamples)
+    PulseBlankingFilterTest() : item_size(sizeof(gr_complex)),
+#if USE_GLOG_AND_GFLAGS
+                                nsamples(FLAGS_pb_filter_test_nsamples)
+#else
+                                nsamples(absl::GetFlag(FLAGS_pb_filter_test_nsamples))
+#endif
     {
         queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
         config = std::make_shared<InMemoryConfiguration>();
     }
-    ~PulseBlankingFilterTest() override = default;
-    bool stop = false;
-    std::thread ch_thread;
+
     void start_queue();
     void wait_message();
     void process_message();
     void stop_queue();
     void init();
     void configure_gr_complex_gr_complex();
+
+    std::thread ch_thread;
     std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue;
-    gr::top_block_sptr top_block;
     std::shared_ptr<InMemoryConfiguration> config;
+    gr::top_block_sptr top_block;
+    pmt::pmt_t message;
     size_t item_size;
     int nsamples;
-    pmt::pmt_t message;
+    bool stop{false};
 };
 
 
@@ -174,7 +185,7 @@ TEST_F(PulseBlankingFilterTest, ConnectAndRunGrcomplex)
     config2->set_property("Test_Source.sampling_frequency", "4000000");
     std::string path = std::string(TEST_PATH);
     std::string filename = path + "signal_samples/GPS_L1_CA_ID_1_Fs_4Msps_2ms.dat";
-    config2->set_property("Test_Source.filename", filename);
+    config2->set_property("Test_Source.filename", std::move(filename));
     config2->set_property("Test_Source.item_type", "gr_complex");
     config2->set_property("Test_Source.repeat", "true");
 

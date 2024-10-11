@@ -38,7 +38,6 @@ class DataTypeAdapter : public ::testing::Test
 {
 public:
     DataTypeAdapter();
-    ~DataTypeAdapter() override;
     int run_byte_to_short_block() const;
     int run_ibyte_to_cbyte_block() const;
     int run_ibyte_to_complex_block() const;
@@ -65,9 +64,6 @@ DataTypeAdapter::DataTypeAdapter()
     const std::vector<int16_t> input_data_shorts_(input_shorts.data(), input_shorts.data() + input_shorts.size() / sizeof(int16_t));
     input_data_shorts = input_data_shorts_;
 }
-
-
-DataTypeAdapter::~DataTypeAdapter() = default;
 
 
 int DataTypeAdapter::run_ishort_to_cshort_block() const
@@ -351,9 +347,9 @@ TEST_F(DataTypeAdapter, IshortToComplexValidationOfResults)
         {
             while (ifs.read(reinterpret_cast<char*>(&iSample), sizeof(gr_complex)))
                 {
-                    EXPECT_EQ(input_data_shorts.at(i), static_cast<int16_t>(iSample.real()));
+                    EXPECT_EQ(input_data_shorts.at(i), iSample.real());
                     i++;
-                    EXPECT_EQ(input_data_shorts.at(i), static_cast<int16_t>(iSample.imag()));
+                    EXPECT_EQ(input_data_shorts.at(i), iSample.imag());
                     i++;
                 }
         }
@@ -377,9 +373,9 @@ TEST_F(DataTypeAdapter, IshortToCshortValidationOfResults)
         {
             while (ifs.read(reinterpret_cast<char*>(&iSample), sizeof(lv_16sc_t)))
                 {
-                    EXPECT_EQ(input_data_shorts.at(i), static_cast<int16_t>(iSample.real()));
+                    EXPECT_EQ(input_data_shorts.at(i), iSample.real());
                     i++;
-                    EXPECT_EQ(input_data_shorts.at(i), static_cast<int16_t>(iSample.imag()));
+                    EXPECT_EQ(input_data_shorts.at(i), iSample.imag());
                     i++;
                 }
         }

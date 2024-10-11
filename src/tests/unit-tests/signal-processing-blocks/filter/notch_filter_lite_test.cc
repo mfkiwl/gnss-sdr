@@ -14,7 +14,6 @@
  * -----------------------------------------------------------------------------
  */
 
-#include <gflags/gflags.h>
 #include <gnuradio/analog/sig_source_waveform.h>
 #include <gnuradio/top_block.h>
 #include <chrono>
@@ -36,35 +35,46 @@
 #include "notch_filter_lite.h"
 #include <gnuradio/blocks/null_sink.h>
 #include <gtest/gtest.h>
+#include <utility>
 
-
+#if USE_GLOG_AND_GFLAGS
+#include <gflags/gflags.h>
 DEFINE_int32(notch_filter_lite_test_nsamples, 1000000, "Number of samples to filter in the tests (max: 2147483647)");
+#else
+#include <absl/flags/flag.h>
+ABSL_FLAG(int32_t, notch_filter_lite_test_nsamples, 1000000, "Number of samples to filter in the tests (max: 2147483647)");
+#endif
+
 
 class NotchFilterLiteTest : public ::testing::Test
 {
 protected:
-    NotchFilterLiteTest() : item_size(sizeof(gr_complex)), nsamples(FLAGS_notch_filter_lite_test_nsamples)
+    NotchFilterLiteTest() : item_size(sizeof(gr_complex)),
+#if USE_GLOG_AND_GFLAGS
+                            nsamples(FLAGS_notch_filter_lite_test_nsamples)
+#else
+                            nsamples(absl::GetFlag(FLAGS_notch_filter_lite_test_nsamples))
+#endif
     {
         queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
         config = std::make_shared<InMemoryConfiguration>();
     }
-    ~NotchFilterLiteTest() override = default;
 
-    bool stop = false;
-    std::thread ch_thread;
     void start_queue();
     void wait_message();
     void process_message();
     void stop_queue();
-    pmt::pmt_t message;
-
     void init();
     void configure_gr_complex_gr_complex();
+
     std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue;
     gr::top_block_sptr top_block;
     std::shared_ptr<InMemoryConfiguration> config;
+    pmt::pmt_t message;
+    std::thread ch_thread;
     size_t item_size;
     int nsamples;
+    bool stop{false};
 };
 
 
@@ -178,7 +188,7 @@ TEST_F(NotchFilterLiteTest, ConnectAndRunGrcomplex)
     config2->set_property("Test_Source.sampling_frequency", "4000000");
     std::string path = std::string(TEST_PATH);
     std::string filename = path + "signal_samples/GPS_L1_CA_ID_1_Fs_4Msps_2ms.dat";
-    config2->set_property("Test_Source.filename", filename);
+    config2->set_property("Test_Source.filename", std::move(filename));
     config2->set_property("Test_Source.item_type", "gr_complex");
     config2->set_property("Test_Source.repeat", "true");
 

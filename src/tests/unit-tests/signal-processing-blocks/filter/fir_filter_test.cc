@@ -14,7 +14,6 @@
  * -----------------------------------------------------------------------------
  */
 
-#include <gflags/gflags.h>
 #include <gnuradio/analog/sig_source_waveform.h>
 #include <gnuradio/top_block.h>
 #include <chrono>
@@ -37,30 +36,43 @@
 #include "interleaved_short_to_complex_short.h"
 #include <gnuradio/blocks/null_sink.h>
 #include <gtest/gtest.h>
+#include <utility>
 
 
+#if USE_GLOG_AND_GFLAGS
+#include <gflags/gflags.h>
 DEFINE_int32(filter_test_nsamples, 1000000, "Number of samples to filter in the tests (max: 2147483647)");
+#else
+#include <absl/flags/flag.h>
+ABSL_FLAG(int32_t, filter_test_nsamples, 1000000, "Number of samples to filter in the tests (max: 2147483647)");
+#endif
+
 
 class FirFilterTest : public ::testing::Test
 {
 protected:
-    FirFilterTest() : item_size(sizeof(gr_complex))
+    FirFilterTest() : item_size(sizeof(gr_complex)),
+#if USE_GLOG_AND_GFLAGS
+                      nsamples(FLAGS_filter_test_nsamples)
+#else
+                      nsamples(absl::GetFlag(FLAGS_filter_test_nsamples))
+#endif
     {
         queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
         config = std::make_shared<InMemoryConfiguration>();
     }
-    ~FirFilterTest() override = default;
 
     void init();
     void configure_cbyte_cbyte();
     void configure_cbyte_gr_complex();
     void configure_gr_complex_gr_complex();
     void configure_cshort_cshort();
+
     std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue;
     gr::top_block_sptr top_block;
     std::shared_ptr<InMemoryConfiguration> config;
     size_t item_size;
-    int nsamples = FLAGS_filter_test_nsamples;
+    int nsamples;
 };
 
 
@@ -222,7 +234,7 @@ TEST_F(FirFilterTest, ConnectAndRunGrcomplex)
     config2->set_property("Test_Source.sampling_frequency", "4000000");
     std::string path = std::string(TEST_PATH);
     std::string filename = path + "signal_samples/GPS_L1_CA_ID_1_Fs_4Msps_2ms.dat";
-    config2->set_property("Test_Source.filename", filename);
+    config2->set_property("Test_Source.filename", std::move(filename));
     config2->set_property("Test_Source.item_type", "gr_complex");
     config2->set_property("Test_Source.repeat", "true");
 
@@ -265,7 +277,7 @@ TEST_F(FirFilterTest, ConnectAndRunCshorts)
     config2->set_property("Test_Source.sampling_frequency", "4000000");
     std::string path = std::string(TEST_PATH);
     std::string filename = path + "signal_samples/GPS_L1_CA_ID_1_Fs_4Msps_2ms.dat";
-    config2->set_property("Test_Source.filename", filename);
+    config2->set_property("Test_Source.filename", std::move(filename));
     config2->set_property("Test_Source.item_type", "ishort");
     config2->set_property("Test_Source.repeat", "true");
 
@@ -310,7 +322,7 @@ TEST_F(FirFilterTest, ConnectAndRunCbytes)
     config2->set_property("Test_Source.sampling_frequency", "4000000");
     std::string path = std::string(TEST_PATH);
     std::string filename = path + "signal_samples/GPS_L1_CA_ID_1_Fs_4Msps_2ms.dat";
-    config2->set_property("Test_Source.filename", filename);
+    config2->set_property("Test_Source.filename", std::move(filename));
     config2->set_property("Test_Source.item_type", "ibyte");
     config2->set_property("Test_Source.repeat", "true");
 
@@ -355,7 +367,7 @@ TEST_F(FirFilterTest, ConnectAndRunCbyteGrcomplex)
     config2->set_property("Test_Source.sampling_frequency", "4000000");
     std::string path = std::string(TEST_PATH);
     std::string filename = path + "signal_samples/GPS_L1_CA_ID_1_Fs_4Msps_2ms.dat";
-    config2->set_property("Test_Source.filename", filename);
+    config2->set_property("Test_Source.filename", std::move(filename));
     config2->set_property("Test_Source.item_type", "ibyte");
     config2->set_property("Test_Source.repeat", "true");
 

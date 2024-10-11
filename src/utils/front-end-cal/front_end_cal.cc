@@ -26,13 +26,18 @@
 #include "gps_iono.h"
 #include "gps_utc_model.h"
 #include <boost/lexical_cast.hpp>
-#include <glog/logging.h>
 #include <algorithm>  // for min
 #include <cmath>
 #include <iostream>  // for operator<<
 #include <map>
 #include <stdexcept>
 #include <utility>
+
+#if USE_GLOG_AND_GFLAGS
+#include <glog/logging.h>
+#else
+#include <absl/log/log.h>
+#endif
 
 extern Concurrent_Map<Gps_Ephemeris> global_gps_ephemeris_map;
 extern Concurrent_Map<Gps_Iono> global_gps_iono_map;
@@ -69,7 +74,7 @@ bool FrontEndCal::read_assistance_from_XML()
 
 int FrontEndCal::Get_SUPL_Assist()
 {
-    //######### GNSS Assistance #################################
+    // ######### GNSS Assistance #################################
     Gnss_Sdr_Supl_Client supl_client_acquisition_;
     Gnss_Sdr_Supl_Client supl_client_ephemeris_;
     int supl_mcc;  // Current network MCC (Mobile country code), 3 digits.
@@ -86,8 +91,8 @@ int FrontEndCal::Get_SUPL_Assist()
             LOG(INFO) << "SUPL RRLP GPS assistance enabled!";
             std::string default_acq_server = "supl.nokia.com";
             std::string default_eph_server = "supl.google.com";
-            supl_client_ephemeris_.server_name = configuration_->property("GNSS-SDR.SUPL_gps_ephemeris_server", default_acq_server);
-            supl_client_acquisition_.server_name = configuration_->property("GNSS-SDR.SUPL_gps_acquisition_server", default_eph_server);
+            supl_client_ephemeris_.server_name = configuration_->property("GNSS-SDR.SUPL_gps_ephemeris_server", std::move(default_acq_server));
+            supl_client_acquisition_.server_name = configuration_->property("GNSS-SDR.SUPL_gps_acquisition_server", std::move(default_eph_server));
             supl_client_ephemeris_.server_port = configuration_->property("GNSS-SDR.SUPL_gps_ephemeris_port", 7275);
             supl_client_acquisition_.server_port = configuration_->property("GNSS-SDR.SUPL_gps_acquisition_port", 7275);
             supl_mcc = configuration_->property("GNSS-SDR.SUPL_MCC", 244);
@@ -97,7 +102,7 @@ int FrontEndCal::Get_SUPL_Assist()
             std::string default_ci = "0x31b0";
             try
                 {
-                    supl_lac = boost::lexical_cast<int>(configuration_->property("GNSS-SDR.SUPL_LAC", default_lac));
+                    supl_lac = boost::lexical_cast<int>(configuration_->property("GNSS-SDR.SUPL_LAC", std::move(default_lac)));
                 }
             catch (boost::bad_lexical_cast &)
                 {
@@ -105,7 +110,7 @@ int FrontEndCal::Get_SUPL_Assist()
                 }
             try
                 {
-                    supl_ci = boost::lexical_cast<int>(configuration_->property("GNSS-SDR.SUPL_CI", default_ci));
+                    supl_ci = boost::lexical_cast<int>(configuration_->property("GNSS-SDR.SUPL_CI", std::move(default_ci)));
                 }
             catch (boost::bad_lexical_cast &)
                 {

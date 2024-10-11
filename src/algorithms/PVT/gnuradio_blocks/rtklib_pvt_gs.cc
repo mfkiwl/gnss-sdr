@@ -28,6 +28,7 @@
 #include "galileo_has_data.h"
 #include "galileo_iono.h"
 #include "galileo_utc_model.h"
+#include "geohash.h"
 #include "geojson_printer.h"
 #include "glonass_gnav_almanac.h"
 #include "glonass_gnav_ephemeris.h"
@@ -63,7 +64,6 @@
 #include <boost/exception/exception.hpp>
 #include <boost/serialization/map.hpp>
 #include <boost/serialization/nvp.hpp>  // for nvp, make_nvp
-#include <glog/logging.h>               // for LOG
 #include <gnuradio/io_signature.h>      // for io_signature
 #include <pmt/pmt_sugar.h>              // for mp
 #include <algorithm>                    // for sort, unique
@@ -80,6 +80,12 @@
 #include <sys/msg.h>                    // for msgctl
 #include <typeinfo>                     // for std::type_info, typeid
 #include <utility>                      // for pair
+
+#if USE_GLOG_AND_GFLAGS
+#include <glog/logging.h>
+#else
+#include <absl/log/log.h>
+#endif
 
 #if HAS_GENERIC_LAMBDA
 #else
@@ -124,6 +130,7 @@ rtklib_pvt_gs::rtklib_pvt_gs(uint32_t nchannels,
           gr::io_signature::make(nchannels, nchannels, sizeof(Gnss_Synchro)),
           gr::io_signature::make(0, 0, 0)),
       d_dump_filename(conf_.dump_filename),
+      d_geohash(std::make_unique<Geohash>()),
       d_gps_ephemeris_sptr_type_hash_code(typeid(std::shared_ptr<Gps_Ephemeris>).hash_code()),
       d_gps_iono_sptr_type_hash_code(typeid(std::shared_ptr<Gps_Iono>).hash_code()),
       d_gps_utc_model_sptr_type_hash_code(typeid(std::shared_ptr<Gps_Utc_Model>).hash_code()),
@@ -176,7 +183,11 @@ rtklib_pvt_gs::rtklib_pvt_gs(uint32_t nchannels,
       d_enable_rx_clock_correction(conf_.enable_rx_clock_correction),
       d_an_printer_enabled(conf_.an_output_enabled),
       d_log_timetag(conf_.log_source_timetag),
-      d_use_e6_for_pvt(conf_.use_e6_for_pvt)
+      d_use_e6_for_pvt(conf_.use_e6_for_pvt),
+      d_enable_vtl(conf_.enable_vtl),
+      d_close_vtl_loop(conf_.close_vtl_loop),
+      d_use_has_corrections(conf_.use_has_corrections),
+      d_use_unhealthy_sats(conf_.use_unhealthy_sats)
 {
     // Send feedback message to observables block with the receiver clock offset
     this->message_port_register_out(pmt::mp("pvt_to_observables"));
@@ -224,7 +235,7 @@ rtklib_pvt_gs::rtklib_pvt_gs(uint32_t nchannels,
                 {
                     std::string dump_filename_ = d_dump_filename.substr(d_dump_filename.find_last_of('/') + 1);
                     dump_path = d_dump_filename.substr(0, d_dump_filename.find_last_of('/'));
-                    d_dump_filename = dump_filename_;
+                    d_dump_filename = std::move(dump_filename_);
                 }
             else
                 {
@@ -247,6 +258,9 @@ rtklib_pvt_gs::rtklib_pvt_gs(uint32_t nchannels,
                     std::cerr << "GNSS-SDR cannot create dump file for the PVT block. Wrong permissions?\n";
                     d_dump = false;
                 }
+            // TODO: if(vtl_enable) then
+            // uint end_filename = d_dump_filename.length()-4;
+            // d_vtl_dump_filename = d_dump_filename.insert(end_filename, "_vtl");
         }
 
     // initialize kml_printer
@@ -431,10 +445,10 @@ rtklib_pvt_gs::rtklib_pvt_gs(uint32_t nchannels,
         }
 
     // Initialize HAS simple printer
-    d_enable_has_messages = (((d_type_of_rx >= 100) && (d_type_of_rx < 107)) && (conf_.output_enabled));
+    d_enable_has_messages = (((d_type_of_rx >= 100) && (d_type_of_rx < 109)) && (conf_.output_enabled));
     if (d_enable_has_messages)
         {
-            d_has_simple_printer = std::make_unique<Has_Simple_Printer>();
+            d_has_simple_printer = std::make_unique<Has_Simple_Printer>(conf_.has_output_file_path);
         }
     else
         {
@@ -495,7 +509,7 @@ rtklib_pvt_gs::rtklib_pvt_gs(uint32_t nchannels,
     std::ostringstream os;
 #ifdef HAS_PUT_TIME
     time_t when = std::time(nullptr);
-    auto const tm = *std::localtime(&when);
+    const auto& tm = *std::localtime(&when);
     os << std::put_time(&tm, "%z");
 #endif
     std::string utc_diff_str = os.str();  // in ISO 8601 format: "+HHMM" or "-HHMM"
@@ -531,38 +545,22 @@ rtklib_pvt_gs::rtklib_pvt_gs(uint32_t nchannels,
         {
             // setup two PVT solvers: internal solver for rx clock and user solver
             // user PVT solver
-            d_user_pvt_solver = std::make_shared<Rtklib_Solver>(rtk, dump_ls_pvt_filename, d_type_of_rx, d_dump, d_dump_mat, d_use_e6_for_pvt);
-            d_user_pvt_solver->set_averaging_depth(1);
+            d_user_pvt_solver = std::make_shared<Rtklib_Solver>(rtk, conf_, dump_ls_pvt_filename, d_type_of_rx, d_dump, d_dump_mat);
             d_user_pvt_solver->set_pre_2009_file(conf_.pre_2009_file);
 
             // internal PVT solver, mainly used to estimate the receiver clock
             rtk_t internal_rtk = rtk;
             internal_rtk.opt.mode = PMODE_SINGLE;  // use single positioning mode in internal PVT solver
-            d_internal_pvt_solver = std::make_shared<Rtklib_Solver>(internal_rtk, dump_ls_pvt_filename, d_type_of_rx, false, false, d_use_e6_for_pvt);
-            d_internal_pvt_solver->set_averaging_depth(1);
+            d_internal_pvt_solver = std::make_shared<Rtklib_Solver>(internal_rtk, conf_, dump_ls_pvt_filename, d_type_of_rx, false, false);
             d_internal_pvt_solver->set_pre_2009_file(conf_.pre_2009_file);
         }
     else
         {
             // only one solver, customized by the user options
-            d_internal_pvt_solver = std::make_shared<Rtklib_Solver>(rtk, dump_ls_pvt_filename, d_type_of_rx, d_dump, d_dump_mat, d_use_e6_for_pvt);
-            d_internal_pvt_solver->set_averaging_depth(1);
+            d_internal_pvt_solver = std::make_shared<Rtklib_Solver>(rtk, conf_, dump_ls_pvt_filename, d_type_of_rx, d_dump, d_dump_mat);
             d_internal_pvt_solver->set_pre_2009_file(conf_.pre_2009_file);
             d_user_pvt_solver = d_internal_pvt_solver;
         }
-
-    d_mapStringValues["1C"] = evGPS_1C;
-    d_mapStringValues["2S"] = evGPS_2S;
-    d_mapStringValues["L5"] = evGPS_L5;
-    d_mapStringValues["1B"] = evGAL_1B;
-    d_mapStringValues["5X"] = evGAL_5X;
-    d_mapStringValues["E6"] = evGAL_E6;
-    d_mapStringValues["7X"] = evGAL_7X;
-    d_mapStringValues["1G"] = evGLO_1G;
-    d_mapStringValues["2G"] = evGLO_2G;
-    d_mapStringValues["B1"] = evBDS_B1;
-    d_mapStringValues["B2"] = evBDS_B2;
-    d_mapStringValues["B3"] = evBDS_B3;
 
     // set the RTKLIB trace (debug) level
     tracelevel(conf_.rtk_trace_level);
@@ -1147,7 +1145,7 @@ rtklib_pvt_gs::~rtklib_pvt_gs()
                         }
                 }
         }
-    catch (std::length_error& e)
+    catch (const std::exception& e)
         {
             LOG(WARNING) << e.what();
         }
@@ -1207,7 +1205,15 @@ void rtklib_pvt_gs::msg_handler_telemetry(const pmt::pmt_t& msg)
                     if (gps_eph->SV_health != 0)
                         {
                             std::cout << TEXT_RED << "Satellite " << Gnss_Satellite(std::string("GPS"), gps_eph->PRN)
-                                      << " is not healthy, not used for navigation" << TEXT_RESET << '\n';
+                                      << " reports an unhealthy status,";
+                            if (d_use_unhealthy_sats)
+                                {
+                                    std::cout << " use PVT solutions at your own risk" << TEXT_RESET << '\n';
+                                }
+                            else
+                                {
+                                    std::cout << " not used for navigation" << TEXT_RESET << '\n';
+                                }
                         }
                 }
             else if (msg_type_hash_code == d_gps_iono_sptr_type_hash_code)
@@ -1267,8 +1273,15 @@ void rtklib_pvt_gs::msg_handler_telemetry(const pmt::pmt_t& msg)
                     if (gps_cnav_ephemeris->signal_health != 0)
                         {
                             std::cout << "Satellite " << Gnss_Satellite(std::string("GPS"), gps_cnav_ephemeris->PRN)
-                                      << " does not report a healthy status in the CNAV message,"
-                                      << " use PVT solutions at your own risk.\n";
+                                      << " reports an unhealthy status in the CNAV message,";
+                            if (d_use_unhealthy_sats)
+                                {
+                                    std::cout << " use PVT solutions at your own risk.\n";
+                                }
+                            else
+                                {
+                                    std::cout << " not used for navigation.\n";
+                                }
                         }
                     DLOG(INFO) << "New GPS CNAV ephemeris record has arrived";
                 }
@@ -1354,7 +1367,15 @@ void rtklib_pvt_gs::msg_handler_telemetry(const pmt::pmt_t& msg)
                         ((galileo_eph->E5b_HS != 0) || (galileo_eph->E5b_DVS == true)))
                         {
                             std::cout << TEXT_RED << "Satellite " << Gnss_Satellite(std::string("Galileo"), galileo_eph->PRN)
-                                      << " is not healthy, not used for navigation" << TEXT_RESET << '\n';
+                                      << " reports an unhealthy status,";
+                            if (d_use_unhealthy_sats)
+                                {
+                                    std::cout << " use PVT solutions at your own risk" << TEXT_RESET << '\n';
+                                }
+                            else
+                                {
+                                    std::cout << " not used for navigation" << TEXT_RESET << '\n';
+                                }
                         }
                 }
             else if (msg_type_hash_code == d_galileo_iono_sptr_type_hash_code)
@@ -1530,7 +1551,15 @@ void rtklib_pvt_gs::msg_handler_telemetry(const pmt::pmt_t& msg)
                     if (bds_dnav_eph->SV_health != 0)
                         {
                             std::cout << TEXT_RED << "Satellite " << Gnss_Satellite(std::string("Beidou"), bds_dnav_eph->PRN)
-                                      << " is not healthy, not used for navigation" << TEXT_RESET << '\n';
+                                      << " reports an unhealthy status,";
+                            if (d_use_unhealthy_sats)
+                                {
+                                    std::cout << " use PVT solutions at your own risk" << TEXT_RESET << '\n';
+                                }
+                            else
+                                {
+                                    std::cout << " not used for navigation" << TEXT_RESET << '\n';
+                                }
                         }
                 }
             else if (msg_type_hash_code == d_beidou_dnav_iono_sptr_type_hash_code)
@@ -1578,7 +1607,7 @@ void rtklib_pvt_gs::msg_handler_telemetry(const pmt::pmt_t& msg)
 }
 
 
-void rtklib_pvt_gs::msg_handler_has_data(const pmt::pmt_t& msg) const
+void rtklib_pvt_gs::msg_handler_has_data(const pmt::pmt_t& msg)
 {
     try
         {
@@ -1586,6 +1615,14 @@ void rtklib_pvt_gs::msg_handler_has_data(const pmt::pmt_t& msg) const
             if (msg_type_hash_code == d_galileo_has_data_sptr_type_hash_code)
                 {
                     const auto has_data = wht::any_cast<std::shared_ptr<Galileo_HAS_data>>(pmt::any_ref(msg));
+                    if (d_use_has_corrections && (has_data->has_status == 1))  // operational mode
+                        {
+                            d_internal_pvt_solver->store_has_data(*has_data);
+                            if (d_enable_rx_clock_correction == true)
+                                {
+                                    d_user_pvt_solver->store_has_data(*has_data);
+                                }
+                        }
                     if (d_has_simple_printer)
                         {
                             d_has_simple_printer->print_message(has_data.get());
@@ -1808,44 +1845,10 @@ void rtklib_pvt_gs::apply_rx_clock_offset(std::map<int, Gnss_Synchro>& observabl
             // all observables in the map are valid
             observables_iter->second.RX_time -= rx_clock_offset_s;
             observables_iter->second.Pseudorange_m -= rx_clock_offset_s * SPEED_OF_LIGHT_M_S;
-
-            switch (d_mapStringValues[observables_iter->second.Signal])
+            const auto it_freq_map = SIGNAL_FREQ_MAP.find(std::string(observables_iter->second.Signal, 2));
+            if (it_freq_map != SIGNAL_FREQ_MAP.cend())
                 {
-                case evGPS_1C:
-                case evSBAS_1C:
-                case evGAL_1B:
-                    observables_iter->second.Carrier_phase_rads -= rx_clock_offset_s * FREQ1 * TWO_PI;
-                    break;
-                case evGPS_L5:
-                case evGAL_5X:
-                    observables_iter->second.Carrier_phase_rads -= rx_clock_offset_s * FREQ5 * TWO_PI;
-                    break;
-                case evGAL_E6:
-                    observables_iter->second.Carrier_phase_rads -= rx_clock_offset_s * FREQ6 * TWO_PI;
-                    break;
-                case evGAL_7X:
-                    observables_iter->second.Carrier_phase_rads -= rx_clock_offset_s * FREQ7 * TWO_PI;
-                    break;
-                case evGPS_2S:
-                    observables_iter->second.Carrier_phase_rads -= rx_clock_offset_s * FREQ2 * TWO_PI;
-                    break;
-                case evBDS_B3:
-                    observables_iter->second.Carrier_phase_rads -= rx_clock_offset_s * FREQ3_BDS * TWO_PI;
-                    break;
-                case evGLO_1G:
-                    observables_iter->second.Carrier_phase_rads -= rx_clock_offset_s * FREQ1_GLO * TWO_PI;
-                    break;
-                case evGLO_2G:
-                    observables_iter->second.Carrier_phase_rads -= rx_clock_offset_s * FREQ2_GLO * TWO_PI;
-                    break;
-                case evBDS_B1:
-                    observables_iter->second.Carrier_phase_rads -= rx_clock_offset_s * FREQ1_BDS * TWO_PI;
-                    break;
-                case evBDS_B2:
-                    observables_iter->second.Carrier_phase_rads -= rx_clock_offset_s * FREQ2_BDS * TWO_PI;
-                    break;
-                default:
-                    break;
+                    observables_iter->second.Carrier_phase_rads -= rx_clock_offset_s * it_freq_map->second * TWO_PI;
                 }
         }
 }
@@ -1910,44 +1913,11 @@ void rtklib_pvt_gs::initialize_and_apply_carrier_phase_offset()
             // it is set to false by the work function if the gnss_synchro is not valid
             if (d_channel_initialized.at(observables_iter->second.Channel_ID) == false)
                 {
-                    double wavelength_m = 0;
-                    switch (d_mapStringValues[observables_iter->second.Signal])
+                    double wavelength_m = 1.0;
+                    const auto it_freq_map = SIGNAL_FREQ_MAP.find(std::string(observables_iter->second.Signal, 2));
+                    if (it_freq_map != SIGNAL_FREQ_MAP.cend())
                         {
-                        case evGPS_1C:
-                        case evSBAS_1C:
-                        case evGAL_1B:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ1;
-                            break;
-                        case evGPS_L5:
-                        case evGAL_5X:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ5;
-                            break;
-                        case evGAL_E6:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ6;
-                            break;
-                        case evGAL_7X:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ7;
-                            break;
-                        case evGPS_2S:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ2;
-                            break;
-                        case evBDS_B3:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ3_BDS;
-                            break;
-                        case evGLO_1G:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ1_GLO;
-                            break;
-                        case evGLO_2G:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ2_GLO;
-                            break;
-                        case evBDS_B1:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ1_BDS;
-                            break;
-                        case evBDS_B2:
-                            wavelength_m = SPEED_OF_LIGHT_M_S / FREQ2_BDS;
-                            break;
-                        default:
-                            break;
+                            wavelength_m = SPEED_OF_LIGHT_M_S / it_freq_map->second;
                         }
                     const double wrap_carrier_phase_rad = fmod(observables_iter->second.Carrier_phase_rads, TWO_PI);
                     d_initial_carrier_phase_offset_estimation_rads.at(observables_iter->second.Channel_ID) = TWO_PI * round(observables_iter->second.Pseudorange_m / wavelength_m) - observables_iter->second.Carrier_phase_rads + wrap_carrier_phase_rad;
@@ -1956,6 +1926,16 @@ void rtklib_pvt_gs::initialize_and_apply_carrier_phase_offset()
                 }
             // apply the carrier phase offset to this satellite
             observables_iter->second.Carrier_phase_rads = observables_iter->second.Carrier_phase_rads + d_initial_carrier_phase_offset_estimation_rads.at(observables_iter->second.Channel_ID);
+        }
+}
+
+
+void rtklib_pvt_gs::update_HAS_corrections()
+{
+    this->d_internal_pvt_solver->update_has_corrections(this->d_gnss_observables_map);
+    if (d_enable_rx_clock_correction == true)
+        {
+            this->d_user_pvt_solver->update_has_corrections(this->d_gnss_observables_map);
         }
 }
 
@@ -2021,7 +2001,7 @@ int rtklib_pvt_gs::work(int noutput_items, gr_vector_const_void_star& input_item
                             if (tmp_eph_iter_gps != d_internal_pvt_solver->gps_ephemeris_map.cend())
                                 {
                                     const uint32_t prn_aux = tmp_eph_iter_gps->second.PRN;
-                                    if ((prn_aux == in[i][epoch].PRN) && (std::string(in[i][epoch].Signal) == std::string("1C")) && (tmp_eph_iter_gps->second.SV_health == 0))
+                                    if ((prn_aux == in[i][epoch].PRN) && (std::string(in[i][epoch].Signal, 2) == std::string("1C")) && (d_use_unhealthy_sats || (tmp_eph_iter_gps->second.SV_health == 0)))
                                         {
                                             store_valid_observable = true;
                                         }
@@ -2030,9 +2010,9 @@ int rtklib_pvt_gs::work(int noutput_items, gr_vector_const_void_star& input_item
                                 {
                                     const uint32_t prn_aux = tmp_eph_iter_gal->second.PRN;
                                     if ((prn_aux == in[i][epoch].PRN) &&
-                                        (((std::string(in[i][epoch].Signal) == std::string("1B")) && (tmp_eph_iter_gal->second.E1B_DVS == false) && (tmp_eph_iter_gal->second.E1B_HS == 0)) ||
-                                            ((std::string(in[i][epoch].Signal) == std::string("5X")) && (tmp_eph_iter_gal->second.E5a_DVS == false) && (tmp_eph_iter_gal->second.E5a_HS == 0)) ||
-                                            ((std::string(in[i][epoch].Signal) == std::string("7X")) && (tmp_eph_iter_gal->second.E5b_DVS == false) && (tmp_eph_iter_gal->second.E5b_HS == 0))))
+                                        (((std::string(in[i][epoch].Signal, 2) == std::string("1B")) && (d_use_unhealthy_sats || ((tmp_eph_iter_gal->second.E1B_DVS == false) && (tmp_eph_iter_gal->second.E1B_HS == 0)))) ||
+                                            ((std::string(in[i][epoch].Signal, 2) == std::string("5X")) && (d_use_unhealthy_sats || ((tmp_eph_iter_gal->second.E5a_DVS == false) && (tmp_eph_iter_gal->second.E5a_HS == 0)))) ||
+                                            ((std::string(in[i][epoch].Signal, 2) == std::string("7X")) && (d_use_unhealthy_sats || ((tmp_eph_iter_gal->second.E5b_DVS == false) && (tmp_eph_iter_gal->second.E5b_HS == 0))))))
                                         {
                                             store_valid_observable = true;
                                         }
@@ -2040,7 +2020,7 @@ int rtklib_pvt_gs::work(int noutput_items, gr_vector_const_void_star& input_item
                             if (tmp_eph_iter_cnav != d_internal_pvt_solver->gps_cnav_ephemeris_map.cend())
                                 {
                                     const uint32_t prn_aux = tmp_eph_iter_cnav->second.PRN;
-                                    if ((prn_aux == in[i][epoch].PRN) && (((std::string(in[i][epoch].Signal) == std::string("2S")) || (std::string(in[i][epoch].Signal) == std::string("L5")))))
+                                    if ((prn_aux == in[i][epoch].PRN) && (((std::string(in[i][epoch].Signal, 2) == std::string("2S")) || (std::string(in[i][epoch].Signal, 2) == std::string("L5")))))
                                         {
                                             store_valid_observable = true;
                                         }
@@ -2048,7 +2028,7 @@ int rtklib_pvt_gs::work(int noutput_items, gr_vector_const_void_star& input_item
                             if (tmp_eph_iter_glo_gnav != d_internal_pvt_solver->glonass_gnav_ephemeris_map.cend())
                                 {
                                     const uint32_t prn_aux = tmp_eph_iter_glo_gnav->second.PRN;
-                                    if ((prn_aux == in[i][epoch].PRN) && ((std::string(in[i][epoch].Signal) == std::string("1G")) || (std::string(in[i][epoch].Signal) == std::string("2G"))))
+                                    if ((prn_aux == in[i][epoch].PRN) && ((std::string(in[i][epoch].Signal, 2) == std::string("1G")) || (std::string(in[i][epoch].Signal, 2) == std::string("2G"))))
                                         {
                                             store_valid_observable = true;
                                         }
@@ -2056,12 +2036,12 @@ int rtklib_pvt_gs::work(int noutput_items, gr_vector_const_void_star& input_item
                             if (tmp_eph_iter_bds_dnav != d_internal_pvt_solver->beidou_dnav_ephemeris_map.cend())
                                 {
                                     const uint32_t prn_aux = tmp_eph_iter_bds_dnav->second.PRN;
-                                    if ((prn_aux == in[i][epoch].PRN) && (((std::string(in[i][epoch].Signal) == std::string("B1")) || (std::string(in[i][epoch].Signal) == std::string("B3"))) && (tmp_eph_iter_bds_dnav->second.SV_health == 0)))
+                                    if ((prn_aux == in[i][epoch].PRN) && (((std::string(in[i][epoch].Signal, 2) == std::string("B1")) || (std::string(in[i][epoch].Signal, 2) == std::string("B3"))) && (d_use_unhealthy_sats || (tmp_eph_iter_bds_dnav->second.SV_health == 0))))
                                         {
                                             store_valid_observable = true;
                                         }
                                 }
-                            if (std::string(in[i][epoch].Signal) == std::string("E6"))
+                            if (std::string(in[i][epoch].Signal, 2) == std::string("E6"))
                                 {
                                     store_valid_observable = true;
                                 }
@@ -2123,6 +2103,12 @@ int rtklib_pvt_gs::work(int noutput_items, gr_vector_const_void_star& input_item
                         }
                 }
 
+            // ############ 2. APPLY HAS CORRECTIONS IF AVAILABLE ####
+            if (d_use_has_corrections && !d_gnss_observables_map.empty())
+                {
+                    this->update_HAS_corrections();
+                }
+
             // ############ 2 COMPUTE THE PVT ################################
             bool flag_pvt_valid = false;
             if (d_gnss_observables_map.empty() == false)
@@ -2131,9 +2117,83 @@ int rtklib_pvt_gs::work(int noutput_items, gr_vector_const_void_star& input_item
                     // old_time_debug = d_gnss_observables_map.cbegin()->second.RX_time * 1000.0;
                     uint32_t current_RX_time_ms = 0;
                     // #### solve PVT and store the corrected observable set
-                    bool get_vtl_data = true;
-                    if (d_internal_pvt_solver->get_PVT(d_gnss_observables_map, false, get_vtl_data))
+                    if (d_internal_pvt_solver->get_PVT(d_gnss_observables_map, d_observable_interval_ms / 1000.0, false, d_enable_vtl, d_close_vtl_loop))
                         {
+                            // ****** experimental VTL tests
+                            if (d_close_vtl_loop == true and d_enable_vtl == true)
+                                {
+                                    std::map<int, Gnss_Synchro>::const_iterator gnss_observables_iter;
+                                    int idx = 0;
+                                    for (gnss_observables_iter = d_gnss_observables_map.cbegin();
+                                         gnss_observables_iter != d_gnss_observables_map.cend();
+                                         ++gnss_observables_iter)  // CHECK INCONSISTENCY when combining GLONASS + other system
+                                        {
+                                            try
+                                                {
+                                                    d_internal_pvt_solver->vtl_engine.trk_cmd_outs.at(idx).channel_id = gnss_observables_iter->second.Channel_ID;
+                                                    // todo: VTL loop CAN NOT run every PVT epoch because it is required to wait for the corrections to be applied to the tracking KF.
+                                                    // currently the VTL runs every PVT epoch which will create inestabilities.
+                                                    const std::shared_ptr<TrackingCmd> trk_cmd_test = std::make_shared<TrackingCmd>(d_internal_pvt_solver->vtl_engine.trk_cmd_outs.at(idx));
+                                                    this->message_port_pub(pmt::mp("pvt_to_trk"), pmt::make_any(trk_cmd_test));
+                                                    idx++;
+                                                }
+                                            catch (std::exception& ex)
+                                                {
+                                                    std::cout << "VTL Engine problem: " << ex.what() << "\n";
+                                                }
+                                        }
+                                    d_internal_pvt_solver->vtl_engine.trk_cmd_outs.clear();
+                                    // Dummy messages for evaluation of msg latency
+                                    //                                     std::map<int, Gnss_Synchro>::const_iterator gnss_observables_iter;
+                                    //                                     for (gnss_observables_iter = d_gnss_observables_map.cbegin();
+                                    //                                          gnss_observables_iter != d_gnss_observables_map.cend();
+                                    //                                          ++gnss_observables_iter)  // CHECK INCONSISTENCY when combining GLONASS + other system
+                                    //                                         {
+                                    //                                             // test complete loop
+                                    //                                             if (gnss_observables_iter->second.last_vtl_cmd_sample_counter == 0)
+                                    //                                                 {
+                                    //                                                     // send new tracking command
+                                    //                                                     const std::shared_ptr<TrackingCmd> trk_cmd_test = std::make_shared<TrackingCmd>(TrackingCmd());
+                                    //                                                     trk_cmd_test->carrier_freq_hz = 12345.4;
+                                    //                                                     trk_cmd_test->sample_counter = gnss_observables_iter->second.Tracking_sample_counter;
+                                    //                                                     trk_cmd_test->channel_id = gnss_observables_iter->second.Channel_ID;
+                                    //                                                     this->message_port_pub(pmt::mp("pvt_to_trk"), pmt::make_any(trk_cmd_test));
+                                    //                                                     d_last_sent_vtl_cmd_samplestamp_map[gnss_observables_iter->second.Channel_ID] = gnss_observables_iter->second.Tracking_sample_counter;
+                                    //                                                     std::cout << "msg pvt_to_trk sent.\n";
+                                    //                                                 }
+                                    //                                             else
+                                    //                                                 {
+                                    //                                                     //                                                    std::cout << "CH " << gnss_observables_iter->second.Channel_ID
+                                    //                                                     //                                                              << " T_RX: " << static_cast<float>(gnss_observables_iter->second.Tracking_sample_counter) / static_cast<float>(gnss_observables_iter->second.fs)
+                                    //                                                     //                                                              << " T_last_vtl_trk: " << static_cast<float>(gnss_observables_iter->second.last_vtl_cmd_sample_counter) / static_cast<float>(gnss_observables_iter->second.fs)
+                                    //                                                     //                                                              << " T_map: " << static_cast<float>(d_last_sent_vtl_cmd_samplestamp_map[gnss_observables_iter->second.Channel_ID]) / static_cast<float>(gnss_observables_iter->second.fs)
+                                    //                                                     //                                                              << " T2: " << static_cast<float>(gnss_observables_iter->second.last_vtl_cmd_sample_counter) - static_cast<float>(d_last_sent_vtl_cmd_samplestamp_map[gnss_observables_iter->second.Channel_ID])
+                                    //                                                     //                                                              << " T3: " << static_cast<float>(gnss_observables_iter->second.Tracking_sample_counter) - static_cast<float>(d_last_sent_vtl_cmd_samplestamp_map[gnss_observables_iter->second.Channel_ID]) << "\n";
+                                    //
+                                    //                                                     // To.Do: check if satellite change, check if there is a possibility to not find the last cmd timestamp in the map...
+                                    //                                                     if (gnss_observables_iter->second.last_vtl_cmd_sample_counter >= d_last_sent_vtl_cmd_samplestamp_map[gnss_observables_iter->second.Channel_ID])
+                                    //                                                         {
+                                    //                                                             std::cout << "CH " << gnss_observables_iter->second.Channel_ID << " processed VTL cmd, total loop time is "
+                                    //                                                                       << ((static_cast<float>(gnss_observables_iter->second.Tracking_sample_counter) - static_cast<float>(d_last_sent_vtl_cmd_samplestamp_map[gnss_observables_iter->second.Channel_ID])) / static_cast<float>(gnss_observables_iter->second.fs)) * 1000.0
+                                    //                                                                       << " [ms]!\n";
+                                    //                                                             // send new tracking command
+                                    //                                                             const std::shared_ptr<TrackingCmd> trk_cmd_test = std::make_shared<TrackingCmd>(TrackingCmd());
+                                    //                                                             trk_cmd_test->carrier_freq_hz = 12345.4;
+                                    //                                                             trk_cmd_test->sample_counter = gnss_observables_iter->second.Tracking_sample_counter;
+                                    //                                                             trk_cmd_test->channel_id = gnss_observables_iter->second.Channel_ID;
+                                    //                                                             this->message_port_pub(pmt::mp("pvt_to_trk"), pmt::make_any(trk_cmd_test));
+                                    //                                                             d_last_sent_vtl_cmd_samplestamp_map[gnss_observables_iter->second.Channel_ID] = gnss_observables_iter->second.Tracking_sample_counter;
+                                    //                                                             std::cout << "msg pvt_to_trk sent.\n";
+                                    //                                                         }
+                                    //                                                 }
+                                    //                                         }
+                                }
+                            else
+                                {
+                                    std::cout << "Loop open!\n";
+                                }
+                            // *****************************
+
                             d_pvt_errors_counter = 0;  // Reset consecutive PVT error counter
                             const double Rx_clock_offset_s = d_internal_pvt_solver->get_time_offset_s();
 
@@ -2194,7 +2254,7 @@ int rtklib_pvt_gs::work(int noutput_items, gr_vector_const_void_star& input_item
                                             d_gnss_observables_map_t1 = d_gnss_observables_map;
 
                                             // ### select the rx_time and interpolate observables at that time
-                                            if (!d_gnss_observables_map_t0.empty())
+                                            if (!d_gnss_observables_map_t0.empty() && !d_gnss_observables_map_t1.empty())
                                                 {
                                                     const auto t0_int_ms = static_cast<uint32_t>(d_gnss_observables_map_t0.cbegin()->second.RX_time * 1000.0);
                                                     const uint32_t adjust_next_obs_interval_ms = d_observable_interval_ms - t0_int_ms % d_observable_interval_ms;
@@ -2246,18 +2306,14 @@ int rtklib_pvt_gs::work(int noutput_items, gr_vector_const_void_star& input_item
                     // compute on the fly PVT solution
                     if (flag_compute_pvt_output == true)
                         {
-                            flag_pvt_valid = d_user_pvt_solver->get_PVT(d_gnss_observables_map, false, false);
+                            // VTP To.Do: Check why get_PVT is triggered twice. Leave only one get_PVT.
+
+                            // flag_pvt_valid = d_user_pvt_solver->get_PVT(d_gnss_observables_map, false, false, false);
+                            flag_pvt_valid = d_user_pvt_solver->get_PVT(d_gnss_observables_map, d_observable_interval_ms / 1000.0, false, d_enable_vtl, d_close_vtl_loop);
                         }
 
                     if (flag_pvt_valid == true)
                         {
-                            // experimental VTL tests
-                            // send tracking command
-                            //                            const std::shared_ptr<TrackingCmd> trk_cmd_test = std::make_shared<TrackingCmd>(TrackingCmd());
-                            //                            trk_cmd_test->carrier_freq_hz = 12345.4;
-                            //                            trk_cmd_test->sample_counter = d_gnss_observables_map.begin()->second.Tracking_sample_counter;
-                            //                            this->message_port_pub(pmt::mp("pvt_to_trk"), pmt::make_any(trk_cmd_test));
-
                             // initialize (if needed) the accumulated phase offset and apply it to the active channels
                             // required to report accumulated phase cycles comparable to pseudoranges
                             initialize_and_apply_carrier_phase_offset();
@@ -2358,28 +2414,28 @@ int rtklib_pvt_gs::work(int noutput_items, gr_vector_const_void_star& input_item
                                         {
                                             if (current_RX_time_ms % d_kml_rate_ms == 0)
                                                 {
-                                                    d_kml_dump->print_position(d_user_pvt_solver.get(), false);
+                                                    d_kml_dump->print_position(d_user_pvt_solver.get());
                                                 }
                                         }
                                     if (d_gpx_output_enabled)
                                         {
                                             if (current_RX_time_ms % d_gpx_rate_ms == 0)
                                                 {
-                                                    d_gpx_dump->print_position(d_user_pvt_solver.get(), false);
+                                                    d_gpx_dump->print_position(d_user_pvt_solver.get());
                                                 }
                                         }
                                     if (d_geojson_output_enabled)
                                         {
                                             if (current_RX_time_ms % d_geojson_rate_ms == 0)
                                                 {
-                                                    d_geojson_printer->print_position(d_user_pvt_solver.get(), false);
+                                                    d_geojson_printer->print_position(d_user_pvt_solver.get());
                                                 }
                                         }
                                     if (d_nmea_output_file_enabled)
                                         {
                                             if (current_RX_time_ms % d_nmea_rate_ms == 0)
                                                 {
-                                                    d_nmea_printer->Print_Nmea_Line(d_user_pvt_solver.get(), false);
+                                                    d_nmea_printer->Print_Nmea_Line(d_user_pvt_solver.get());
                                                 }
                                         }
                                     if (d_rinex_output_enabled)
@@ -2429,22 +2485,17 @@ int rtklib_pvt_gs::work(int noutput_items, gr_vector_const_void_star& input_item
                             std::cout
                                 << TEXT_BOLD_GREEN
                                 << "Position at " << time_solution << UTC_solution_str
-                                << " using " << d_user_pvt_solver->get_num_valid_observations()
-                                << std::fixed << std::setprecision(9)
-                                << " observations is Lat = " << d_user_pvt_solver->get_latitude() << " [deg], Long = " << d_user_pvt_solver->get_longitude()
-                                << std::fixed << std::setprecision(3)
-                                << " [deg], Height = " << d_user_pvt_solver->get_height() << " [m]" << TEXT_RESET << '\n';
-
-                            std::cout << std::setprecision(ss);
+                                << " using " << d_user_pvt_solver->get_num_valid_observations() << " observations is Lat = "
+                                << std::fixed << std::setprecision(6) << d_user_pvt_solver->get_latitude()
+                                << " [deg], Long = " << d_user_pvt_solver->get_longitude() << " [deg], Height = "
+                                << std::fixed << std::setprecision(2) << d_user_pvt_solver->get_height() << std::setprecision(ss) << " [m]" << TEXT_RESET << std::endl;
                             DLOG(INFO) << "RX clock offset: " << d_user_pvt_solver->get_time_offset_s() << "[s]";
 
                             std::cout
                                 << TEXT_BOLD_GREEN
-                                << "Velocity: " << std::fixed << std::setprecision(3)
+                                << "Velocity: " << std::fixed << std::setprecision(2)
                                 << "East: " << d_user_pvt_solver->get_rx_vel()[0] << " [m/s], North: " << d_user_pvt_solver->get_rx_vel()[1]
-                                << " [m/s], Up = " << d_user_pvt_solver->get_rx_vel()[2] << " [m/s]" << TEXT_RESET << '\n';
-
-                            std::cout << std::setprecision(ss);
+                                << " [m/s], Up = " << d_user_pvt_solver->get_rx_vel()[2] << std::setprecision(ss) << " [m/s]" << TEXT_RESET << std::endl;
                             DLOG(INFO) << "RX clock drift: " << d_user_pvt_solver->get_clock_drift_ppm() << " [ppm]";
 
                             // boost::posix_time::ptime p_time;
@@ -2458,16 +2509,17 @@ int rtklib_pvt_gs::work(int noutput_items, gr_vector_const_void_star& input_item
                                        << " [deg], Height = " << d_user_pvt_solver->get_height() << " [m]";
 
                             /* std::cout << "Dilution of Precision at " << boost::posix_time::to_simple_string(d_user_pvt_solver->get_position_UTC_time())
-                                         << " UTC using "<< d_user_pvt_solver->get_num_valid_observations() <<" observations is HDOP = " << d_user_pvt_solver->get_hdop() << " VDOP = "
-                                         << d_user_pvt_solver->get_vdop()
-                                         << " GDOP = " << d_user_pvt_solver->get_gdop() << '\n'; */
+                                 << " UTC using "<< d_user_pvt_solver->get_num_valid_observations() <<" observations is HDOP = " << d_user_pvt_solver->get_hdop() << " VDOP = "
+                                 << d_user_pvt_solver->get_vdop()
+                                 << " GDOP = " << d_user_pvt_solver->get_gdop() << '\n'; */
                         }
 
                     // PVT MONITOR
-                    if (d_user_pvt_solver->is_valid_position())
+                    if (d_user_pvt_solver->is_valid_position() && flag_compute_pvt_output == true)
                         {
                             const std::shared_ptr<Monitor_Pvt> monitor_pvt = std::make_shared<Monitor_Pvt>(d_user_pvt_solver->get_monitor_pvt());
-
+                            monitor_pvt->geohash = d_geohash->encode(d_user_pvt_solver->get_latitude(), d_user_pvt_solver->get_longitude());
+                            DLOG(INFO) << "geohash=" << monitor_pvt->geohash;
                             // publish new position to the gnss_flowgraph channel status monitor
                             if (current_RX_time_ms % d_report_rate_ms == 0)
                                 {
