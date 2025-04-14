@@ -21,10 +21,16 @@
 
 #include "fpga_dynamic_bit_selection.h"
 #include "uio_fpga.h"
-#include <glog/logging.h>
 #include <fcntl.h>     // for open, O_RDWR, O_SYNC
 #include <iostream>    // for cout
 #include <sys/mman.h>  // for mmap
+#include <unistd.h>    // for close
+
+#if USE_GLOG_AND_GFLAGS
+#include <glog/logging.h>
+#else
+#include <absl/log/log.h>
+#endif
 
 Fpga_dynamic_bit_selection::Fpga_dynamic_bit_selection(bool enable_rx1_band, bool enable_rx2_band)
     : d_map_base_freq_band_1(nullptr),
@@ -131,7 +137,7 @@ void Fpga_dynamic_bit_selection::bit_selection_per_rf_band(volatile unsigned *d_
                 }
         }
 
-    // update bit selection corresopnding to frequency band 1
+    // update bit selection corresponding to frequency band 1
     d_map_base[0] = shift_out_bits;
 }
 
