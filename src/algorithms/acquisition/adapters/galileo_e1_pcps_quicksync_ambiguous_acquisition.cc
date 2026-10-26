@@ -33,8 +33,8 @@
 #include <span>
 namespace own = std;
 #else
-#include <gsl/gsl-lite.hpp>
-namespace own = gsl;
+#include <gsl-lite/gsl-lite.hpp>
+namespace own = gsl_lite;
 #endif
 
 GalileoE1PcpsQuickSyncAmbiguousAcquisition::GalileoE1PcpsQuickSyncAmbiguousAcquisition(
@@ -57,7 +57,7 @@ GalileoE1PcpsQuickSyncAmbiguousAcquisition::GalileoE1PcpsQuickSyncAmbiguousAcqui
       dump_(configuration_->property(role + ".dump", false))
 {
     const std::string default_item_type("gr_complex");
-    const std::string default_dump_filename("../data/acquisition.dat");
+    const std::string default_dump_filename("./acquisition.dat");
     item_type_ = configuration_->property(role + ".item_type", default_item_type);
     int64_t fs_in_deprecated = configuration_->property("GNSS-SDR.internal_fs_hz", 4000000);
     fs_in_ = configuration_->property("GNSS-SDR.internal_fs_sps", fs_in_deprecated);
@@ -84,7 +84,7 @@ GalileoE1PcpsQuickSyncAmbiguousAcquisition::GalileoE1PcpsQuickSyncAmbiguousAcqui
     DLOG(INFO) << "role " << role;
     /*Calculate the folding factor value based on the formula described in the paper.
     This may be a bug, but acquisition also work by variying the folding factor at va-
-    lues different that the expressed in the paper. In adition, it is important to point
+    lues different that the expressed in the paper. In addition, it is important to point
     out that by making the folding factor smaller we were able to get QuickSync work with
     Galileo. Future work should be directed to test this assumption statistically.*/
 

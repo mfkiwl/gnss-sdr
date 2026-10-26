@@ -18,6 +18,7 @@
 #include "ishort_to_cshort.h"
 #include "configuration_interface.h"
 #include <volk/volk.h>
+#include <utility>
 
 #if USE_GLOG_AND_GFLAGS
 #include <glog/logging.h>
@@ -36,7 +37,7 @@ IshortToCshort::IshortToCshort(const ConfigurationInterface* configuration,
 {
     const std::string default_input_item_type("short");
     const std::string default_output_item_type("cshort");
-    const std::string default_dump_filename("../data/input_filter.dat");
+    const std::string default_dump_filename("./data_type_adapter.dat");
 
     DLOG(INFO) << "role " << role_;
 

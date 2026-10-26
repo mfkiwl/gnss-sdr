@@ -70,6 +70,10 @@ if(ENABLE_FPGA)
     target_compile_definitions(core_receiver PUBLIC -DENABLE_FPGA=1)
 endif()
 
+if(ENABLE_ION)
+    target_compile_definitions(core_receiver PRIVATE -DENABLE_ION_SOURCE=1)
+endif()
+
 if(GNURADIO_USES_STD_POINTERS)
     target_compile_definitions(core_receiver PUBLIC -DGNURADIO_USES_STD_POINTERS=1)
 endif()
@@ -88,6 +92,10 @@ endif()
 
 if(ENABLE_PLUTOSDR)
     target_compile_definitions(core_receiver PRIVATE -DPLUTOSDR_DRIVER=1)
+endif()
+
+if(ENABLE_AD936X_SDR)
+    target_compile_definitions(core_receiver PRIVATE -DAD936X_SDR_DRIVER=1)
 endif()
 
 if(ENABLE_FMCOMMS2)
@@ -162,6 +170,12 @@ if(USE_BOOST_ASIO_IO_CONTEXT)
             -DUSE_BOOST_ASIO_IO_CONTEXT=1
     )
 endif()
+if(CMAKE_CXX_STANDARD AND CMAKE_CXX_STANDARD LESS 17)
+    target_compile_definitions(core_receiver
+    PRIVATE
+        -DCXX_LESS_THAN_17=1
+    )
+endif()
 
 target_link_libraries(core_receiver
     PUBLIC
@@ -184,6 +198,13 @@ target_link_libraries(core_receiver
         Boost::headers
         Armadillo::armadillo
 )
+
+if(NOT HAVE_SHM_OPEN)
+    find_library(LIBRT_LIBRARY rt)
+    if(LIBRT_LIBRARY)
+        target_link_libraries(core_receiver PRIVATE ${LIBRT_LIBRARY})
+    endif()
+endif()
 
 if(ENABLE_GLOG_AND_GFLAGS)
     target_link_libraries(core_receiver PRIVATE Gflags::gflags Glog::glog)

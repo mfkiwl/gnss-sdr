@@ -18,7 +18,7 @@
  */
 
 #ifndef GNSS_SDR_VERSION
-#define GNSS_SDR_VERSION "0.0.19"
+#define GNSS_SDR_VERSION "0.0.20"
 #endif
 
 #ifndef GOOGLE_STRIP_LOG
@@ -40,7 +40,7 @@
 #include <fstream>                                     // for ofstream
 #include <iostream>                                    // for operator<<
 #include <memory>                                      // for unique_ptr
-#include <ostream>                                     // fro std::flush
+#include <ostream>                                     // for std::flush
 #include <string>                                      // for string
 
 #if USE_GLOG_AND_GFLAGS

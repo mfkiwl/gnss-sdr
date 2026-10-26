@@ -30,6 +30,7 @@
 #include "galileo_tow_map.h"
 #include "gnss_sdr_sample_counter.h"
 #include "gnss_signal.h"
+#include "osnma_msg_receiver.h"
 #include "pvt_interface.h"
 #include <gnuradio/blocks/null_sink.h>  // for null_sink
 #include <gnuradio/runtime_types.h>     // for basic_block_sptr, top_block_sptr
@@ -39,6 +40,7 @@
 #include <memory>                       // for for shared_ptr, dynamic_pointer_cast
 #include <mutex>                        // for mutex
 #include <string>                       // for string
+#include <unordered_map>                // for unordered_map
 #include <utility>                      // for pair
 #include <vector>                       // for vector
 #if ENABLE_FPGA
@@ -152,7 +154,7 @@ public:
     }
 
     /*!
-     * \brief Priorize visible satellites in the specified vector
+     * \brief Prioritize visible satellites in the specified vector
      */
     void priorize_satellites(const std::vector<std::pair<int, Gnss_Satellite>>& visible_satellites);
 
@@ -179,6 +181,7 @@ private:
     int connect_channels_to_observables();
     int connect_observables_to_pvt();
     int connect_monitors();
+    int connect_osnma();
     int connect_gal_e6_has();
     int connect_gnss_synchro_monitor();
     int connect_acquisition_monitor();
@@ -234,6 +237,7 @@ private:
     channel_status_msg_receiver_sptr channels_status_;  // class that receives and stores the current status of the receiver channels
     galileo_e6_has_msg_receiver_sptr gal_e6_has_rx_;
     galileo_tow_map_sptr galileo_tow_map_;
+    osnma_msg_receiver_sptr osnma_rx_;
 
     gnss_sdr_sample_counter_sptr ch_out_sample_counter_;
 #if ENABLE_FPGA
@@ -242,18 +246,7 @@ private:
 
     std::vector<unsigned int> channels_state_;
 
-    std::list<Gnss_Signal> available_GPS_1C_signals_;
-    std::list<Gnss_Signal> available_GPS_2S_signals_;
-    std::list<Gnss_Signal> available_GPS_L5_signals_;
-    std::list<Gnss_Signal> available_SBAS_1C_signals_;
-    std::list<Gnss_Signal> available_GAL_1B_signals_;
-    std::list<Gnss_Signal> available_GAL_5X_signals_;
-    std::list<Gnss_Signal> available_GAL_7X_signals_;
-    std::list<Gnss_Signal> available_GAL_E6_signals_;
-    std::list<Gnss_Signal> available_GLO_1G_signals_;
-    std::list<Gnss_Signal> available_GLO_2G_signals_;
-    std::list<Gnss_Signal> available_BDS_B1_signals_;
-    std::list<Gnss_Signal> available_BDS_B3_signals_;
+    std::unordered_map<std::string, std::list<Gnss_Signal>> available_signals_map_;
 
     enum StringValue
     {
@@ -290,6 +283,7 @@ private:
     bool enable_tracking_monitor_;
     bool enable_navdata_monitor_;
     bool enable_fpga_offloading_;
+    bool enable_osnma_rx_;
     bool enable_e6_has_rx_;
 };
 

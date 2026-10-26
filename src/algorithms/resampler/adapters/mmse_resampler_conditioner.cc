@@ -20,6 +20,7 @@
 #include <gnuradio/blocks/file_sink.h>
 #include <cmath>
 #include <limits>
+#include <utility>
 #include <vector>
 
 #if USE_GLOG_AND_GFLAGS
@@ -39,7 +40,7 @@ MmseResamplerConditioner::MmseResamplerConditioner(
       dump_(configuration->property(role + ".dump", false))
 {
     const std::string default_item_type("gr_complex");
-    const std::string default_dump_file("./data/signal_conditioner.dat");
+    const std::string default_dump_file("./resampler.dat");
     const double fs_in_deprecated = configuration->property("GNSS-SDR.internal_fs_hz", 2048000.0);
     const double fs_in = configuration->property("GNSS-SDR.internal_fs_sps", fs_in_deprecated);
     item_type_ = configuration->property(role + ".item_type", default_item_type);

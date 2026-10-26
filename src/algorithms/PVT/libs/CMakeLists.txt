@@ -27,6 +27,7 @@ set(PVT_LIB_SOURCES
     vtl_engine.cc
     geohash.cc
     pvt_kf.cc
+    receiver_type.cc
 )
 
 set(PVT_LIB_HEADERS
@@ -53,6 +54,7 @@ set(PVT_LIB_HEADERS
     vtl_engine.h
     geohash.h
     pvt_kf.h
+    receiver_type.h
 )
 
 list(SORT PVT_LIB_HEADERS)
@@ -148,6 +150,31 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
             )
         endif()
     endif()
+endif()
+
+# Fixes for Boost Asio > 1.86. address::from_string was deprecated in Boost 1.71
+if(Boost_VERSION_STRING VERSION_LESS 1.71.0)
+    target_compile_definitions(pvt_libs
+        PRIVATE
+            -DBOOST_ASIO_USE_FROM_STRING=1
+    )
+    # resolver::iterator retired in Boost 1.87.0, alternative available since 1.71
+    # boost::asio::io_context::post deprecated in 1.84 in favor of boost::asio::post
+    target_compile_definitions(pvt_libs
+        PUBLIC
+            -DBOOST_ASIO_USE_RESOLVER_ITERATOR=1
+            -DBOOST_ASIO_USE_IOCONTEXT_POST=1
+    )
+endif()
+
+if((CMAKE_CXX_STANDARD AND CMAKE_CXX_STANDARD VERSION_LESS 17) OR
+  (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8.0") OR
+  (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.0") OR
+  (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "10.0"))
+    target_compile_definitions(pvt_libs
+        PUBLIC
+            -DNO_FOLD_EXPRESSIONS=1
+    )
 endif()
 
 set_property(TARGET pvt_libs APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES

@@ -269,8 +269,8 @@ void pcps_opencl_acquisition_cc::init()
     // Count the number of bins
     d_num_doppler_bins = 0;
     for (int doppler = static_cast<int>(-d_doppler_max);
-         doppler <= static_cast<int>(d_doppler_max);
-         doppler += d_doppler_step)
+        doppler <= static_cast<int>(d_doppler_max);
+        doppler += d_doppler_step)
         {
             d_num_doppler_bins++;
         }
@@ -429,7 +429,7 @@ void pcps_opencl_acquisition_cc::acquisition_core_volk()
                     std::stringstream filename;
                     std::streamsize n = 2 * sizeof(float) * (d_fft_size);  // complex file write
                     filename.str("");
-                    filename << "../data/test_statistics_" << d_gnss_synchro->System
+                    filename << "./test_statistics_" << d_gnss_synchro->System
                              << "_" << d_gnss_synchro->Signal[0] << d_gnss_synchro->Signal[1] << "_sat_"
                              << d_gnss_synchro->PRN << "_doppler_" << doppler << ".dat";
                     d_dump_file.open(filename.str().c_str(), std::ios::out | std::ios::binary);
@@ -590,7 +590,7 @@ void pcps_opencl_acquisition_cc::acquisition_core_opencl()
                     std::stringstream filename;
                     std::streamsize n = 2 * sizeof(float) * (d_fft_size);  // complex file write
                     filename.str("");
-                    filename << "../data/test_statistics_" << d_gnss_synchro->System
+                    filename << "./test_statistics_" << d_gnss_synchro->System
                              << "_" << d_gnss_synchro->Signal[0] << d_gnss_synchro->Signal[1] << "_sat_"
                              << d_gnss_synchro->PRN << "_doppler_" << doppler << ".dat";
                     d_dump_file.open(filename.str().c_str(), std::ios::out | std::ios::binary);

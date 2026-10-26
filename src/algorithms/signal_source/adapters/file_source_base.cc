@@ -48,8 +48,8 @@ FileSourceBase::FileSourceBase(ConfigurationInterface const* configuration, std:
     : SignalSourceBase(configuration, role, std::move(impl)),
       queue_(queue),
       role_(role),
-      filename_(configuration->property(role_ + ".filename"s, "../data/example_capture.dat"s)),
-      dump_filename_(configuration->property(role_ + ".dump_filename"s, "../data/my_capture.dat"s)),
+      filename_(configuration->property(role_ + ".filename"s, "./example_capture.dat"s)),
+      dump_filename_(configuration->property(role_ + ".dump_filename"s, "./my_capture.dat"s)),
       item_type_(configuration->property(role_ + ".item_type"s, std::move(default_item_type))),
       item_size_(0),
       header_size_(configuration->property(role_ + ".header_size"s, uint64_t(0))),
@@ -365,16 +365,16 @@ std::tuple<size_t, bool> FileSourceBase::itemTypeToSize()
 double FileSourceBase::packetsPerSample() const { return 1.0; }
 
 
-size_t FileSourceBase::samplesToSkip() const
+uint64_t FileSourceBase::samplesToSkip() const
 {
-    auto samples_to_skip = size_t(0);
+    auto samples_to_skip = uint64_t(0);
 
     if (seconds_to_skip_ > 0)
         {
             // sampling_frequency is in terms of actual samples (output packets). If this source is
             // compressed, there may be multiple packets per file (read) sample. First compute the
             // actual number of samples to skip (function of time and sample rate)
-            samples_to_skip = static_cast<size_t>(seconds_to_skip_ * sampling_frequency_);
+            samples_to_skip = static_cast<uint64_t>(seconds_to_skip_ * sampling_frequency_);
 
             // convert from sample to input items, scaling this value to input item space
             // (rounding up)
@@ -396,7 +396,7 @@ size_t FileSourceBase::samplesToSkip() const
 }
 
 
-size_t FileSourceBase::computeSamplesInFile() const
+uint64_t FileSourceBase::computeSamplesInFile() const
 {
     auto n_samples = samples();
 
@@ -410,7 +410,7 @@ size_t FileSourceBase::computeSamplesInFile() const
      * A possible solution is to compute the file length in samples using file size, excluding at least
      * the last 2 milliseconds, and enable always the valve block
      */
-    const auto tail = static_cast<size_t>(std::ceil(minimum_tail_s_ * sampling_frequency()));
+    const auto tail = static_cast<uint64_t>(std::ceil(minimum_tail_s_ * sampling_frequency()));
 
     if (tail > size)
         {

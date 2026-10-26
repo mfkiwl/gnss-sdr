@@ -18,6 +18,7 @@
 #include "ibyte_to_cbyte.h"
 #include "configuration_interface.h"
 #include <volk/volk.h>
+#include <utility>
 
 #if USE_GLOG_AND_GFLAGS
 #include <glog/logging.h>
@@ -37,7 +38,7 @@ IbyteToCbyte::IbyteToCbyte(const ConfigurationInterface* configuration,
 {
     const std::string default_input_item_type("byte");
     const std::string default_output_item_type("lv_8sc_t");
-    const std::string default_dump_filename("../data/input_filter.dat");
+    const std::string default_dump_filename("./data_type_adapter.dat");
 
     DLOG(INFO) << "role " << role_;
 

@@ -1,7 +1,7 @@
 # GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
 # This file is part of GNSS-SDR.
 #
-# SPDX-FileCopyrightText: 2011-2020 C. Fernandez-Prades cfernandez(at)cttc.es
+# SPDX-FileCopyrightText: 2011-2025 C. Fernandez-Prades cfernandez(at)cttc.es
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Find the pugixml XML parsing library.
@@ -20,12 +20,12 @@ if(NOT COMMAND feature_summary)
     include(FeatureSummary)
 endif()
 
-if(NOT GNSSSDR_LIB_PATHS)
-    include(GnsssdrLibPaths)
-endif()
-
 if(NOT PKG_CONFIG_FOUND)
     include(FindPkgConfig)
+endif()
+
+if(NOT GNSSSDR_LIB_PATHS)
+    include(GnsssdrFindPaths)
 endif()
 
 pkg_check_modules(PC_PUGIXML pugixml QUIET)
@@ -52,13 +52,8 @@ find_path(PUGIXML_INCLUDE_DIR
     NAMES pugixml.hpp
     HINTS ${PC_PUGIXML_INCLUDEDIR}
     PATHS ${PUGIXML_ROOT_USER_DEFINED}/include
-          ${PUGIXML_ROOT_USER_DEFINED}/include/pugixml-${PC_PUGIXML_VERSION}
-          ${PUGIXML_ROOT_USER_DEFINED}/include/pugixml-1.9
-          /usr/include
-          /usr/local/include
-          /usr/local/include/pugixml-${PC_PUGIXML_VERSION}
-          /usr/local/include/pugixml-1.9
-          /opt/local/include
+          ${GNSSSDR_INCLUDE_PATHS}
+    PATH_SUFFIXES pugixml-${PC_PUGIXML_VERSION} pugixml-1.9
 )
 
 find_library(PUGIXML_LIBRARY
@@ -66,13 +61,8 @@ find_library(PUGIXML_LIBRARY
     HINTS ${PC_PUGIXML_LIBDIR}
     PATHS ${PUGIXML_ROOT_USER_DEFINED}/lib
           ${PUGIXML_ROOT_USER_DEFINED}/lib64
-          ${PUGIXML_ROOT_USER_DEFINED}/lib/pugixml-${PC_PUGIXML_VERSION}
-          ${PUGIXML_ROOT_USER_DEFINED}/lib64/pugixml-${PC_PUGIXML_VERSION}
-          ${PUGIXML_ROOT_USER_DEFINED}}/lib/pugixml-1.9
-          ${PUGIXML_ROOT_USER_DEFINED}/lib64/pugixml-1.9
           ${GNSSSDR_LIB_PATHS}
-          /usr/local/lib/pugixml-${PC_PUGIXML_VERSION}
-          /usr/local/lib/pugixml-1.9
+    PATH_SUFFIXES pugixml-${PC_PUGIXML_VERSION} pugixml-1.9
 )
 
 # Support the REQUIRED and QUIET arguments, and set PUGIXML_FOUND if found.
