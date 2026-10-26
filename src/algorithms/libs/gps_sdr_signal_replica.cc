@@ -19,8 +19,7 @@
 #include "gps_sdr_signal_replica.h"
 #include <array>
 #include <bitset>
-
-const auto AUX_CEIL = [](float x) { return static_cast<int32_t>(static_cast<int64_t>((x) + 1)); };
+#include <cmath>
 
 void gps_l1_ca_code_gen_int(own::span<int32_t> dest, int32_t prn, uint32_t chip_shift)
 {
@@ -46,7 +45,7 @@ void gps_l1_ca_code_gen_int(own::span<int32_t> dest, int32_t prn, uint32_t chip_
     // compute delay array index for given PRN number
     if (120 <= prn && prn <= 138)
         {
-            prn_idx = prn - 88;  // SBAS PRNs are at array indices 31 to 50 (offset: -120+33-1 =-88)
+            prn_idx = prn - 88;  // SBAS PRNs are at array indices 32 to 50 (offset: -120+33-1 =-88)
         }
     else
         {
@@ -54,7 +53,7 @@ void gps_l1_ca_code_gen_int(own::span<int32_t> dest, int32_t prn, uint32_t chip_
         }
 
     // A simple error check
-    if ((prn_idx < 0) || (prn_idx > 51))
+    if ((prn_idx < 0) || (prn_idx > 50))
         {
             return;
         }
@@ -65,8 +64,8 @@ void gps_l1_ca_code_gen_int(own::span<int32_t> dest, int32_t prn, uint32_t chip_
             G1[lcv] = G1_register[0];
             G2[lcv] = G2_register[0];
 
-            feedback1 = G1_register[7] xor G1_register[0];
-            feedback2 = G2_register[8] xor G2_register[7] xor G2_register[4] xor G2_register[2] xor G2_register[1] xor G2_register[0];
+            feedback1 = G1_register[7] ^ G1_register[0];
+            feedback2 = G2_register[8] ^ G2_register[7] ^ G2_register[4] ^ G2_register[2] ^ G2_register[1] ^ G2_register[0];
 
             for (lcv2 = 0; lcv2 < 9; lcv2++)
                 {
@@ -86,7 +85,7 @@ void gps_l1_ca_code_gen_int(own::span<int32_t> dest, int32_t prn, uint32_t chip_
     // Generate PRN from G1 and G2 Registers
     for (lcv = 0; lcv < code_length; lcv++)
         {
-            aux = G1[(lcv + chip_shift) % code_length] xor G2[delay];
+            aux = G1[(lcv + chip_shift) % code_length] ^ G2[delay];
             if (aux == true)
                 {
                     dest[lcv] = 1;
@@ -144,7 +143,6 @@ void gps_l1_ca_code_gen_complex_sampled(own::span<std::complex<float>> dest, uin
     const float ts = 1.0F / static_cast<float>(sampling_freq);  // Sampling period in sec
     std::array<std::complex<float>, 1023> code_aux{};
     int32_t codeValueIndex;
-    float aux;
 
     gps_l1_ca_code_gen_complex(code_aux, prn, chip_shift);  // generate C/A code 1 sample per chip
 
@@ -157,8 +155,7 @@ void gps_l1_ca_code_gen_complex_sampled(own::span<std::complex<float>> dest, uin
             // number of samples per millisecond (because one C/A code period is one
             // millisecond).
 
-            aux = (ts * (static_cast<float>(i) + 1)) / tc;
-            codeValueIndex = AUX_CEIL(aux) - 1;
+            codeValueIndex = static_cast<int32_t>(std::floor(ts * static_cast<float>(i) / tc));
 
             // --- Make the digitized version of the C/A code -------------------
             // The "upsampled" code is made by selecting values form the CA code

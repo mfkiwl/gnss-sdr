@@ -1,16 +1,17 @@
 /*!
  * \file labsat23_source.h
  *
- * \brief Unpacks capture files in the LabSat 2 (ls2), LabSat 3 (ls3), or LabSat
- * 3 Wideband (LS3W) formats.
+ * \brief Unpacks capture files in the LabSat 2 (ls2), LabSat 3 (ls3), LabSat 3
+ * Wideband (LS3W), and Labsat 4 (ls4) formats.
  * \author Javier Arribas jarribas (at) cttc.es
+ *         Mathieu Favreau favreau.mathieu (at) hotmail.com
  *
  * -----------------------------------------------------------------------------
  *
  * GNSS-SDR is a Global Navigation Satellite System software-defined receiver.
  * This file is part of GNSS-SDR.
  *
- * Copyright (C) 2010-2021  (see AUTHORS file for a list of contributors)
+ * Copyright (C) 2010-2025  (see AUTHORS file for a list of contributors)
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * -----------------------------------------------------------------------------
@@ -23,10 +24,13 @@
 #include "gnss_block_interface.h"
 #include <gnuradio/block.h>
 #include <pmt/pmt.h>
+#include <bitset>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 /** \addtogroup Signal_Source
@@ -43,7 +47,8 @@ labsat23_source_sptr labsat23_make_source_sptr(
     const char *signal_file_basename,
     const std::vector<int> &channel_selector,
     Concurrent_Queue<pmt::pmt_t> *queue,
-    bool digital_io_enabled);
+    bool digital_io_enabled,
+    double seconds_to_skip);
 
 /*!
  * \brief This class implements conversion between Labsat 2, 3 and 3 Wideband
@@ -64,22 +69,39 @@ private:
         const char *signal_file_basename,
         const std::vector<int> &channel_selector,
         Concurrent_Queue<pmt::pmt_t> *queue,
-        bool digital_io_enabled);
+        bool digital_io_enabled,
+        double seconds_to_skip);
 
     labsat23_source(const char *signal_file_basename,
         const std::vector<int> &channel_selector,
         Concurrent_Queue<pmt::pmt_t> *queue,
-        bool digital_io_enabled);
+        bool digital_io_enabled,
+        double seconds_to_skip);
+
+    static std::vector<double> generate_mapping(int qua);
+    static void write_samples_from_bitset(const std::bitset<64> &bs, int bit_offset, int qua, gr_complex &out);
+    static void write_samples_ls4(uint64_t data_index, int out_index, int sample_count, int32_t qua, std::vector<uint64_t> &data, gr_complex *out_samples);
+    static void read_file_register_to_local_endian(std::ifstream &binary_input_file, uint64_t &read_register);
+    static bool are_equal_ignore_nonpositive(const std::vector<int32_t> &values);
+    static uint8_t as_u8(char value);
+    static uint16_t read_le_u16(const char *data);
+    static uint32_t read_le_u32(const char *data);
 
     std::string generate_filename();
 
     int parse_header();
-    int getBit(uint8_t byte, int position);
     int read_ls3w_ini(const std::string &filename);
     int number_of_samples_per_ls3w_register() const;
+    int configure_ls4_output_parameters();
 
-    void decode_samples_one_channel(int16_t input_short, gr_complex *out, int type);
+    void decode_samples_one_channel(uint16_t input_word, gr_complex *out, int type);
+    void decode_samples_two_channels(uint16_t input_word, std::vector<gr_complex *> &out, std::size_t output_pointer) const;
+    void decode_samples_three_channels(uint32_t input_word, std::vector<gr_complex *> &out, std::size_t output_pointer) const;
     void decode_ls3w_register(uint64_t input, std::vector<gr_complex *> &out, std::size_t output_pointer) const;
+    int parse_ls23_data(int noutput_items, std::vector<gr_complex *> out);
+    int parse_ls3w_data(int noutput_items, std::vector<gr_complex *> out);
+    int parse_ls4_data(int noutput_items, std::vector<gr_complex *> out);
+    bool read_ls4_data();
 
     std::ifstream binary_input_file;
     std::string d_signal_file_basename;
@@ -92,23 +114,41 @@ private:
     uint8_t d_bits_per_sample;
     bool d_header_parsed;
 
-    // Data members for Labsat 3 Wideband
+    // Data members for Labsat 3 Wideband and Labsat 4
     std::string d_ls3w_OSC;
     std::vector<int> d_ls3w_selected_channel_offset;
     int64_t d_ls3w_SMP{};
-    int32_t d_ls3w_QUA{};
+    int32_t d_sample_quantization_bits{};
     int32_t d_ls3w_CHN{};
     int32_t d_ls3w_SFT{};
-    int32_t d_ls3w_CFA{};
-    int32_t d_ls3w_CFB{};
-    int32_t d_ls3w_CFC{};
-    int32_t d_ls3w_BWA{};
-    int32_t d_ls3w_BWB{};
-    int32_t d_ls3w_BWC{};
     int d_ls3w_spare_bits{};
     int d_ls3w_samples_per_register{};
     bool d_is_ls3w = false;
+    bool d_is_ls4 = false;
     bool d_ls3w_digital_io_enabled = false;
+
+    // Data members for Labsat 4
+    int32_t d_ls4_BW_MAX{0};
+    int32_t d_number_sample_per_output{0};
+    int32_t d_number_register_per_output{0};
+    uint64_t d_read_index{0};
+
+    struct ChannelState
+    {
+        std::string identifier;
+        int32_t center_freq{0};
+        int32_t bandwidth{0};
+        int32_t bw_div{0};
+        int32_t buff_size{0};
+        int32_t number_sample_per_output{0};
+        uint64_t data_index{0};
+        std::vector<uint64_t> data{};
+
+        ChannelState(const std::string &id) : identifier(id) {}
+    };
+
+    std::map<int32_t, ChannelState> d_channel_map{
+        std::make_pair(1, ChannelState{"A"}), std::make_pair(2, ChannelState{"B"}), std::make_pair(3, ChannelState{"C"})};
 };
 
 

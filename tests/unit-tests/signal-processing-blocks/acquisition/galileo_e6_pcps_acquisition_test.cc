@@ -19,12 +19,13 @@
 #include "Galileo_E6.h"
 #include "concurrent_queue.h"
 #include "fir_filter.h"
-#include "galileo_e6_pcps_acquisition.h"
+#include "gen_signal_source.h"
 #include "gnss_block_interface.h"
 #include "gnss_sdr_valve.h"
 #include "gnss_synchro.h"
 #include "in_memory_configuration.h"
 #include "pass_through.h"
+#include "pcps_acquisition_adapter.h"
 #include "signal_generator.h"
 #include "signal_generator_c.h"
 #include <gnuradio/analog/sig_source_waveform.h>
@@ -66,7 +67,7 @@ class GalileoE6PcpsAcquisitionTest_msg_rx : public gr::block
 {
 private:
     friend GalileoE6PcpsAcquisitionTest_msg_rx_sptr GalileoE6PcpsAcquisitionTest_msg_rx_make(Concurrent_Queue<int>& queue);
-    void msg_handler_channel_events(const pmt::pmt_t msg);
+    void msg_handler_channel_events(pmt::pmt_t msg);
     explicit GalileoE6PcpsAcquisitionTest_msg_rx(Concurrent_Queue<int>& queue);
     Concurrent_Queue<int>& channel_internal_queue;
 
@@ -82,7 +83,7 @@ GalileoE6PcpsAcquisitionTest_msg_rx_sptr GalileoE6PcpsAcquisitionTest_msg_rx_mak
 }
 
 
-void GalileoE6PcpsAcquisitionTest_msg_rx::msg_handler_channel_events(const pmt::pmt_t msg)
+void GalileoE6PcpsAcquisitionTest_msg_rx::msg_handler_channel_events(pmt::pmt_t msg)
 {
     try
         {
@@ -98,12 +99,12 @@ void GalileoE6PcpsAcquisitionTest_msg_rx::msg_handler_channel_events(const pmt::
 }
 
 
-GalileoE6PcpsAcquisitionTest_msg_rx::GalileoE6PcpsAcquisitionTest_msg_rx(Concurrent_Queue<int>& queue) : gr::block("GalileoE6PcpsAcquisitionTest_msg_rx", gr::io_signature::make(0, 0, 0), gr::io_signature::make(0, 0, 0)), channel_internal_queue(queue)
+GalileoE6PcpsAcquisitionTest_msg_rx::GalileoE6PcpsAcquisitionTest_msg_rx(Concurrent_Queue<int>& queue) : gr::block("GalileoE6PcpsAcquisitionTest_msg_rx", gr::io_signature::make(0, 0, 0), gr::io_signature::make(0, 0, 0)), channel_internal_queue(queue), rx_message(0)
 {
     this->message_port_register_in(pmt::mp("events"));
     this->set_msg_handler(pmt::mp("events"),
 #if HAS_GENERIC_LAMBDA
-        [this](pmt::pmt_t&& PH1) { msg_handler_channel_events(PH1); });
+        [this](pmt::pmt_t&& PH1) { msg_handler_channel_events(std::forward<decltype(PH1)>(PH1)); });
 #else
 #if USE_BOOST_BIND_PLACEHOLDERS
         boost::bind(&GalileoE6PcpsAcquisitionTest_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
@@ -111,7 +112,6 @@ GalileoE6PcpsAcquisitionTest_msg_rx::GalileoE6PcpsAcquisitionTest_msg_rx(Concurr
         boost::bind(&GalileoE6PcpsAcquisitionTest_msg_rx::msg_handler_channel_events, this, _1));
 #endif
 #endif
-    rx_message = 0;
 }
 
 
@@ -123,13 +123,9 @@ GalileoE6PcpsAcquisitionTest_msg_rx::~GalileoE6PcpsAcquisitionTest_msg_rx() = de
 class GalileoE6PcpsAcquisitionTest : public ::testing::Test
 {
 protected:
-    GalileoE6PcpsAcquisitionTest()
+    GalileoE6PcpsAcquisitionTest() : item_size(sizeof(gr_complex)), stop(false), message(0)
     {
         config = std::make_shared<InMemoryConfiguration>();
-        item_size = sizeof(gr_complex);
-        gnss_synchro = Gnss_Synchro();
-        stop = false;
-        message = 0;
     }
 
     ~GalileoE6PcpsAcquisitionTest() = default;
@@ -142,7 +138,7 @@ protected:
 
     Concurrent_Queue<int> channel_internal_queue;
     std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue;
-    gnss_shared_ptr<GalileoE6PcpsAcquisition> acquisition;
+    gnss_shared_ptr<PcpsAcquisitionAdapter> acquisition;
     gr::top_block_sptr top_block;
     std::shared_ptr<InMemoryConfiguration> config;
     std::thread ch_thread;
@@ -244,8 +240,6 @@ void GalileoE6PcpsAcquisitionTest::wait_message()
 
     while (!stop)
         {
-            acquisition->reset();
-
             start = std::chrono::system_clock::now();
 
             channel_internal_queue.wait_and_pop(message);
@@ -256,6 +250,11 @@ void GalileoE6PcpsAcquisitionTest::wait_message()
             mean_acq_time_us += elapsed_seconds.count() * 1e6;
 
             process_message();
+
+            if (!stop)
+                {
+                    acquisition->reset();  // arm the next realization
+                }
         }
 }
 
@@ -313,7 +312,7 @@ void GalileoE6PcpsAcquisitionTest::stop_queue()
 TEST_F(GalileoE6PcpsAcquisitionTest, Instantiate)
 {
     init();
-    acquisition = gnss_make_shared<GalileoE6PcpsAcquisition>(config.get(), "Acquisition_E6", 1, 0);
+    acquisition = gnss_make_shared<PcpsAcquisitionAdapter>(config.get(), "Acquisition_E6", "Galileo_E6_PCPS_Acquisition", 1, 0, GAL_E6);
 }
 
 
@@ -328,7 +327,7 @@ TEST_F(GalileoE6PcpsAcquisitionTest, ConnectAndRun)
 
     init();
 
-    acquisition = gnss_make_shared<GalileoE6PcpsAcquisition>(config.get(), "Acquisition_E6", 1, 0);
+    acquisition = gnss_make_shared<PcpsAcquisitionAdapter>(config.get(), "Acquisition_E6", "Galileo_E6_PCPS_Acquisition", 1, 0, GAL_E6);
 
     auto msg_rx = GalileoE6PcpsAcquisitionTest_msg_rx_make(channel_internal_queue);
 
@@ -358,7 +357,7 @@ TEST_F(GalileoE6PcpsAcquisitionTest, ValidationOfResults)
 
     init();
 
-    acquisition = gnss_make_shared<GalileoE6PcpsAcquisition>(config.get(), "Acquisition_E6", 1, 0);
+    acquisition = gnss_make_shared<PcpsAcquisitionAdapter>(config.get(), "Acquisition_E6", "Galileo_E6_PCPS_Acquisition", 1, 0, GAL_E6);
 
     std::shared_ptr<FirFilter> input_filter = std::make_shared<FirFilter>(config.get(), "InputFilter", 1, 1);
     auto msg_rx = GalileoE6PcpsAcquisitionTest_msg_rx_make(channel_internal_queue);
@@ -371,14 +370,6 @@ TEST_F(GalileoE6PcpsAcquisitionTest, ValidationOfResults)
     ASSERT_NO_THROW({
         acquisition->set_gnss_synchro(&gnss_synchro);
     }) << "Failure setting gnss_synchro.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_doppler_max(5000);
-    }) << "Failure setting doppler_max.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_doppler_step(100);
-    }) << "Failure setting doppler_step.";
 
     ASSERT_NO_THROW({
         acquisition->connect(top_block);
@@ -395,7 +386,6 @@ TEST_F(GalileoE6PcpsAcquisitionTest, ValidationOfResults)
     }) << "Failure connecting the blocks of acquisition test.";
 
     acquisition->reset();
-    acquisition->init();
 
     // i = 0 --> satellite in acquisition is visible
     // i = 1 --> satellite in acquisition is not visible
@@ -419,7 +409,7 @@ TEST_F(GalileoE6PcpsAcquisitionTest, ValidationOfResults)
 
             acquisition->set_gnss_synchro(&gnss_synchro);
             acquisition->set_local_code();
-            acquisition->set_state(1);
+            acquisition->reset();
             start_queue();
 
             EXPECT_NO_THROW({

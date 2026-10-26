@@ -18,9 +18,9 @@
  */
 
 #include "GPS_L1_CA.h"
+#include "dll_pll_tracking_adapter_fpga.h"
 #include "gnss_block_interface.h"
 #include "gnss_synchro.h"
-#include "gps_l1_ca_dll_pll_tracking_fpga.h"
 #include "in_memory_configuration.h"
 #include "interleaved_byte_to_complex_short.h"
 #include "signal_generator_flags.h"
@@ -212,7 +212,7 @@ GpsL1CADllPllTrackingTestFpga_msg_rx::GpsL1CADllPllTrackingTestFpga_msg_rx()
     this->message_port_register_in(pmt::mp("events"));
     this->set_msg_handler(pmt::mp("events"),
 #if HAS_GENERIC_LAMBDA
-        [this](auto &&PH1) { msg_handler_channel_events(PH1); });
+        [this](auto &&PH1) { msg_handler_channel_events(std::forward<decltype(PH1)>(PH1)); });
 #else
 #if USE_BOOST_BIND_PLACEHOLDERS
         boost::bind(&GpsL1CADllPllTrackingTestFpga_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
@@ -516,7 +516,7 @@ TEST_F(GpsL1CADllPllTrackingTestFpga, ValidationOfResultsFpga)
 
     top_block = gr::make_top_block("Tracking test");
     // std::shared_ptr<GpsL1CaDllPllCAidTrackingFpga> tracking = std::make_shared<GpsL1CaDllPllCAidTrackingFpga> (config.get(), "Tracking_1C", 1, 1);
-    std::shared_ptr<GpsL1CaDllPllTrackingFpga> tracking = std::make_shared<GpsL1CaDllPllTrackingFpga>(config.get(), "Tracking_1C", 1, 1);
+    std::shared_ptr<TrackingInterface> tracking = std::make_shared<DllPllTrackingAdapterFpga>(config.get(), "Tracking_1C", "GPS_L1_CA_DLL_PLL_Tracking_FPGA", 1, 1, GPS_1C);
 
     auto msg_rx = GpsL1CADllPllTrackingTestFpga_msg_rx_make();
 
@@ -537,7 +537,7 @@ TEST_F(GpsL1CADllPllTrackingTestFpga, ValidationOfResultsFpga)
               << " Initial code delay [Chips]=" << true_obs_data.prn_delay_chips
               << '\n';
 
-    gnss_synchro.Acq_delay_samples = (GPS_L1_CA_CODE_LENGTH_CHIPS - true_obs_data.prn_delay_chips / GPS_L1_CA_CODE_LENGTH_CHIPS) * baseband_sampling_freq * GPS_L1_CA_CODE_PERIOD_S;
+    gnss_synchro.Acq_delay_samples = (GPS_L1_CA_CODE_LENGTH_CHIPS - true_obs_data.prn_delay_chips) / GPS_L1_CA_CODE_LENGTH_CHIPS * baseband_sampling_freq * GPS_L1_CA_CODE_PERIOD_S;
     gnss_synchro.Acq_doppler_hz = true_obs_data.doppler_l1_hz;
     gnss_synchro.Acq_samplestamp_samples = 0;
 

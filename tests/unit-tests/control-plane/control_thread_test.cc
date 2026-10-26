@@ -22,6 +22,7 @@
 #include "concurrent_queue.h"
 #include "control_thread.h"
 #include "gnss_sdr_filesystem.h"
+#include "gnss_sdr_flags.h"
 #include "gnss_sdr_make_unique.h"
 #include "in_memory_configuration.h"
 #include <boost/exception/diagnostic_information.hpp>
@@ -35,6 +36,7 @@
 #include <memory>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 
 #if USE_GLOG_AND_GFLAGS
 #include <gflags/gflags.h>
@@ -47,6 +49,34 @@ class ControlThreadTest : public ::testing::Test
 {
 public:
     static int stop_receiver();
+
+protected:
+    // These tests do not exercise the keyboard listener. It blocks in
+    // std::cin.get() and ControlThread::run() only detaches it on exit, so
+    // when stdin is a terminal it outlives the test and leaves a thread
+    // behind, which breaks the death tests that run later in run_tests.
+    void SetUp() override
+    {
+#if USE_GLOG_AND_GFLAGS
+        keyboard_flag_ = FLAGS_keyboard;
+        FLAGS_keyboard = false;
+#else
+        keyboard_flag_ = absl::GetFlag(FLAGS_keyboard);
+        absl::SetFlag(&FLAGS_keyboard, false);
+#endif
+    }
+
+    void TearDown() override
+    {
+#if USE_GLOG_AND_GFLAGS
+        FLAGS_keyboard = keyboard_flag_;
+#else
+        absl::SetFlag(&FLAGS_keyboard, keyboard_flag_);
+#endif
+    }
+
+private:
+    bool keyboard_flag_ = true;
 };
 
 
@@ -130,7 +160,7 @@ TEST_F(ControlThreadTest /*unused*/, InstantiateRunControlMessages /*unused*/)
     control_queue->push(pmt::make_any(channel_event_make(1, 0)));
     control_queue->push(pmt::make_any(command_event_make(200, 0)));
 
-    control_thread->set_control_queue(control_queue);
+    control_thread->set_control_queue(std::move(control_queue));
     try
         {
             control_thread->run();
@@ -193,7 +223,7 @@ TEST_F(ControlThreadTest /*unused*/, InstantiateRunControlMessages2 /*unused*/)
     control_queue2->push(pmt::make_any(channel_event_make(3, 0)));
     control_queue2->push(pmt::make_any(command_event_make(200, 0)));
 
-    control_thread2->set_control_queue(control_queue2);
+    control_thread2->set_control_queue(std::move(control_queue2));
 
     try
         {
@@ -250,7 +280,7 @@ TEST_F(ControlThreadTest /*unused*/, StopReceiverProgrammatically /*unused*/)
 
     std::shared_ptr<ControlThread> control_thread = std::make_shared<ControlThread>(config);
     std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> control_queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
-    control_thread->set_control_queue(control_queue);
+    control_thread->set_control_queue(std::move(control_queue));
 
     std::thread stop_receiver_thread(stop_receiver);
 

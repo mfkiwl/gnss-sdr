@@ -117,14 +117,16 @@
     LINE(AARCH64_F8DP2, f8dp2, "f8dp2", 0, AARCH64_HWCAP2_F8DP2)               \
     LINE(AARCH64_F8E4M3, f8e4m3, "f8e4m3", 0, AARCH64_HWCAP2_F8E4M3)           \
     LINE(AARCH64_F8E5M2, f8e5m2, "f8e5m2", 0, AARCH64_HWCAP2_F8E5M2)           \
-    LINE(AARCH64_SME_LUTV2, smelutv2, "smelutv1", 0, AARCH64_HWCAP2_SME_LUTV2) \
+    LINE(AARCH64_SME_LUTV2, smelutv2, "smelutv2", 0, AARCH64_HWCAP2_SME_LUTV2) \
     LINE(AARCH64_SME_F8F16, smef8f16, "smef8f16", 0, AARCH64_HWCAP2_SME_F8F16) \
     LINE(AARCH64_SME_F8F32, smef8f32, "smef8f32", 0, AARCH64_HWCAP2_SME_F8F32) \
     LINE(AARCH64_SME_SF8FMA, smesf8fma, "smesf8fma", 0,                        \
          AARCH64_HWCAP2_SME_SF8FMA)                                            \
     LINE(AARCH64_SME_SF8DP4, smesf8dp4, "smesf8dp4", 0,                        \
          AARCH64_HWCAP2_SME_SF8DP4)                                            \
-    LINE(AARCH64_SME_SF8DP2, smesf8dp2, "smesf8dp2", 0, AARCH64_HWCAP2_SME_SF8DP2)
+    LINE(AARCH64_SME_SF8DP2, smesf8dp2, "smesf8dp2", 0,                        \
+         AARCH64_HWCAP2_SME_SF8DP2)                                            \
+    LINE(AARCH64_POE, poe, "poe", 0, AARCH64_HWCAP2_POE)
 #define INTROSPECTION_PREFIX Aarch64
 #define INTROSPECTION_ENUM_PREFIX AARCH64
 #include "define_introspection_and_hwcaps.inl"

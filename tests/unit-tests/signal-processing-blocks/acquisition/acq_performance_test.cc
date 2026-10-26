@@ -17,31 +17,28 @@
 
 #include "GPS_L1_CA.h"
 #include "acquisition_dump_reader.h"
+#include "acquisition_interface.h"
+#include "configuration_interface.h"
 #include "display.h"
 #include "file_configuration.h"
-#include "galileo_e1_pcps_ambiguous_acquisition.h"
-#include "galileo_e5a_pcps_acquisition.h"
-#include "glonass_l1_ca_pcps_acquisition.h"
-#include "glonass_l2_ca_pcps_acquisition.h"
+#include "gnss_block_factory.h"
 #include "gnss_block_interface.h"
 #include "gnss_sdr_filesystem.h"
 #include "gnss_sdr_valve.h"
 #include "gnuplot_i.h"
-#include "gps_l1_ca_pcps_acquisition.h"
-#include "gps_l1_ca_pcps_acquisition_fine_doppler.h"
-#include "gps_l2_m_pcps_acquisition.h"
-#include "gps_l5i_pcps_acquisition.h"
 #include "in_memory_configuration.h"
 #include "signal_generator_flags.h"
 #include "test_flags.h"
 #include "tracking_true_obs_reader.h"
 #include "true_observables_reader.h"
+#include <armadillo>
 #include <gnuradio/blocks/file_source.h>
 #include <gnuradio/blocks/interleaved_char_to_complex.h>
 #include <gnuradio/blocks/skiphead.h>
 #include <gnuradio/top_block.h>
 #include <pmt/pmt.h>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <thread>
 #include <utility>
@@ -171,7 +168,7 @@ AcqPerfTest_msg_rx::AcqPerfTest_msg_rx(Concurrent_Queue<int>& queue) : gr::block
     this->message_port_register_in(pmt::mp("events"));
     this->set_msg_handler(pmt::mp("events"),
 #if HAS_GENERIC_LAMBDA
-        [this](auto&& PH1) { msg_handler_channel_events(PH1); });
+        [this](auto&& PH1) { msg_handler_channel_events(std::forward<decltype(PH1)>(PH1)); });
 #else
 #if USE_BOOST_BIND_PLACEHOLDERS
         boost::bind(&AcqPerfTest_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
@@ -488,7 +485,7 @@ protected:
 
     std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue;
     gr::top_block_sptr top_block;
-    std::shared_ptr<AcquisitionInterface> acquisition;
+    std::unique_ptr<AcquisitionInterface> acquisition;
     std::shared_ptr<InMemoryConfiguration> config;
     std::shared_ptr<FileConfiguration> config_f;
     Gnss_Synchro gnss_synchro;
@@ -593,7 +590,6 @@ void AcquisitionPerformanceTest::process_message()
 {
     measurement_counter++;
     acquisition->reset();
-    acquisition->set_state(1);
     std::cout << "Progress: " << round(static_cast<float>(measurement_counter) / static_cast<float>(num_of_measurements) * 100.0) << "% \r" << std::flush;
     if (measurement_counter == num_of_measurements)
         {
@@ -812,58 +808,26 @@ int AcquisitionPerformanceTest::run_receiver()
     gnss_synchro = Gnss_Synchro();
     init();
 
-    int nsamples = floor(config->property("GNSS-SDR.internal_fs_sps", 2000000) * generated_signal_duration_s);
+    const ConfigurationInterface* configuration = config.get();
+    if (configuration == nullptr)
+        {
+            configuration = config_f.get();
+        }
+    int nsamples = floor(configuration->property("GNSS-SDR.internal_fs_sps", 2000000) * generated_signal_duration_s);
     auto valve = gnss_sdr_make_valve(sizeof(gr_complex), nsamples, queue.get());
-    if (implementation == "GPS_L1_CA_PCPS_Acquisition")
+    acquisition = block_factory::GetAcqBlock(configuration, "Acquisition", 1, 0);
+    if (!acquisition)
         {
-            acquisition = std::make_shared<GpsL1CaPcpsAcquisition>(config.get(), "Acquisition", 1, 0);
-        }
-    else if (implementation == "GPS_L1_CA_PCPS_Acquisition_Fine_Doppler")
-        {
-            acquisition = std::make_shared<GpsL1CaPcpsAcquisitionFineDoppler>(config.get(), "Acquisition", 1, 0);
-        }
-    else if (implementation == "Galileo_E1_PCPS_Ambiguous_Acquisition")
-        {
-            acquisition = std::make_shared<GalileoE1PcpsAmbiguousAcquisition>(config.get(), "Acquisition", 1, 0);
-        }
-    else if (implementation == "GLONASS_L1_CA_PCPS_Acquisition")
-        {
-            acquisition = std::make_shared<GlonassL1CaPcpsAcquisition>(config.get(), "Acquisition", 1, 0);
-        }
-    else if (implementation == "GLONASS_L2_CA_PCPS_Acquisition")
-        {
-            acquisition = std::make_shared<GlonassL2CaPcpsAcquisition>(config.get(), "Acquisition", 1, 0);
-        }
-    else if (implementation == "GPS_L2_M_PCPS_Acquisition")
-        {
-            acquisition = std::make_shared<GpsL2MPcpsAcquisition>(config.get(), "Acquisition", 1, 0);
-        }
-    else if (implementation == "Galileo_E5a_Pcps_Acquisition")
-        {
-            acquisition = std::make_shared<GalileoE5aPcpsAcquisition>(config.get(), "Acquisition", 1, 0);
-        }
-    else if (implementation == "GPS_L5i_PCPS_Acquisition")
-        {
-            acquisition = std::make_shared<GpsL5iPcpsAcquisition>(config.get(), "Acquisition", 1, 0);
-        }
-    else
-        {
-            bool aux = false;
-            EXPECT_EQ(true, aux);
+            ADD_FAILURE() << "Unknown acquisition implementation: " << implementation;
+            return -1;
         }
 
     acquisition->set_gnss_synchro(&gnss_synchro);
     acquisition->set_channel(0);
-    acquisition->set_doppler_max(config->property("Acquisition.doppler_max", 10000));
-    acquisition->set_doppler_step(config->property("Acquisition.doppler_step", 500));
-    acquisition->set_threshold(config->property("Acquisition.threshold", 0.0));
-    acquisition->init();
     acquisition->set_local_code();
-
-    acquisition->set_state(1);  // Ensure that acquisition starts at the first sample
+    acquisition->reset();
     acquisition->connect(top_block);
 
-    acquisition->reset();
     top_block->connect(file_source, 0, gr_interleaved_char_to_complex, 0);
     top_block->connect(gr_interleaved_char_to_complex, 0, skiphead, 0);
     top_block->connect(skiphead, 0, valve, 0);

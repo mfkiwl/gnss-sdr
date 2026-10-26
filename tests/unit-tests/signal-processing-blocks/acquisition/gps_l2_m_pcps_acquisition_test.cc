@@ -1,7 +1,7 @@
 /*!
  * \file gps_l2_m_pcps_acquisition_test.cc
  * \brief  This class implements an acquisition test for
- * GpsL1CaPcpsAcquisition class based on some input parameters.
+ * PcpsAcquisitionAdapter class based on some input parameters for GPS L2C
  * \author Javier Arribas, 2015 (jarribas@cttc.es)
  *
  *
@@ -25,8 +25,8 @@
 #include "gnss_sdr_valve.h"
 #include "gnss_synchro.h"
 #include "gnuplot_i.h"
-#include "gps_l2_m_pcps_acquisition.h"
 #include "in_memory_configuration.h"
+#include "pcps_acquisition_adapter.h"
 #include "test_flags.h"
 #include <boost/make_shared.hpp>
 #include <gnuradio/analog/sig_source_waveform.h>
@@ -100,7 +100,7 @@ GpsL2MPcpsAcquisitionTest_msg_rx::GpsL2MPcpsAcquisitionTest_msg_rx() : gr::block
     this->message_port_register_in(pmt::mp("events"));
     this->set_msg_handler(pmt::mp("events"),
 #if HAS_GENERIC_LAMBDA
-        [this](auto &&PH1) { msg_handler_channel_events(PH1); });
+        [this](auto &&PH1) { msg_handler_channel_events(std::forward<decltype(PH1)>(PH1)); });
 #else
 #if USE_BOOST_BIND_PLACEHOLDERS
         boost::bind(&GpsL2MPcpsAcquisitionTest_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
@@ -259,7 +259,7 @@ TEST_F(GpsL2MPcpsAcquisitionTest, Instantiate)
 {
     init();
     queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
-    std::shared_ptr<GpsL2MPcpsAcquisition> acquisition = std::make_shared<GpsL2MPcpsAcquisition>(config.get(), "Acquisition_2S", 1, 0);
+    std::shared_ptr<PcpsAcquisitionAdapter> acquisition = std::make_shared<PcpsAcquisitionAdapter>(config.get(), "Acquisition_2S", "GPS_L2_M_PCPS_Acquisition", 1, 0, GPS_2S);
 }
 
 
@@ -271,7 +271,7 @@ TEST_F(GpsL2MPcpsAcquisitionTest, ConnectAndRun)
     queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
 
     init();
-    std::shared_ptr<GpsL2MPcpsAcquisition> acquisition = std::make_shared<GpsL2MPcpsAcquisition>(config.get(), "Acquisition_2S", 1, 0);
+    std::shared_ptr<PcpsAcquisitionAdapter> acquisition = std::make_shared<PcpsAcquisitionAdapter>(config.get(), "Acquisition_2S", "GPS_L2_M_PCPS_Acquisition", 1, 0, GPS_2S);
 
     ASSERT_NO_THROW({
         acquisition->connect(top_block);
@@ -317,7 +317,7 @@ TEST_F(GpsL2MPcpsAcquisitionTest, ValidationOfResults)
         }
 
     init();
-    std::shared_ptr<GpsL2MPcpsAcquisition> acquisition = std::make_shared<GpsL2MPcpsAcquisition>(config.get(), "Acquisition_2S", 1, 0);
+    std::shared_ptr<PcpsAcquisitionAdapter> acquisition = std::make_shared<PcpsAcquisitionAdapter>(config.get(), "Acquisition_2S", "GPS_L2_M_PCPS_Acquisition", 1, 0, GPS_2S);
     auto msg_rx = GpsL2MPcpsAcquisitionTest_msg_rx_make();
 
     ASSERT_NO_THROW({
@@ -327,18 +327,6 @@ TEST_F(GpsL2MPcpsAcquisitionTest, ValidationOfResults)
     ASSERT_NO_THROW({
         acquisition->set_gnss_synchro(&gnss_synchro);
     }) << "Failure setting gnss_synchro.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_threshold(0.001);
-    }) << "Failure setting threshold.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_doppler_max(doppler_max);
-    }) << "Failure setting doppler_max.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_doppler_step(doppler_step);
-    }) << "Failure setting doppler_step.";
 
     ASSERT_NO_THROW({
         acquisition->connect(top_block);
@@ -363,8 +351,7 @@ TEST_F(GpsL2MPcpsAcquisitionTest, ValidationOfResults)
 
     ASSERT_NO_THROW({
         acquisition->set_local_code();
-        acquisition->set_state(1);  // Ensure that acquisition starts at the first sample
-        acquisition->init();
+        acquisition->reset();
     }) << "Failure set_state and init acquisition test";
 
     EXPECT_NO_THROW({

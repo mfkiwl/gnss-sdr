@@ -17,6 +17,7 @@ set(ACQ_GR_BLOCKS_SOURCES
 )
 
 set(ACQ_GR_BLOCKS_HEADERS
+    acquisition_impl_interface.h
     pcps_acquisition.h
     pcps_assisted_acquisition_cc.h
     pcps_acquisition_fine_doppler_cc.h
@@ -65,6 +66,7 @@ target_link_libraries(acquisition_gr_blocks
         Volk::volk
         Volkgnsssdr::volkgnsssdr
     PRIVATE
+        Boost::thread
         Matio::matio
 )
 

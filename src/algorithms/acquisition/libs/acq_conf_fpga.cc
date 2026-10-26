@@ -22,12 +22,6 @@
 #include <iostream>
 #include <utility>
 
-#if USE_GLOG_AND_GFLAGS
-#include <glog/logging.h>
-#else
-#include <absl/log/log.h>
-#endif
-
 void Acq_Conf_Fpga::SetFromConfiguration(const ConfigurationInterface *configuration,
     const std::string &role, uint32_t blk_exp, double code_chips_per_sec, double num_chips_per_code)
 {
@@ -40,6 +34,9 @@ void Acq_Conf_Fpga::SetFromConfiguration(const ConfigurationInterface *configura
 
     // max doppler
     doppler_max = configuration->property(role + ".doppler_max", doppler_max);
+
+    // max doppler
+    doppler_step = configuration->property(role + ".doppler_step", 500);
 
     // code chips per second
     code_rate_cps = code_chips_per_sec;
@@ -84,10 +81,12 @@ void Acq_Conf_Fpga::SetFromConfiguration(const ConfigurationInterface *configura
     doppler_step = configuration->property(role + ".doppler_step", doppler_step);
     make_2_steps = configuration->property(role + ".make_two_steps", make_2_steps);
     max_num_acqs = configuration->property(role + ".max_num_acqs", 2);
+    threshold = configuration->property(role + ".threshold", threshold);
 
     // reference for the FPGA FFT-IFFT attenuation factor
     total_block_exp = configuration->property(role + ".total_block_exp", blk_exp);
 }
+
 
 bool Acq_Conf_Fpga::ConfigureAutomaticResampler(std::vector<std::pair<uint32_t, uint32_t>> downsampling_filter_specs, uint32_t max_FFT_size, double opt_freq)
 {
@@ -135,7 +134,8 @@ bool Acq_Conf_Fpga::ConfigureAutomaticResampler(std::vector<std::pair<uint32_t, 
     return acq_configuration_valid;
 }
 
-bool Acq_Conf_Fpga::Is_acq_config_valid(uint32_t max_FFT_size)
+
+bool Acq_Conf_Fpga::Is_acq_config_valid(uint32_t max_FFT_size) const
 {
     if (fft_size <= max_FFT_size)
         {

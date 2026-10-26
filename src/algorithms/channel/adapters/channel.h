@@ -89,14 +89,13 @@ public:
     void stop_channel() override;                               //!< Stop the State Machine
     void set_signal(const Gnss_Signal& gnss_signal_) override;  //!< Sets the channel GNSS signal
 
-    void assist_acquisition_doppler(double Carrier_Doppler_hz) override;
+    void assist_acquisition_doppler(double Carrier_Doppler_hz, uint32_t doppler_num_bins = 0) override;
 
     inline std::shared_ptr<AcquisitionInterface> acquisition() const { return acq_; }
     inline std::shared_ptr<TrackingInterface> tracking() const { return trk_; }
     inline std::shared_ptr<TelemetryDecoderInterface> telemetry() const { return nav_; }
 
 private:
-    bool glonass_dll_pll_c_aid_tracking_check() const;
     std::shared_ptr<ChannelFsm> channel_fsm_;
     std::shared_ptr<AcquisitionInterface> acq_;
     std::shared_ptr<TrackingInterface> trk_;

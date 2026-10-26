@@ -43,6 +43,9 @@ public:
 
     double fs_in{12500000.0};
     double carrier_lock_th{0.0};
+    double bs_dominance_ratio{0.5};
+    double bs_runner_up_margin{0.3};
+    double bs_transition_confidence{0.6};
 
     float pll_pull_in_bw_hz{50.0};
     float dll_pull_in_bw_hz{3.0};
@@ -60,8 +63,9 @@ public:
     float y_intercept{1.0};
     float cn0_smoother_alpha{0.002};
     float carrier_lock_test_smoother_alpha{0.002};
+    float bs_min_prompt_mag{0.0};
 
-    uint32_t pull_in_time_s{10U};  // signed integer, when pull in time is not yet reached it has to be compared against a negative number
+    uint32_t pull_in_time_s{5U};  // signed integer, when pull in time is not yet reached it has to be compared against a negative number
     uint32_t bit_synchronization_time_limit_s{70U};
     uint32_t vector_length{0U};
     uint32_t smoother_length{10U};
@@ -81,6 +85,10 @@ public:
     int32_t cn0_smoother_samples{200};
     int32_t carrier_lock_test_smoother_samples{25};
     // int32_t max_lock_fail;
+    int32_t bs_stable_best_required{3};
+    int32_t bs_min_events_for_lock{6};
+    int32_t bs_transition_window_epochs{4};
+    int32_t bs_tentative_events_required{2};
 
     int32_t* ca_codes{nullptr};
     int32_t* data_codes{nullptr};
@@ -97,6 +105,7 @@ public:
     bool high_dyn{false};
     bool dump{false};
     bool dump_mat{true};
+    bool bs_use_phase_dot_detector{true};
 };
 
 

@@ -17,39 +17,61 @@
  */
 
 
+#include "acquisition_interface.h"
 #include "concurrent_queue.h"
 #include "configuration_interface.h"
 #include "fir_filter.h"
 #include "gen_signal_source.h"
+#include "gnss_block_factory.h"
 #include "gnss_block_interface.h"
 #include "gnss_sdr_valve.h"
 #include "gnss_synchro.h"
-#include "gps_l1_ca_pcps_opencl_acquisition.h"
 #include "in_memory_configuration.h"
+#include "pcps_opencl_acquisition_cc.h"
 #include "signal_generator.h"
 #include "signal_generator_c.h"
 #include <gnuradio/analog/sig_source_waveform.h>
 #include <gnuradio/blocks/file_source.h>
 #include <gnuradio/blocks/null_sink.h>
 #include <gnuradio/top_block.h>
+#include <gtest/gtest.h>
 #include <pmt/pmt.h>
 #include <chrono>
 #include <memory>
 #include <thread>
+#include <utility>
+
 #if HAS_GENERIC_LAMBDA
 #else
 #include <boost/bind/bind.hpp>
 #endif
+
 #ifdef GR_GREATER_38
 #include <gnuradio/analog/sig_source.h>
 #else
 #include <gnuradio/analog/sig_source_c.h>
 #endif
+
+#if USE_GLOG_AND_GFLAGS
+#include <glog/logging.h>
+#else
+#include <absl/log/log.h>
+#endif
+
 #if PMT_USES_BOOST_ANY
 namespace wht = boost;
 #else
 namespace wht = std;
 #endif
+
+static gnss_shared_ptr<pcps_opencl_acquisition_cc> get_opencl_block(const gr::basic_block_sptr& block)
+{
+#if GNURADIO_USES_STD_POINTERS
+    return std::dynamic_pointer_cast<pcps_opencl_acquisition_cc>(block);
+#else
+    return boost::dynamic_pointer_cast<pcps_opencl_acquisition_cc>(block);
+#endif
+}
 
 // ######## GNURADIO BLOCK MESSAGE RECEIVER #########
 class GpsL1CaPcpsOpenClAcquisitionGSoC2013Test_msg_rx;
@@ -100,7 +122,7 @@ GpsL1CaPcpsOpenClAcquisitionGSoC2013Test_msg_rx::GpsL1CaPcpsOpenClAcquisitionGSo
     this->message_port_register_in(pmt::mp("events"));
     this->set_msg_handler(pmt::mp("events"),
 #if HAS_GENERIC_LAMBDA
-        [this](auto&& PH1) { msg_handler_channel_events(PH1); });
+        [this](auto&& PH1) { msg_handler_channel_events(std::forward<decltype(PH1)>(PH1)); });
 #else
 #if USE_BOOST_BIND_PLACEHOLDERS
         boost::bind(&GpsL1CaPcpsOpenClAcquisitionGSoC2013Test_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
@@ -147,7 +169,7 @@ protected:
     Concurrent_Queue<int> channel_internal_queue;
     std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue;
     gr::top_block_sptr top_block;
-    std::shared_ptr<GpsL1CaPcpsOpenClAcquisition> acquisition;
+    std::unique_ptr<AcquisitionInterface> acquisition;
     std::shared_ptr<InMemoryConfiguration> config;
     Gnss_Synchro gnss_synchro;
     size_t item_size;
@@ -365,8 +387,6 @@ void GpsL1CaPcpsOpenClAcquisitionGSoC2013Test::wait_message()
 
     while (!stop)
         {
-            acquisition->reset();
-
             start = std::chrono::system_clock::now();
 
             channel_internal_queue.wait_and_pop(message);
@@ -377,6 +397,11 @@ void GpsL1CaPcpsOpenClAcquisitionGSoC2013Test::wait_message()
             mean_acq_time_us += elapsed_seconds.count() * 1e6;
 
             process_message();
+
+            if (!stop)
+                {
+                    acquisition->reset();  // arm the next realization
+                }
         }
 }
 
@@ -432,7 +457,7 @@ void GpsL1CaPcpsOpenClAcquisitionGSoC2013Test::stop_queue()
 TEST_F(GpsL1CaPcpsOpenClAcquisitionGSoC2013Test, Instantiate)
 {
     config_1();
-    acquisition = std::make_shared<GpsL1CaPcpsOpenClAcquisition>(config.get(), "Acquisition_1C", 1, 0);
+    acquisition = block_factory::GetAcqBlock(config.get(), "Acquisition_1C", 1, 0);
 }
 
 
@@ -443,7 +468,7 @@ TEST_F(GpsL1CaPcpsOpenClAcquisitionGSoC2013Test, ConnectAndRun)
     std::chrono::duration<double> elapsed_seconds(0);
 
     config_1();
-    acquisition = std::make_shared<GpsL1CaPcpsOpenClAcquisition>(config.get(), "Acquisition_1C", 1, 0);
+    acquisition = block_factory::GetAcqBlock(config.get(), "Acquisition_1C", 1, 0);
     auto msg_rx = GpsL1CaPcpsOpenClAcquisitionGSoC2013Test_msg_rx_make(channel_internal_queue);
 
     ASSERT_NO_THROW({
@@ -470,7 +495,7 @@ TEST_F(GpsL1CaPcpsOpenClAcquisitionGSoC2013Test, ValidationOfResults)
 {
     config_1();
 
-    acquisition = std::make_shared<GpsL1CaPcpsOpenClAcquisition>(config.get(), "Acquisition", 1, 0);
+    acquisition = block_factory::GetAcqBlock(config.get(), "Acquisition_1C", 1, 0);
     auto msg_rx = GpsL1CaPcpsOpenClAcquisitionGSoC2013Test_msg_rx_make(channel_internal_queue);
 
     ASSERT_NO_THROW({
@@ -482,24 +507,11 @@ TEST_F(GpsL1CaPcpsOpenClAcquisitionGSoC2013Test, ValidationOfResults)
     }) << "Failure setting gnss_synchro.";
 
     ASSERT_NO_THROW({
-        acquisition->set_doppler_max(config->property("Acquisition_1C.doppler_max", 10000));
-    }) << "Failure setting doppler_max.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_doppler_step(config->property("Acquisition_1C.doppler_step", 500));
-    }) << "Failure setting doppler_step.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_threshold(config->property("Acquisition_1C.threshold", 0.0));
-    }) << "Failure setting threshold.";
-
-    ASSERT_NO_THROW({
         acquisition->connect(top_block);
     }) << "Failure connecting acquisition to the top_block.";
 
-    acquisition->init();
-
-    if (!acquisition->opencl_ready())
+    auto opencl_block = get_opencl_block(acquisition->get_right_block());
+    if (!opencl_block || !opencl_block->opencl_ready())
         {
             std::cout << "OpenCL Platform is not ready.\n";
         }
@@ -531,6 +543,7 @@ TEST_F(GpsL1CaPcpsOpenClAcquisitionGSoC2013Test, ValidationOfResults)
 
                     acquisition->set_local_code();
 
+                    acquisition->reset();
                     start_queue();
 
                     EXPECT_NO_THROW({
@@ -549,6 +562,10 @@ TEST_F(GpsL1CaPcpsOpenClAcquisitionGSoC2013Test, ValidationOfResults)
                         {
                             EXPECT_EQ(2, message) << "Acquisition failure. Expected message: 2=ACQ FAIL.";
                         }
+
+                    ASSERT_NO_THROW({
+                        ch_thread.join();
+                    }) << "Failure while waiting the queue to stop";
                 }
         }
 }
@@ -558,7 +575,7 @@ TEST_F(GpsL1CaPcpsOpenClAcquisitionGSoC2013Test, ValidationOfResultsProbabilitie
 {
     config_2();
 
-    acquisition = std::make_shared<GpsL1CaPcpsOpenClAcquisition>(config.get(), "Acquisition_1C", 1, 0);
+    acquisition = block_factory::GetAcqBlock(config.get(), "Acquisition_1C", 1, 0);
     auto msg_rx = GpsL1CaPcpsOpenClAcquisitionGSoC2013Test_msg_rx_make(channel_internal_queue);
 
     ASSERT_NO_THROW({
@@ -570,23 +587,11 @@ TEST_F(GpsL1CaPcpsOpenClAcquisitionGSoC2013Test, ValidationOfResultsProbabilitie
     }) << "Failure setting gnss_synchro.";
 
     ASSERT_NO_THROW({
-        acquisition->set_doppler_max(config->property("Acquisition_1C.doppler_max", 10000));
-    }) << "Failure setting doppler_max.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_doppler_step(config->property("Acquisition_1C.doppler_step", 500));
-    }) << "Failure setting doppler_step.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_threshold(config->property("Acquisition_1C.threshold", 0.0));
-    }) << "Failure setting threshold.";
-
-    ASSERT_NO_THROW({
         acquisition->connect(top_block);
     }) << "Failure connecting acquisition to the top_block.";
 
-    acquisition->init();
-    if (!acquisition->opencl_ready())
+    auto opencl_block = get_opencl_block(acquisition->get_right_block());
+    if (!opencl_block || !opencl_block->opencl_ready())
         {
             std::cout << "OpenCL Platform is not ready.\n";
         }
@@ -620,6 +625,7 @@ TEST_F(GpsL1CaPcpsOpenClAcquisitionGSoC2013Test, ValidationOfResultsProbabilitie
 
                     acquisition->set_local_code();
 
+                    acquisition->reset();
                     start_queue();
 
                     EXPECT_NO_THROW({
@@ -637,6 +643,10 @@ TEST_F(GpsL1CaPcpsOpenClAcquisitionGSoC2013Test, ValidationOfResultsProbabilitie
                             std::cout << "Estimated probability of false alarm (satellite absent) = " << Pfa_a << '\n';
                             std::cout << "Mean acq time = " << mean_acq_time_us << " microseconds.\n";
                         }
+
+                    ASSERT_NO_THROW({
+                        ch_thread.join();
+                    }) << "Failure while waiting the queue to stop";
                 }
         }
 }

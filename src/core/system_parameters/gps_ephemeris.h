@@ -35,7 +35,7 @@
  * \brief This class is a storage and orbital model functions for the GPS SV
  * ephemeris data as described in IS-GPS-200M
  *
- * See https://www.gps.gov/technical/icwg/IS-GPS-200M.pdf Appendix II
+ * See https://www.gps.gov/sites/default/files/2025-07/IS-GPS-200M.pdf Appendix II
  */
 class Gps_Ephemeris : public Gnss_Ephemeris
 {
@@ -44,6 +44,16 @@ public:
      * Default constructor
      */
     Gps_Ephemeris();
+
+    void set_system(char system)
+    {
+        this->System = system;
+    }
+
+    char get_system() const
+    {
+        return this->System;
+    }
 
     int32_t code_on_L2{};   //!< If 1, P code ON in L2;  if 2, C/A code ON in L2;
     bool L2_P_data_flag{};  //!< When true, indicates that the NAV data stream was commanded OFF on the P-code of the L2 channel

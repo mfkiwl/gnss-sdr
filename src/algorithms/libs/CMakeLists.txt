@@ -9,6 +9,8 @@ add_subdirectory(rtklib)
 
 set(GNSS_SPLIBS_SOURCES
     beidou_b1i_signal_replica.cc
+    beidou_b1c_signal_replica.cc
+    beidou_b2a_signal_replica.cc
     beidou_b3i_signal_replica.cc
     galileo_e1_signal_replica.cc
     galileo_e5_signal_replica.cc
@@ -32,10 +34,14 @@ set(GNSS_SPLIBS_SOURCES
     pass_through.cc
     short_x2_to_cshort.cc
     gnss_sdr_string_literals.cc
+    qzss_signal_replica.cc
+    sbas_signal_replica.cc
 )
 
 set(GNSS_SPLIBS_HEADERS
     beidou_b1i_signal_replica.h
+    beidou_b1c_signal_replica.h
+    beidou_b2a_signal_replica.h
     beidou_b3i_signal_replica.h
     galileo_e1_signal_replica.h
     galileo_e5_signal_replica.h
@@ -65,6 +71,28 @@ set(GNSS_SPLIBS_HEADERS
     short_x2_to_cshort.h
     gnss_sdr_string_literals.h
     gnss_time.h
+    matlab_writter_helper.h
+    qzss_signal_replica.h
+    sbas_signal_replica.h
+)
+
+set(GNSS_SPLIBS_HEADERS ${GNSS_SPLIBS_HEADERS}
+    sensor_data/sensor_data_type.h
+    sensor_data/sensor_identifier.h
+    sensor_data/sensor_data_file.h
+    sensor_data/sensor_data_source_configuration.h
+    sensor_data/sensor_data_source.h
+    sensor_data/sensor_data_aggregator.h
+    sensor_data/sensor_data_resampler.h
+)
+set(GNSS_SPLIBS_SOURCES ${GNSS_SPLIBS_SOURCES}
+    sensor_data/sensor_data_type.cc
+    sensor_data/sensor_identifier.cc
+    sensor_data/sensor_data_file.cc
+    sensor_data/sensor_data_source_configuration.cc
+    sensor_data/sensor_data_source.cc
+    sensor_data/sensor_data_aggregator.cc
+    sensor_data/sensor_data_resampler.cc
 )
 
 if(ENABLE_OPENCL)
@@ -105,6 +133,7 @@ target_link_libraries(algorithms_libs
         Gnuradio::runtime
         Gnuradio::blocks
         Gnuradio::fft
+        Gnuradio::pmt
     PRIVATE
         core_system_parameters
         Volk::volk
@@ -131,7 +160,7 @@ if(FILESYSTEM_FOUND)
     endif()
     target_link_libraries(algorithms_libs PUBLIC std::filesystem)
 else()
-    target_link_libraries(algorithms_libs PUBLIC Boost::filesystem Boost::system)
+    target_link_libraries(algorithms_libs PUBLIC Boost::filesystem $<$<BOOL:${NEED_BOOST_SYSTEM}>:Boost::system>)
 endif()
 
 if(has_span)
@@ -210,7 +239,12 @@ if(FILESYSTEM_FOUND)
     endif()
     target_link_libraries(gnss_sdr_flags PRIVATE std::filesystem)
 else()
-    target_link_libraries(gnss_sdr_flags PRIVATE Boost::filesystem Boost::system)
+    target_link_libraries(gnss_sdr_flags
+        PRIVATE
+            Boost::filesystem
+            $<$<BOOL:${NEED_BOOST_SYSTEM}>:Boost::system>
+            $<$<NOT:$<BOOL:${NEED_BOOST_SYSTEM}>>:Boost::headers>
+    )
 endif()
 
 if(ENABLE_GLOG_AND_GFLAGS)

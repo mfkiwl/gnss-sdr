@@ -30,7 +30,7 @@
 /*!
  * \brief This class is a storage for the GPS SV ALMANAC data as described in IS-GPS-200M
  *
- * See https://www.gps.gov/technical/icwg/IS-GPS-200M.pdf Appendix II
+ * See https://www.gps.gov/sites/default/files/2025-07/IS-GPS-200M.pdf Appendix II
  */
 class Gps_Almanac : public Gnss_Almanac
 {
@@ -42,6 +42,16 @@ public:
     {
         this->System = 'G';
     };
+
+    void set_system(char system)
+    {
+        this->System = system;
+    }
+
+    char get_system() const
+    {
+        return this->System;
+    }
 
     int32_t SV_health{};  //!< SV Health
     int32_t AS_status{};  //!< Anti-Spoofing Flags and SV Configuration

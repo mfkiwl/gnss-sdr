@@ -38,6 +38,7 @@
 #ifndef GNSS_SDR_PCPS_ACQUISITION_H
 #define GNSS_SDR_PCPS_ACQUISITION_H
 
+#include "acquisition_impl_interface.h"
 #if ARMA_NO_BOUND_CHECKING
 #define ARMA_NO_DEBUG 1
 #endif
@@ -45,6 +46,9 @@
 #include "acq_conf.h"
 #include "channel_fsm.h"
 #include "gnss_sdr_fft.h"
+#if CUDA_GPU_ACCEL
+#include "cuda_pcps_engine.h"
+#endif
 #include <armadillo>
 #include <gnuradio/block.h>
 #include <gnuradio/gr_complex.h>              // for gr_complex
@@ -64,8 +68,8 @@
 #include <span>
 namespace own = std;
 #else
-#include <gsl/gsl-lite.hpp>
-namespace own = gsl;
+#include <gsl-lite/gsl-lite.hpp>
+namespace own = gsl_lite;
 #endif
 
 /** \addtogroup Acquisition
@@ -89,22 +93,17 @@ pcps_acquisition_sptr pcps_make_acquisition(const Acq_Conf& conf_);
  * Check \ref Navitec2012 "An Open Source Galileo E1 Software Receiver",
  * Algorithm 1, for a pseudocode description of this implementation.
  */
-class pcps_acquisition : public gr::block
+class pcps_acquisition : public acquisition_impl_interface
 {
 public:
-    ~pcps_acquisition() override = default;
-
-    /*!
-     * \brief Initializes acquisition algorithm and reserves memory.
-     */
-    void init();
+    ~pcps_acquisition() noexcept override;
 
     /*!
      * \brief Set acquisition/tracking common Gnss_Synchro object pointer
      * to exchange synchronization data between acquisition and tracking blocks.
      * \param p_gnss_synchro Satellite information shared by the processing blocks.
      */
-    inline void set_gnss_synchro(Gnss_Synchro* p_gnss_synchro)
+    inline void set_gnss_synchro(Gnss_Synchro* p_gnss_synchro) override
     {
         gr::thread::scoped_lock lock(d_setlock);  // require mutex with work function called by the scheduler
         d_gnss_synchro = p_gnss_synchro;
@@ -114,23 +113,16 @@ public:
      * \brief Sets local code for PCPS acquisition algorithm.
      * \param code - Pointer to the PRN code.
      */
-    void set_local_code(std::complex<float>* code);
-
-    /*!
-     * \brief If set to 1, ensures that acquisition starts at the
-     * first available sample.
-     * \param state - int=1 forces start of acquisition
-     */
-    void set_state(int32_t state);
+    void set_local_code(std::complex<float>* code) override;
 
     void set_resampler_latency(uint32_t latency_samples);
 
     /*!
      * \brief Returns the maximum peak of grid search.
      */
-    inline uint32_t mag() const
+    inline uint32_t mag() const override
     {
-        return d_mag;
+        return 0;  // Not implemented
     }
 
     /*!
@@ -138,17 +130,13 @@ public:
      * active mode
      * \param active - bool that activates/deactivates the block.
      */
-    inline void set_active(bool active)
-    {
-        gr::thread::scoped_lock lock(d_setlock);  // require mutex with work function called by the scheduler
-        d_active = active;
-    }
+    void set_active(bool active) override;
 
     /*!
      * \brief Set acquisition channel unique ID
      * \param channel - receiver channel.
      */
-    inline void set_channel(uint32_t channel)
+    inline void set_channel(uint32_t channel) override
     {
         d_channel = channel;
     }
@@ -156,40 +144,9 @@ public:
     /*!
      * \brief Set channel fsm associated to this acquisition instance
      */
-    inline void set_channel_fsm(std::weak_ptr<ChannelFsm> channel_fsm)
+    inline void set_channel_fsm(std::weak_ptr<ChannelFsm> channel_fsm) override
     {
         d_channel_fsm = std::move(channel_fsm);
-    }
-
-    /*!
-     * \brief Set statistics threshold of PCPS algorithm.
-     * \param threshold - Threshold for signal detection (check \ref Navitec2012,
-     * Algorithm 1, for a definition of this threshold).
-     */
-    inline void set_threshold(float threshold)
-    {
-        gr::thread::scoped_lock lock(d_setlock);  // require mutex with work function called by the scheduler
-        d_threshold = threshold;
-    }
-
-    /*!
-     * \brief Set maximum Doppler grid search
-     * \param doppler_max - Maximum Doppler shift considered in the grid search [Hz].
-     */
-    inline void set_doppler_max(uint32_t doppler_max)
-    {
-        gr::thread::scoped_lock lock(d_setlock);  // require mutex with work function called by the scheduler
-        d_acq_parameters.doppler_max = doppler_max;
-    }
-
-    /*!
-     * \brief Set Doppler steps for the grid search
-     * \param doppler_step - Frequency bin of the search grid [Hz].
-     */
-    inline void set_doppler_step(uint32_t doppler_step)
-    {
-        gr::thread::scoped_lock lock(d_setlock);  // require mutex with work function called by the scheduler
-        d_doppler_step = doppler_step;
     }
 
     /*!
@@ -197,6 +154,37 @@ public:
      * \param doppler_center - Frequency center of the search grid [Hz].
      */
     void set_doppler_center(int32_t doppler_center);
+
+    /*!
+     * \brief Sets how many Doppler bins to search, centered on set_doppler_center().
+     * Refreshes the Doppler grid and updates the detection threshold when the
+     * bin count changes, supporting both unassisted and assisted searches.
+     * \param num_doppler_bins - candidate bin count, capped at the full grid size.
+     * Use 0 for the full range defined by doppler_max and doppler_step, 1 for
+     * a known Doppler, or larger counts for partial uncertainty.
+     */
+    void set_doppler_num_bins(uint32_t num_doppler_bins);
+
+    //! Whether the CUDA engine is available. Inspect only while acquisition is stopped.
+    inline bool cuda_ready() const
+    {
+#if CUDA_GPU_ACCEL
+        return d_cuda_engine != nullptr;
+#else
+        return false;
+#endif
+    }
+
+    //! Completed CUDA grids over the block's lifetime, excluding warm-up.
+    //! Inspect only while acquisition is stopped.
+    inline uint64_t cuda_grid_count() const
+    {
+#if CUDA_GPU_ACCEL
+        return d_cuda_grid_count;
+#else
+        return 0;
+#endif
+    }
 
     /*!
      * \brief Parallel Code Phase Search Acquisition signal processing.
@@ -209,70 +197,134 @@ private:
     friend pcps_acquisition_sptr pcps_make_acquisition(const Acq_Conf& conf_);
     explicit pcps_acquisition(const Acq_Conf& conf_);
 
+    struct AcquisitionResult
+    {
+        int32_t doppler{0};
+        uint32_t index_time{0};
+        uint64_t sample_count{0};
+        float test_statistics{0};
+        bool positive_acq{false};
+    };
+
+    // Narrowed grids always need reference rows; full grids need them only
+    // for CFAR when wraparound separation is insufficient.
+    // Call after construction: d_use_CFAR_algorithm_flag is initialized later.
+    bool needs_extra_reference_row(uint32_t candidate_bins) const;
+
     void update_local_carrier(own::span<gr_complex> carrier_vector, float freq) const;
     void update_grid_doppler_wipeoffs();
     void update_grid_doppler_wipeoffs_step2();
-    void acquisition_core(uint64_t samp_count);
-    void send_negative_acquisition();
-    void send_positive_acquisition();
-    void dump_results(int32_t effective_fft_size);
+    void doppler_grid(const gr_complex* in);
+    void doppler_grid_cpu(const gr_complex* in);
+#if CUDA_GPU_ACCEL
+    void init_cuda_engine();
+    void cuda_upload_wipeoffs(CudaPcpsEngine::GridId grid);
+    bool doppler_grid_cuda(const gr_complex* in);
+#endif
+    AcquisitionResult compute_statistics();
+    void update_synchro(const AcquisitionResult& result);
+    void handle_threshold_reached(AcquisitionResult& result);
+    void handle_integration_done(const AcquisitionResult& result);
+    void acquisition_core(uint64_t sample_count);
+    void log_acquisition(const AcquisitionResult& result) const;
+    void send_negative_acquisition(const AcquisitionResult& result);
+    void send_positive_acquisition(const AcquisitionResult& result);
+    void dump_results(const AcquisitionResult& result);
+    void ensure_dump_grid_allocated();
+    void copy_magnitude_grid_to_dump_grid();
+    bool should_dump_channel() const;
+    std::complex<float>* doppler_wipeoff_data(uint32_t doppler_index);
+    std::complex<float>* doppler_wipeoff_step_two_data(uint32_t doppler_index);
+    float* magnitude_grid_data(uint32_t doppler_index);
+    const float* magnitude_grid_data(uint32_t doppler_index) const;
     bool is_fdma();
-    bool start() override;
-    void calculate_threshold(void);
-    float first_vs_second_peak_statistic(uint32_t& indext, int32_t& doppler, uint32_t num_doppler_bins, int32_t doppler_max, int32_t doppler_step);
-    float max_to_input_power_statistic(uint32_t& indext, int32_t& doppler, uint32_t num_doppler_bins, int32_t doppler_max, int32_t doppler_step);
+    float get_threshold() const;
+    // candidate_count excludes trailing noise-reference rows.
+    // CFAR also takes the total computed row count for reference lookup.
+    AcquisitionResult first_vs_second_peak_statistic(uint32_t candidate_count, int32_t doppler_max, int32_t doppler_step);
+    AcquisitionResult max_to_input_power_statistic(uint32_t num_doppler_bins, uint32_t candidate_count, int32_t doppler_max, int32_t doppler_step);
+    void wait_if_active();
 
-    volk_gnsssdr::vector<volk_gnsssdr::vector<float>> d_magnitude_grid;
+    const Acq_Conf d_acq_parameters;
+    const std::string d_dump_filename;
+    const float d_doppler_max;
+    const uint32_t d_samplesPerChip;
+    const uint32_t d_doppler_step;
+    const uint32_t d_samples_to_consume;
+    // Exact (true) dwell length minus d_samples_to_consume, in [0, 1) samples.
+    const double d_dwell_residual_samples;
+    const uint32_t d_fft_size;
+    const uint32_t d_effective_fft_size;
+    const uint32_t d_magnitude_grid_stride;
+    const uint32_t d_doppler_wipeoffs_stride;
+    const uint32_t d_num_doppler_bins;
+    const uint32_t d_num_doppler_bins_step2;
+    const uint32_t d_dump_channel;
+    // CFAR reference separation target (Hz): (sidelobes + 0.5) / integration time.
+    // Selects extra reference rows; never extends them beyond d_doppler_max.
+    const float d_min_reference_separation_hz;
+    // Full-grid CFAR wraparound separation is insufficient.
+    // Computed from conf_ during construction, before the runtime flag exists.
+    const bool d_full_grid_reference_needs_extra_row;
+    // Full-grid candidate count plus reference rows; restored by set_doppler_num_bins(0).
+    const uint32_t d_num_doppler_bins_full_grid_active;
+    // Capacity includes two reference rows, even when only narrowed grids need them.
+    const uint32_t d_num_doppler_bins_capacity;
+    const float d_threshold_step_two;
+    const bool d_cshort;
+    const bool d_use_CFAR_algorithm_flag;
+    const bool d_dump;
+
+    // Need lock to access these
+    std::weak_ptr<ChannelFsm> d_channel_fsm;
+    std::unique_ptr<gr::thread::thread> d_worker;
+    Gnss_Synchro* d_gnss_synchro;
+    std::queue<Gnss_Synchro> d_monitor_queue;
+    int32_t d_state;
+    int32_t d_doppler_center;
+    int32_t d_doppler_bias;
+    // Active candidate and reference rows; bounded by d_num_doppler_bins_capacity.
+    uint32_t d_num_doppler_bins_active;
+    // Trailing noise-reference rows: 0 if unnecessary, 1 at center + doppler_max
+    // for a single candidate, otherwise 2 at center +/- doppler_max.
+    // CFAR uses the reference opposite the winning candidate.
+    uint32_t d_num_reference_rows_active;
+    // CFAR threshold for active candidates, excluding reference rows.
+    // Recompute when the candidate count changes to preserve the requested PFA.
+    float d_threshold_active;
+    uint32_t d_buffer_sample_count;
+    // DDA/Bresenham accumulator keeping stream consumption aligned with the
+    // true dwell boundary; see general_work() case 0/1.
+    double d_dwell_residual_accum;
+    uint32_t d_pending_skip_samples;
+    uint32_t d_channel;
+    uint32_t d_resampler_latency_samples;
+    uint64_t d_sample_count;
+    bool d_step_two;
+    bool d_active;
+    bool d_worker_active;
+
+    // Only access these in acquisition_core and functions strictly called from acquisition_core
+    uint32_t d_num_noncoherent_integrations_counter;
+    int64_t d_dump_number;
+    float d_input_power;
+    float d_doppler_center_step_two;
+    volk_gnsssdr::vector<float> d_magnitude_grid;
     volk_gnsssdr::vector<float> d_tmp_buffer;
     volk_gnsssdr::vector<std::complex<float>> d_input_signal;
-    volk_gnsssdr::vector<volk_gnsssdr::vector<std::complex<float>>> d_grid_doppler_wipeoffs;
-    volk_gnsssdr::vector<volk_gnsssdr::vector<std::complex<float>>> d_grid_doppler_wipeoffs_step_two;
-    volk_gnsssdr::vector<std::complex<float>> d_fft_codes;
-    volk_gnsssdr::vector<std::complex<float>> d_data_buffer;
-    volk_gnsssdr::vector<lv_16sc_t> d_data_buffer_sc;
-
-    std::unique_ptr<gnss_fft_complex_fwd> d_fft_if;
+    volk_gnsssdr::vector<std::complex<float>> d_grid_doppler_wipeoffs_step_two;
     std::unique_ptr<gnss_fft_complex_rev> d_ifft;
-    std::weak_ptr<ChannelFsm> d_channel_fsm;
-
-    Acq_Conf d_acq_parameters;
-    Gnss_Synchro* d_gnss_synchro;
     arma::fmat d_grid;
     arma::fmat d_narrow_grid;
 
-    std::queue<Gnss_Synchro> d_monitor_queue;
-    std::string d_dump_filename;
-
-    int64_t d_dump_number;
-    uint64_t d_sample_counter;
-
-    float d_threshold;
-    float d_mag;
-    float d_input_power;
-    float d_test_statistics;
-    float d_doppler_center_step_two;
-
-    int32_t d_state;
-    int32_t d_positive_acq;
-    int32_t d_doppler_center;
-    int32_t d_doppler_bias;
-    uint32_t d_channel;
-    uint32_t d_samplesPerChip;
-    uint32_t d_doppler_step;
-    uint32_t d_num_noncoherent_integrations_counter;
-    uint32_t d_fft_size;
-    uint32_t d_consumed_samples;
-    uint32_t d_num_doppler_bins;
-    uint32_t d_num_doppler_bins_step2;
-    uint32_t d_dump_channel;
-    uint32_t d_buffer_count;
-
-    bool d_active;
-    bool d_worker_active;
-    bool d_cshort;
-    bool d_step_two;
-    bool d_use_CFAR_algorithm_flag;
-    bool d_dump;
+    // These are never accessed outside acquisition_core while acquisition is active
+    volk_gnsssdr::vector<std::complex<float>> d_grid_doppler_wipeoffs;
+    volk_gnsssdr::vector<std::complex<float>> d_fft_codes;
+    std::unique_ptr<gnss_fft_complex_fwd> d_fft_if;
+#if CUDA_GPU_ACCEL
+    std::unique_ptr<CudaPcpsEngine> d_cuda_engine;  // null => CPU path
+    uint64_t d_cuda_grid_count{0};
+#endif
 };
 
 

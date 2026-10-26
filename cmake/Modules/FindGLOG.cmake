@@ -28,7 +28,7 @@ if(NOT PKG_CONFIG_FOUND)
     include(FindPkgConfig)
 endif()
 
-if(NOT GNSSSDR_LIB_PATHS)
+if(NOT DEFINED GNSSSDR_LIB_PATHS)
     include(GnsssdrFindPaths)
 endif()
 
@@ -83,9 +83,8 @@ else()
             ${PC_GLOG_INCLUDEDIR}
         PATHS
             ${GNSSSDR_INCLUDE_PATHS}
-            ${GNSSSDR_INCLUDE_PATHS}/opt/glog/include
             ${GLOG_ROOT}/include
-        PATH_SUFFIXES glog
+        PATH_SUFFIXES glog opt/glog/include
     )
 endif()
 

@@ -70,6 +70,7 @@ constexpr double GLONASS_L2_CA_DFREQ_HZ = DFRQ2_GLO;        //!< Freq Bias for G
 constexpr double GLONASS_L2_CA_CODE_RATE_CPS = 0.511e6;     //!< GLONASS L1 C/A code rate [chips/s]
 constexpr double GLONASS_L2_CA_CODE_LENGTH_CHIPS = 511.0;   //!< GLONASS L1 C/A code length [chips]
 constexpr double GLONASS_L2_CA_CODE_PERIOD_S = 0.001;       //!< GLONASS L1 C/A code period [seconds]
+constexpr double GLONASS_L2_CA_SYMBOL_PERIOD_S = 0.01;      //!< GLONASS L1 C/A symbol period [seconds]
 constexpr double GLONASS_L2_CA_CHIP_PERIOD_S = 1.9569e-06;  //!< GLONASS L1 C/A chip period [seconds]
 constexpr double GLONASS_L2_CA_SYMBOL_RATE_BPS = 1000.0;
 
@@ -78,9 +79,12 @@ constexpr double GLONASS_L1_CA_DFREQ_HZ = DFRQ1_GLO;        //!< Freq Bias for G
 constexpr double GLONASS_L1_CA_CODE_RATE_CPS = 0.511e6;     //!< GLONASS L1 C/A code rate [chips/s]
 constexpr double GLONASS_L1_CA_CODE_LENGTH_CHIPS = 511.0;   //!< GLONASS L1 C/A code length [chips]
 constexpr double GLONASS_L1_CA_CODE_PERIOD_S = 0.001;       //!< GLONASS L1 C/A code period [seconds]
+constexpr double GLONASS_L1_CA_SYMBOL_PERIOD_S = 0.01;      //!< GLONASS L1 C/A symbol period [seconds]
 constexpr double GLONASS_L1_CA_CHIP_PERIOD_S = 1.9569e-06;  //!< GLONASS L1 C/A chip period [seconds]
 constexpr double GLONASS_L1_CA_SYMBOL_RATE_BPS = 1000.0;
 
+constexpr uint32_t GLONASS_L1_CA_CODE_PERIOD_MS = 1;
+constexpr uint32_t GLONASS_L2_CA_CODE_PERIOD_MS = 1;
 constexpr int32_t GLONASS_CA_NBR_SATS = 24;  // STRING DATA WITHOUT PREAMBLE
 
 // OBSERVABLE HISTORY DEEP FOR INTERPOLATION
@@ -90,18 +94,27 @@ constexpr int32_t GLONASS_L1_CA_HISTORY_DEEP = 100;
 #define GLONASS_GNAV_PREAMBLE \
     {                         \
         1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0}
+
+#define GLONASS_GNAV_PREAMBLE_SAMPLES \
+    {                                 \
+        1, 1, 1, 1, 1, -1, -1, -1, 1, 1, -1, 1, 1, 1, -1, 1, -1, 1, -1, -1, -1, -1, 1, -1, -1, 1, -1, 1, 1, -1}
+
+constexpr char GLONASS_GNAV_PREAMBLE_STR[301] = "111111111111111111111111111111111111111111111111110000000000000000000000000000001111111111111111111100000000001111111111111111111111111111110000000000111111111100000000001111111111000000000000000000000000000000000000000011111111110000000000000000000011111111110000000000111111111111111111110000000000";
 constexpr double GLONASS_GNAV_PREAMBLE_DURATION_S = 0.300;
+constexpr double GLONASS_GNAV_SECONDS_PER_WEEK = 604800.0;
 constexpr int32_t GLONASS_GNAV_PREAMBLE_LENGTH_BITS = 30;
 constexpr int32_t GLONASS_GNAV_PREAMBLE_LENGTH_SYMBOLS = 300;
 constexpr int32_t GLONASS_GNAV_PREAMBLE_PERIOD_SYMBOLS = 2000;
+constexpr int32_t GLONASS_GNAV_PREAMBLE_PERIOD_BITS = 200;
 constexpr int32_t GLONASS_GNAV_TELEMETRY_RATE_BITS_SECOND = 50;  //!< NAV message bit rate [bits/s]
 constexpr int32_t GLONASS_GNAV_TELEMETRY_SYMBOLS_PER_BIT = 10;
 constexpr int32_t GLONASS_GNAV_TELEMETRY_SYMBOLS_PER_PREAMBLE_BIT = 10;
 constexpr int32_t GLONASS_GNAV_TELEMETRY_RATE_SYMBOLS_SECOND = GLONASS_GNAV_TELEMETRY_RATE_BITS_SECOND * GLONASS_GNAV_TELEMETRY_SYMBOLS_PER_BIT;  //!< NAV message bit rate [symbols/s]
-constexpr int32_t GLONASS_GNAV_STRING_SYMBOLS = 2000;                                                                                             //!< Number of bits per string in the GNAV message (85 data bits + 30 time mark bits) [bits]
-constexpr int32_t GLONASS_GNAV_STRING_BITS = 85;                                                                                                  //!< Number of bits per string in the GNAV message (85 data bits + 30 time mark bits) [bits]
-constexpr int32_t GLONASS_GNAV_HAMMING_CODE_BITS = 8;                                                                                             //!< Number of bits in hamming code sequence of GNAV message
-constexpr int32_t GLONASS_GNAV_DATA_SYMBOLS = 1700;                                                                                               // STRING DATA WITHOUT PREAMBLE
+constexpr int32_t GLONASS_GNAV_STRING_SYMBOLS_WITH_PREABLE = 2000;
+constexpr int32_t GLONASS_GNAV_STRING_BIBINARY_WITH_PREABLE = 200;  //!< Number of bits per string in the GNAV message (85 data bits + 30 time mark bits) [bits]
+constexpr int32_t GLONASS_GNAV_STRING_BITS = 85;                    //!< Number of bits per string in the GNAV message (85 data bits + 30 time mark bits) [bits]
+constexpr int32_t GLONASS_GNAV_HAMMING_CODE_BITS = 8;               //!< Number of bits in hamming code sequence of GNAV message
+constexpr int32_t GLONASS_GNAV_DATA_SYMBOLS = 1700;                 // STRING DATA WITHOUT PREAMBLE
 
 /*!
  * \brief Record of leap seconds definition for GLOT to GPST conversion and vice versa
@@ -129,7 +142,8 @@ constexpr double GLONASS_LEAP_SECONDS[19][7] = {
     {1981, 7, 1, 0, 0, 0, -1},
     {}};
 
-//!< GLONASS SV's orbital slots PRN = (orbital_slot - 1)
+// GLONASS RINEX satellite numbers are slot numbers. This table maps Rnn slot
+// numbers to the corresponding FDMA frequency channel.
 const std::map<uint32_t, int32_t> GLONASS_PRN = {
     {
         0,
@@ -213,7 +227,7 @@ const std::map<uint32_t, int32_t> GLONASS_PRN = {
     },  // Plane 3
     {
         20,
-        -5,
+        2,
     },  // Plane 3
     {
         21,
@@ -226,8 +240,23 @@ const std::map<uint32_t, int32_t> GLONASS_PRN = {
     {
         23,
         3,
-    },         // Plane 3
-    {24, 2}};  // Plane 3
+    },  // Plane 3
+    {
+        24,
+        2,
+    },  // Plane 3
+    {
+        26,
+        -6,
+    },
+    {
+        27,
+        -5,
+    },
+    {
+        28,
+        7,
+    }};
 
 const std::vector<int32_t> GLONASS_GNAV_CRC_I_INDEX{9, 10, 12, 13, 15, 17, 19, 20, 22, 24, 26, 28, 30, 32, 34, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84};
 const std::vector<int32_t> GLONASS_GNAV_CRC_J_INDEX{9, 11, 12, 14, 15, 18, 19, 21, 22, 25, 26, 29, 30, 33, 34, 36, 37, 40, 41, 44, 45, 48, 49, 52, 53, 56, 57, 60, 61, 64, 65, 67, 68, 71, 72, 75, 76, 79, 80, 83, 84};
@@ -308,6 +337,7 @@ const std::vector<std::pair<int32_t, int32_t>> H_N_A({{72, 5}});
 // STRING 14 FRAME 5
 const std::vector<std::pair<int32_t, int32_t>> B1({{6, 11}});
 const std::vector<std::pair<int32_t, int32_t>> B2({{17, 10}});
+const std::vector<std::pair<int32_t, int32_t>> KP({{27, 2}});
 
 
 /** \} */

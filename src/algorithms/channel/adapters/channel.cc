@@ -19,7 +19,6 @@
 #include "acquisition_interface.h"
 #include "channel_fsm.h"
 #include "configuration_interface.h"
-#include "gnss_sdr_flags.h"
 #include "telemetry_decoder_interface.h"
 #include "tracking_interface.h"
 #include <stdexcept>  // for std::invalid_argument
@@ -74,38 +73,6 @@ Channel::Channel(const ConfigurationInterface* configuration,
                 }
         }
 
-    // IMPORTANT: Do not change the order between set_doppler_step and set_threshold
-
-    uint32_t doppler_step = configuration->property("Acquisition_" + signal_str + std::to_string(channel_) + ".doppler_step", 0);
-    if (doppler_step == 0)
-        {
-            doppler_step = configuration->property("Acquisition_" + signal_str + ".doppler_step", 500);
-        }
-#if USE_GLOG_AND_GFLAGS
-    if (FLAGS_doppler_step != 0)
-        {
-            doppler_step = static_cast<uint32_t>(FLAGS_doppler_step);
-        }
-#else
-    if (absl::GetFlag(FLAGS_doppler_step) != 0)
-        {
-            doppler_step = static_cast<uint32_t>(absl::GetFlag(FLAGS_doppler_step));
-        }
-#endif
-    DLOG(INFO) << "Channel " << channel_ << " Doppler_step = " << doppler_step;
-
-    acq_->set_doppler_step(doppler_step);
-
-    float threshold = configuration->property("Acquisition_" + signal_str + std::to_string(channel_) + ".threshold", static_cast<float>(0.0));
-    if (threshold == 0.0)
-        {
-            threshold = configuration->property("Acquisition_" + signal_str + ".threshold", static_cast<float>(0.0));
-        }
-
-    acq_->set_threshold(threshold);
-
-    acq_->init();
-
     channel_fsm_->set_acquisition(acq_);
     channel_fsm_->set_tracking(trk_);
     channel_fsm_->set_telemetry(nav_);
@@ -139,10 +106,6 @@ void Channel::connect(gr::top_block_sptr top_block)
 
     // Message ports
     top_block->msg_connect(nav_->get_left_block(), pmt::mp("telemetry_to_trk"), trk_->get_right_block(), pmt::mp("telemetry_to_trk"));
-    if (glonass_dll_pll_c_aid_tracking_check())
-        {
-            top_block->msg_connect(nav_->get_left_block(), pmt::mp("preamble_timestamp_samples"), trk_->get_right_block(), pmt::mp("preamble_timestamp_samples"));
-        }
     DLOG(INFO) << "tracking -> telemetry_decoder";
 
     // Message ports
@@ -173,10 +136,6 @@ void Channel::disconnect(gr::top_block_sptr top_block)
     nav_->disconnect(top_block);
 
     top_block->msg_disconnect(nav_->get_left_block(), pmt::mp("telemetry_to_trk"), trk_->get_right_block(), pmt::mp("telemetry_to_trk"));
-    if (glonass_dll_pll_c_aid_tracking_check())
-        {
-            top_block->msg_disconnect(nav_->get_left_block(), pmt::mp("preamble_timestamp_samples"), trk_->get_right_block(), pmt::mp("preamble_timestamp_samples"));
-        }
     if (!flag_enable_fpga_)
         {
             top_block->msg_disconnect(acq_->get_right_block(), pmt::mp("events"), channel_msg_rx_, pmt::mp("events"));
@@ -262,9 +221,10 @@ void Channel::stop_channel()
 }
 
 
-void Channel::assist_acquisition_doppler(double Carrier_Doppler_hz)
+void Channel::assist_acquisition_doppler(double Carrier_Doppler_hz, uint32_t doppler_num_bins)
 {
     acq_->set_doppler_center(static_cast<int>(Carrier_Doppler_hz));
+    acq_->set_doppler_num_bins(doppler_num_bins);
 }
 
 
@@ -287,29 +247,4 @@ void Channel::start_acquisition()
             return;
         }
     DLOG(INFO) << "Channel start_acquisition()";
-}
-
-bool Channel::glonass_dll_pll_c_aid_tracking_check() const
-{
-    if (glonass_extend_correlation_ms_)
-        {
-            const pmt::pmt_t nav_ports_out = nav_->get_left_block()->message_ports_out();
-            const pmt::pmt_t trk_ports_in = trk_->get_right_block()->message_ports_in();
-            const pmt::pmt_t symbol = pmt::mp("preamble_timestamp_samples");
-            for (unsigned k = 0; k < pmt::length(nav_ports_out); k++)
-                {
-                    if (pmt::vector_ref(nav_ports_out, k) == symbol)
-                        {
-                            for (unsigned j = 0; j < pmt::length(trk_ports_in); j++)
-                                {
-                                    if (pmt::vector_ref(trk_ports_in, j) == symbol)
-                                        {
-                                            return true;
-                                        }
-                                }
-                            return false;
-                        }
-                }
-        }
-    return false;
 }

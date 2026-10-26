@@ -4,7 +4,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 )
 
 [comment]: # (
-SPDX-FileCopyrightText: 2011-2025 Carles Fernandez-Prades <carles.fernandez@cttc.es>
+SPDX-FileCopyrightText: 2011-2026 Carles Fernandez-Prades <carles.fernandez@cttc.es>
 )
 <!-- prettier-ignore-end -->
 
@@ -12,7 +12,7 @@ SPDX-FileCopyrightText: 2011-2025 Carles Fernandez-Prades <carles.fernandez@cttc
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![REUSE status](https://api.reuse.software/badge/github.com/gnss-sdr/gnss-sdr)](https://api.reuse.software/info/github.com/gnss-sdr/gnss-sdr)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-3.0-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
 **Welcome to GNSS-SDR!**
 
@@ -23,26 +23,32 @@ position fixes) the following Global Navigation Satellite System's signals:
 
 In the L1 band:
 
-- &#128752; GLONASS L1 C/A (centered at 1602.000 MHz) :white_check_mark:
-- &#128752; GPS L1 C/A (centered at 1575.420 MHz) :white_check_mark:
-- &#128752; Galileo E1b/c (centered at 1575.420 MHz) :white_check_mark:
-- &#128752; BeiDou B1I (centered at 1561.098 MHz) :white_check_mark:
+- &#128752; GLONASS L1 C/A (centered at 1602.000 MHz) ✅
+- &#128752; GPS L1 C/A (centered at 1575.420 MHz) ✅
+- &#128752; Galileo E1b/c (centered at 1575.420 MHz) ✅
+- &#128752; BeiDou B1C (centered at 1575.420 MHz) ✅
+- &#128752; QZSS L1 C/A and C/B, where available (centered at 1575.420 MHz) ✅
+- &#128752; SBAS L1 (EGNOS and WAAS, centered at 1575.420 MHz) — navigation
+  message decoding only; SBAS satellites are not yet used as ranging sources
+- &#128752; BeiDou B1I (centered at 1561.098 MHz) ✅
 
 In the E6 band:
 
-- &#128752; Galileo E6B (centered at 1278.750 MHz) :white_check_mark:
+- &#128752; Galileo E6B (centered at 1278.750 MHz) ✅
 
 In the L2 band:
 
-- &#128752; BeiDou B3I (centered at 1268.520 MHz) :white_check_mark:
-- &#128752; GLONASS L2 C/A (centered at 1246.000 MHz) :white_check_mark:
-- &#128752; GPS L2C (centered at 1227.600 MHz) :white_check_mark:
+- &#128752; BeiDou B3I (centered at 1268.520 MHz) ✅
+- &#128752; GLONASS L2 C/A (centered at 1246.000 MHz) ✅
+- &#128752; GPS L2C (centered at 1227.600 MHz) ✅
 
 In the L5 band:
 
-- &#128752; Galileo E5b (centered at 1207.140 MHz) :white_check_mark:
-- &#128752; Galileo E5a (centered at 1176.450 MHz) :white_check_mark:
-- &#128752; GPS L5 (centered at 1176.450 MHz) :white_check_mark:
+- &#128752; Galileo E5b (centered at 1207.140 MHz) ✅
+- &#128752; Galileo E5a (centered at 1176.450 MHz) ✅
+- &#128752; GPS L5 (centered at 1176.450 MHz) ✅
+- &#128752; BeiDou B2a (centered at 1176.450 MHz) ✅
+- &#128752; QZSS L5, where available (centered at 1176.450 MHz) ✅
 
 GNSS-SDR provides interfaces for a wide range of radio frequency front-ends and
 raw sample file formats, generates processing outputs in standard formats,
@@ -69,8 +75,7 @@ information about this open-source, software-defined GNSS receiver.
       - [Fedora](#fedora)
       - [openSUSE](#opensuse)
       - [Rocky Linux](#rocky-linux)
-    - [Alternative 2: Install dependencies using PyBOMBS](#alternative-2-install-dependencies-using-pybombs)
-    - [Manual installation of other required dependencies](#manual-installation-of-other-required-dependencies)
+    - [Alternative 2: Manual installation of required dependencies](#alternative-2-manual-installation-of-required-dependencies)
       - [Install Armadillo, a C++ linear algebra library](#install-armadillo-a-c-linear-algebra-library)
       - [Install Gflags, a commandline flags processing module for C++](#install-gflags-a-commandline-flags-processing-module-for-c)
       - [Install Glog, a library that implements application-level logging](#install-glog-a-library-that-implements-application-level-logging)
@@ -82,6 +87,7 @@ information about this open-source, software-defined GNSS receiver.
     - [Clone GNSS-SDR's Git repository](#clone-gnss-sdrs-git-repository)
     - [Build and install GNSS-SDR](#build-and-install-gnss-sdr)
       - [Build OSMOSDR support (OPTIONAL)](#build-osmosdr-support-optional)
+      - [Build BladeRF support (OPTIONAL)](#build-bladerf-support-optional)
       - [Build FMCOMMS2 based SDR Hardware support (OPTIONAL)](#build-fmcomms2-based-sdr-hardware-support-optional)
       - [Build OpenCL support (OPTIONAL)](#build-opencl-support-optional)
       - [Build CUDA support (OPTIONAL)](#build-cuda-support-optional)
@@ -109,6 +115,7 @@ information about this open-source, software-defined GNSS receiver.
       - [Decoding of the navigation message](#decoding-of-the-navigation-message)
     - [Observables](#observables)
     - [Computation of Position, Velocity, and Time](#computation-of-position-velocity-and-time)
+      - [Dual-band RTK through NTRIP](#dual-band-rtk-through-ntrip)
 - [About the software license](#about-the-software-license)
 - [Publications and Credits](#publications-and-credits)
 - [Ok, now what?](#ok-now-what)
@@ -161,16 +168,31 @@ packages.
 
 #### Debian / Ubuntu
 
-If you are using Debian 9, Ubuntu 14.10 or above, this can be done by copying
-and pasting the following line in a terminal:
+On Debian 14 (Forky) / Ubuntu 26.04 (Resolute) or newer, install the required
+dependencies with:
 
 ```
-$ sudo apt install build-essential cmake git pkg-config libboost-dev libboost-date-time-dev \
-       libboost-system-dev libboost-filesystem-dev libboost-thread-dev libboost-chrono-dev \
-       libboost-serialization-dev liblog4cpp5-dev libuhd-dev gnuradio-dev gr-osmosdr \
-       libblas-dev liblapack-dev libarmadillo-dev libgflags-dev libgoogle-glog-dev \
-       libssl-dev libpcap-dev libmatio-dev libpugixml-dev libgtest-dev \
-       libprotobuf-dev libcpu-features-dev protobuf-compiler python3-mako
+$ sudo apt install build-essential cmake git gnuradio-dev gr-limesdr gr-osmosdr \
+       libabsl-dev libad9361-dev libarmadillo-dev libbladerf-dev libblas-dev \
+       libboost-chrono-dev libboost-date-time-dev libboost-dev \
+       libboost-filesystem-dev libboost-serialization-dev libboost-thread-dev \
+       libcpu-features-dev libgtest-dev libiio-dev liblapack-dev libmatio-dev \
+       libpcap-dev libprotobuf-dev libpugixml-dev libssl-dev libuhd-dev \
+       pkgconf protobuf-compiler python3-mako
+```
+
+On older versions:
+
+```
+$ sudo apt install build-essential cmake git gnuradio-dev gr-limesdr gr-osmosdr \
+       libad9361-dev libarmadillo-dev libbladerf-dev libblas-dev \
+       libboost-chrono-dev libboost-date-time-dev libboost-dev \
+       libboost-filesystem-dev libboost-serialization-dev libboost-system-dev \
+       libboost-thread-dev \
+       libcpu-features-dev libgflags-dev libgoogle-glog-dev libgtest-dev libiio-dev \
+       liblapack-dev liblog4cpp5-dev libmatio-dev libpcap-dev libprotobuf-dev \
+       libpugixml-dev libssl-dev libuhd-dev \
+       pkg-config protobuf-compiler python3-mako
 ```
 
 Please note that the required files from `libgtest-dev` were named `googletest`
@@ -183,20 +205,12 @@ In distributions older than Ubuntu 21.04 Hirsute / Debian 11, the package
 In distributions older than Ubuntu 22.04 Jammy / Debian 12, the package
 `libssl-dev` must be replaced by `libgnutls-openssl-dev`.
 
-**Note for Ubuntu 14.04 LTS "trusty" users:** you will need to build from source
-and install GNU Radio manually, as explained below, since GNSS-SDR requires
-`gnuradio-dev` >= 3.7.3, and Ubuntu 14.04 came with 3.7.2. Install all the
-packages above BUT EXCEPT `libuhd-dev`, `gnuradio-dev`, and `gr-osmosdr` (and
-remove them if they are already installed in your machine), and install those
-dependencies using PyBOMBS. The same applies to `libmatio-dev`: Ubuntu 14.04
-came with 1.5.2 and the minimum required version is 1.5.3. Please do not install
-the `libmatio-dev` package and install `libtool`, `automake` and `libhdf5-dev`
-instead. A recent version of the library will be downloaded and built
-automatically if CMake does not find it installed.
-
 In distributions older than Ubuntu 16.04 or Debian 9, `python3-mako` must be
 replaced by `python-mako`. For Ubuntu 14.04, you will need to add the package
 `python-six` to the list of dependencies.
+
+Starting from Debian 13 / Ubuntu 25.10, `libabsl-dev` can replace
+`libgflags-dev` and `libgoogle-glog-dev`.
 
 Once you have installed these packages, you can jump directly to
 [download the source code and build GNSS-SDR](#clone-gnss-sdrs-git-repository).
@@ -210,12 +224,11 @@ If you are using AlmaLinux:
 # dnf install -y 'dnf-command(config-manager)'
 # dnf config-manager --set-enabled powertools
 # dnf install -y epel-release
-# dnf install -y make gcc gcc-c++ kernel-devel cmake git boost-devel \
-      boost-date-time boost-system boost-thread boost-chrono \
-      boost-serialization log4cpp-devel gmp-devel uhd-devel gnuradio-devel \
-      pugixml-devel matio-devel protobuf-devel glog-devel libpcap-devel \
-      blas-devel lapack-devel armadillo-devel openssl-devel python3-mako \
-      libarchive
+# dnf install -y armadillo-devel blas-devel boost-chrono \
+      boost-date-time boost-devel boost-serialization boost-system boost-thread \
+      cmake gcc gcc-c++ git glog-devel gnuradio-devel gmp-devel kernel-devel \
+      lapack-devel libarchive libpcap-devel log4cpp-devel matio-devel \
+      openssl-devel protobuf-devel pugixml-devel python3-mako uhd-devel make
 ```
 
 Once you have installed these packages, you can jump directly to
@@ -226,9 +239,9 @@ Once you have installed these packages, you can jump directly to
 If you are using Arch Linux:
 
 ```
-$ pacman -S gcc make cmake pkgconf git boost boost-libs libvolk gnuradio \
-       blas lapack hdf5 openssl pugixml libmatio protobuf libpcap gtest \
-       python-mako
+$ pacman -S blas boost boost-libs cmake gcc git gnuradio gtest \
+       hdf5 lapack libmatio libpcap libvolk make openssl pkgconf \
+       protobuf pugixml python-mako
 ```
 
 Once you have installed these packages, you can jump directly to
@@ -240,12 +253,12 @@ If you are using Fedora 26 or above, the required software dependencies can be
 installed by doing:
 
 ```
-$ sudo yum install make automake gcc gcc-c++ kernel-devel cmake git boost-devel \
-       boost-date-time boost-system boost-filesystem boost-thread boost-chrono \
-       boost-serialization log4cpp-devel gnuradio-devel gr-osmosdr-devel \
-       blas-devel lapack-devel matio-devel armadillo-devel gflags-devel \
-       glog-devel openssl-devel libpcap-devel pugixml-devel python3-mako \
-       protobuf-devel protobuf-compiler
+$ sudo yum install armadillo-devel automake blas-devel boost-chrono \
+       boost-date-time boost-devel boost-filesystem boost-serialization \
+       boost-system boost-thread cmake gcc gcc-c++ git gflags-devel \
+       glog-devel gnuradio-devel gr-osmosdr-devel kernel-devel lapack-devel \
+       libpcap-devel log4cpp-devel matio-devel openssl-devel protobuf-compiler \
+       protobuf-devel pugixml-devel python3-mako make
 ```
 
 In Fedora 33 and above, you will need to add `gmp-devel` to the package list.
@@ -259,22 +272,21 @@ required.
 If you are using openSUSE Leap:
 
 ```
-$ zypper install cmake git gcc-c++ boost-devel libboost_atomic-devel \
-       libboost_system-devel libboost_filesystem-devel libboost_chrono-devel \
-       libboost_thread-devel libboost_serialization-devel log4cpp-devel \
-       gnuradio-devel pugixml-devel libpcap-devel armadillo-devel libtool \
-       automake hdf5-devel openssl-devel python3-Mako libmatio-devel
+$ zypper install armadillo-devel automake boost-devel cmake gcc-c++ git \
+       gnuradio-devel hdf5-devel libboost_atomic-devel libboost_chrono-devel \
+       libboost_filesystem-devel libboost_serialization-devel libboost_system-devel \
+       libboost_thread-devel libmatio-devel libpcap-devel libtool log4cpp-devel \
+       openssl-devel pugixml-devel python3-Mako
 ```
 
 If you are using openSUSE Tumbleweed:
 
 ```
-$ zypper install cmake git gcc-c++ boost-devel libboost_atomic-devel \
-       libboost_system-devel libboost_filesystem-devel libboost_date_time-devel \
-       libboost_thread-devel libboost_chrono-devel libboost_serialization-devel \
-       spdlog-devel fmt-devel gtest gnuradio-devel pugixml-devel libpcap-devel \
-       armadillo-devel libtool automake hdf5-devel libopenssl-devel \
-       python3-Mako protobuf-devel
+$ zypper install armadillo-devel automake boost-devel cmake fmt-devel gcc-c++ git \
+       gnuradio-devel gtest hdf5-devel libboost_atomic-devel libboost_chrono-devel \
+       libboost_date_time-devel libboost_filesystem-devel libboost_serialization-devel \
+       libboost_system-devel libboost_thread-devel libopenssl-devel libpcap-devel \
+       libtool protobuf-devel pugixml-devel python3-Mako spdlog-devel
 ```
 
 Once you have installed these packages, you can jump directly to
@@ -282,115 +294,34 @@ Once you have installed these packages, you can jump directly to
 
 #### Rocky Linux
 
-If you are using Rocky Linux:
+If you are using Rocky Linux 9 or newer:
 
 ```
-$ dnf install -y 'dnf-command(config-manager)'
-$ dnf config-manager --set-enabled powertools
-$ yum install -y epel-release
-$ yum install -y make gcc gcc-c++ kernel-devel cmake git boost-devel \
-       boost-date-time boost-system boost-thread boost-chrono boost-serialization \
-       log4cpp-devel gmp-devel uhd-devel gnuradio-devel pugixml-devel matio-devel \
-       protobuf-devel glog-devel libpcap-devel blas-devel lapack-devel \
-       armadillo-devel openssl-devel python3-mako libarchive
+$ dnf update -y
+$ dnf install -y epel-release
+$ dnf config-manager --set-enabled crb
+$ dnf install -y armadillo-devel blas-devel boost-chrono boost-date-time boost-devel \
+       boost-serialization boost-system boost-thread cmake gcc gcc-c++ git \
+       glog-devel gnuradio-devel gmp-devel kernel-devel lapack-devel libarchive \
+       libpcap-devel make matio-devel openssl-devel protobuf-devel pugixml-devel \
+       python3-mako spdlog-devel uhd-devel
 ```
 
 Once you have installed these packages, you can jump directly to
 [download the source code and build GNSS-SDR](#clone-gnss-sdrs-git-repository).
 
-### Alternative 2: Install dependencies using PyBOMBS
-
-This option is adequate if you are interested in development, in working with
-the most recent versions of software dependencies, want more fine-tuning on the
-installed versions, or simply in building everything from the scratch just for
-the fun of it. In such cases, we recommend using
-[PyBOMBS](https://github.com/gnuradio/pybombs "Python Build Overlay Managed Bundle System")
-(Python Build Overlay Managed Bundle System), GNU Radio's meta-package manager
-tool that installs software from source, or whatever the local package manager
-is, that automatically does all the work for you. Please take a look at the
-configuration options and general PyBOMBS usage at
-https://github.com/gnuradio/pybombs. Here we provide a quick step-by-step
-tutorial.
-
-First of all, install some basic packages:
-
-```
-$ sudo apt install git python3-pip
-```
-
-Download, build and install PyBOMBS:
-
-```
-$ sudo pip3 install --upgrade git+https://github.com/gnuradio/pybombs.git
-```
-
-Apply a configuration:
-
-```
-$ pybombs auto-config
-```
-
-Add list of default recipes:
-
-```
-$ pybombs recipes add-defaults
-```
-
-Download, build and install GNU Radio, related drivers, and some other extra
-modules into the directory `/path/to/prefix` (replace this path by your
-preferred one, for instance `$HOME/sdr`):
-
-```
-$ pybombs prefix init /path/to/prefix -a myprefix -R gnuradio-default
-```
-
-This will perform a local installation of the dependencies under
-`/path/to/prefix`, so they will not be visible when opening a new terminal. In
-order to make them available, you will need to set up the adequate environment
-variables:
-
-```
-$ cd /path/to/prefix
-$ . ./setup_env.sh
-```
-
-Now you are ready to use GNU Radio and to jump into building GNSS-SDR after
-installing a few other dependencies. Actually, those are steps that PyBOMBS can
-do for you as well:
-
-```
-$ pybombs install gnss-sdr
-```
-
-By default, PyBOMBS installs the ‘next’ branch of GNSS-SDR development, which is
-the most recent version of the source code. This behavior can be modified by
-altering the corresponding recipe at
-`$HOME/.pybombs/recipes/gr-recipes/gnss-sdr.lwr`
-
-In case you do not want to use PyBOMBS and prefer to build and install GNSS-SDR
-step by step (i.e., cloning the repository and doing the usual
-`cmake .. && make && make install` dance), Armadillo, GFlags, Glog, GnuTLS, and
-Matio can be installed either by using PyBOMBS:
-
-```
-$ pybombs install armadillo gflags glog gnutls matio
-```
-
-or manually as explained below, and then please follow instructions on how to
-[download the source code and build GNSS-SDR](#clone-gnss-sdrs-git-repository).
-
-### Manual installation of other required dependencies
+### Alternative 2: Manual installation of required dependencies
 
 #### Install [Armadillo](https://arma.sourceforge.net/ "Armadillo's Homepage"), a C++ linear algebra library
 
 ```
 $ sudo apt install libblas-dev liblapack-dev       # For Debian/Ubuntu/LinuxMint
-$ sudo yum install lapack-devel blas-devel             # For Fedora/RHEL
-$ sudo zypper install lapack-devel blas-devel          # For OpenSUSE
-$ sudo pacman -S blas lapack                           # For Arch Linux
-$ wget https://sourceforge.net/projects/arma/files/armadillo-14.4.1.tar.xz
-$ tar xvfz armadillo-14.4.1.tar.xz
-$ cd armadillo-14.4.1
+$ sudo yum install lapack-devel blas-devel         # For Fedora/RHEL
+$ sudo zypper install lapack-devel blas-devel      # For OpenSUSE
+$ sudo pacman -S blas lapack                       # For Arch Linux
+$ wget https://sourceforge.net/projects/arma/files/armadillo-15.6.0.tar.xz
+$ tar xvfz armadillo-15.6.0.tar.xz
+$ cd armadillo-15.6.0
 $ cmake .
 $ make
 $ sudo make install
@@ -406,12 +337,12 @@ BLAS, LAPACK, and ATLAS).
 #### Install [Gflags](https://github.com/gflags/gflags "Gflags' Homepage"), a commandline flags processing module for C++
 
 ```
-$ wget https://github.com/gflags/gflags/archive/v2.2.2.tar.gz
-$ tar xvfz v2.2.2.tar.gz
-$ cd gflags-2.2.2
-$ cmake -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=OFF -DBUILD_gflags_nothreads_LIB=OFF .
-$ make
-$ sudo make install
+$ wget https://github.com/gflags/gflags/archive/v2.3.1.tar.gz
+$ tar xvfz v2.3.1.tar.gz
+$ cd gflags-2.3.1
+$ cmake -S . -B building -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=OFF
+$ cmake --build building
+$ sudo cmake --install building
 $ sudo ldconfig
 ```
 
@@ -447,11 +378,16 @@ $ sudo pacman -S openssl                  # For Arch Linux
 
 #### Install [Matio](https://github.com/tbeu/matio "Matio's Homepage"), MATLAB MAT file I/O library
 
+Requires [zlib](https://zlib.net/) and
+[HDF5](https://www.hdfgroup.org/solutions/hdf5/). For Debian and derivatives,
+`sudo apt install libhdf5-dev` should work fine.
+
 ```
-$ wget https://github.com/tbeu/matio/releases/download/v1.5.28/matio-1.5.28.tar.gz
-$ tar xvfz matio-1.5.28.tar.gz
-$ cd matio-1.5.28
-$ ./configure
+$ wget https://github.com/tbeu/matio/releases/download/v1.6.0/matio-1.6.0.tar.gz
+$ tar xvfz matio-1.6.0.tar.gz
+$ cd matio-1.6.0
+$ ./autogen.sh
+$ ./configure --enable-mat73=yes --with-default-file-ver=7.3  ; you might also need --with-hdf5=DIR
 $ make
 $ sudo make install
 $ sudo ldconfig
@@ -477,9 +413,9 @@ For more options, please check the
 #### Install [Pugixml](https://pugixml.org/ "Pugixml's Homepage"), a light-weight C++ XML processing library
 
 ```
-$ wget https://github.com/zeux/pugixml/releases/download/v1.15/pugixml-1.15.tar.gz
-$ tar xvfz pugixml-1.15.tar.gz
-$ cd pugixml-1.15
+$ wget https://github.com/zeux/pugixml/releases/download/v1.16/pugixml-1.16.tar.gz
+$ tar xvfz pugixml-1.16.tar.gz
+$ cd pugixml-1.16
 $ mkdir build && cd build
 $ cmake ..
 $ make
@@ -490,8 +426,8 @@ $ sudo ldconfig
 #### Download [GoogleTest](https://github.com/google/googletest "Googletest Homepage")
 
 ```
-$ wget https://github.com/google/googletest/archive/refs/tags/v1.16.0.zip
-$ unzip v1.16.0.zip
+$ wget https://github.com/google/googletest/archive/refs/tags/v1.18.0.zip
+$ unzip v1.18.0.zip
 ```
 
 Please **DO NOT build or install** Google Test. Every user needs to compile
@@ -515,10 +451,10 @@ downloaded resides. Just type in your terminal (or add it to your
 `$HOME/.bashrc` file for a permanent solution) the following line:
 
 ```
-export GTEST_DIR=/home/username/googletest-1.16.0
+export GTEST_DIR=/home/username/googletest-1.18.0
 ```
 
-changing `/home/username/googletest-1.16.0` by the actual path where you
+changing `/home/username/googletest-1.18.0` by the actual path where you
 unpacked Google Test. If the CMake script does not find that folder, or the
 environment variable is not defined, or the source code is not installed by a
 package, then it will download a fresh copy of the Google Test source code and
@@ -675,6 +611,36 @@ $ sudo cmake --install build
 (in order to disable the `Osmosdr_Signal_Source` compilation, you can pass
 `-DENABLE_OSMOSDR=OFF` to cmake and build GNSS-SDR again).
 
+#### Build BladeRF support (OPTIONAL)
+
+GNSS-SDR can talk to Nuand's [bladeRF](https://www.nuand.com/) front-ends
+(bladeRF x40, x115, and bladeRF 2.0 Micro xA4/xA9) directly through
+`libbladeRF`, without going through OsmoSDR. This requires `libbladeRF` v2.6.0
+or newer (needed for reliable bladeRF 2.0 Micro support); older packaged
+versions (e.g., the one currently in Ubuntu's `universe` repository) are
+rejected at `cmake` configuration time with a message asking you to upgrade.
+Install the library and headers (e.g., on Debian / Ubuntu,
+`sudo apt install libbladerf-dev`, then check its version with
+`pkg-config --modversion libbladeRF`; if it is older than 2.6.0, build
+`libbladeRF` from source instead -- see
+[Nuand's bladeRF repository](https://github.com/Nuand/bladeRF)), then configure
+GNSS-SDR to build the `Bladerf_Signal_Source` by:
+
+```
+$ cmake -S . -B build -DENABLE_BLADERF=ON
+$ cmake --build build
+$ sudo cmake --install build
+```
+
+(in order to disable the `Bladerf_Signal_Source` compilation, you can pass
+`-DENABLE_BLADERF=OFF` to cmake and build GNSS-SDR again). A sample
+configuration file is provided at
+[conf/RealTime_input/gnss-sdr_GPS_L1_bladeRF_native.conf](./conf/RealTime_input/gnss-sdr_GPS_L1_bladeRF_native.conf).
+Note that, unlike the `Osmosdr_Signal_Source` path, `libbladeRF` exposes a
+single overall RX gain instead of separate LNA / VGA1 / VGA2 stages, and only
+single-channel (SISO) reception is currently supported (bladeRF 2.0 Micro xA9's
+second RX channel is not yet exposed).
+
 #### Build FMCOMMS2 based SDR Hardware support (OPTIONAL)
 
 Install the [libiio](https://github.com/analogdevicesinc/libiio.git) (>=v0.11),
@@ -756,12 +722,23 @@ $ sudo cmake --install build
 ```
 
 Of course, you will also need a GPU that
-[supports CUDA](https://developer.nvidia.com/cuda-gpus "CUDA GPUs").
+[supports CUDA](https://developer.nvidia.com/cuda-gpus "CUDA GPUs"). The target
+architecture is taken from `CMAKE_CUDA_ARCHITECTURES` if you set it (e.g.
+`-DCMAKE_CUDA_ARCHITECTURES=87` for Jetson Orin), detected from the device tree
+on NVIDIA Jetson modules, or `native` with CMake >= 3.24.
+
+With CUDA enabled, every PCPS acquisition block can evaluate its search grid on
+the GPU by setting `Acquisition_XX.use_cuda=true` (or
+`GNSS-SDR.use_cuda_acquisition=true` for all of them), and the experimental
+`GPS_L1_CA_DLL_PLL_Tracking_GPU` tracking block becomes available. See
+[docs/JETSON.md](./docs/JETSON.md) for a step-by-step guide on NVIDIA Jetson
+(Orin, Xavier, TX2, Nano), including how to run the unit tests and the
+CPU-vs-GPU acquisition benchmark.
 
 ## macOS
 
 GNSS-SDR can be built on macOS (or the former Mac OS X), starting from 10.9
-(Mavericks) and including 14 (Sonoma). If you still have not installed
+(Mavericks) and including 27 (Golden Gate). If you still have not installed
 [Xcode](https://developer.apple.com/xcode/ "Xcode"), do it now from the App
 Store (it's free). You will also need the Xcode Command Line Tools, which do not
 come by default in macOS versions older than Big Sur. If you are using an older
@@ -792,10 +769,9 @@ In a terminal, type:
 ```
 $ sudo port selfupdate
 $ sudo port upgrade outdated
-$ sudo port install armadillo cmake pkgconfig protobuf3-cpp pugixml openssl3
+$ sudo port install abseil armadillo boost cmake libad9361-iio libiio matio \
+       openssl3 pkgconfig protobuf3-cpp pugixml py314-mako
 $ sudo port install gnuradio +uhd +grc +zeromq
-$ sudo port install boost matio libad9361-iio libiio abseil
-$ sudo port install py313-mako
 $ sudo port install doxygen +docs
 ```
 
@@ -815,7 +791,7 @@ $ port select --list python
 and you can activate a certain version by typing:
 
 ```
-$ sudo port select --set python python313
+$ sudo port select --set python python314
 ```
 
 ### Homebrew
@@ -823,7 +799,7 @@ $ sudo port select --set python python313
 First, install [Homebrew](https://brew.sh/). Paste this in a terminal prompt:
 
 ```
-$ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
 The script explains what it will do, and then it pauses before doing it. There
@@ -833,10 +809,11 @@ Install the required dependencies:
 
 ```
 $ brew update && brew upgrade
-$ brew install armadillo cmake hdf5 gnuradio libmatio openssl pkg-config protobuf pugixml boost
+$ brew install armadillo boost cmake gnuradio hdf5 libmatio openssl \
+       pkg-config protobuf pugixml
+¢ pip3 install mako
 $ brew install --cask mactex  # when completed, restart Terminal
 $ brew install graphviz doxygen
-¢ pip3 install mako
 ```
 
 For macOS versions older than Sonoma, you will also need LAPACK:
@@ -929,8 +906,6 @@ do so.
   to build, ship, and run distributed applications, whether on laptops, data
   center VMs, or the cloud. Visit
   [https://github.com/carlesfernandez/docker-gnsssdr](https://github.com/carlesfernandez/docker-gnsssdr)
-  or
-  [https://github.com/carlesfernandez/docker-pybombs-gnsssdr](https://github.com/carlesfernandez/docker-pybombs-gnsssdr)
   for instructions.
 
 - **Snap package**: [Snaps](https://snapcraft.io) are Linux packages aimed for
@@ -1631,12 +1606,17 @@ identifiers:
 | Galileo E1b/c  |       1B       |
 | Glonass L1 C/A |       1G       |
 | Beidou B1I     |       B1       |
+| Beidou B1C     |       1D       |
+| Beidou B2a     |       5D       |
+| QZSS L1 C/A    |       J1       |
+| SBAS L1        |       S1       |
 | Galileo E6B    |       E6       |
 | Beidou B3I     |       B3       |
 | GPS L2 L2C(M)  |       2S       |
 | Glonass L2 C/A |       2G       |
 | GPS L5         |       L5       |
 | Galileo E5a    |       5X       |
+| QZSS L5        |       J5       |
 | Galileo E5b    |       7X       |
 
 Example: Eight GPS L1 C/A channels.
@@ -1713,12 +1693,10 @@ can be continuously improved without having any impact neither on the algorithm
 interface nor the general acquisition interface.
 
 Check
-[GpsL1CaPcpsAcquisition](./src/algorithms/acquisition/adapters/gps_l1_ca_pcps_acquisition.h)
-and
-[GalileoE1PcpsAmbiguousAcquisition](./src/algorithms/acquisition/adapters/galileo_e1_pcps_ambiguous_acquisition.h)
-for examples of adapters from a Parallel Code Phase Search (PCPS) acquisition
-block, and
-[pcps_acquisition_cc](./src/algorithms/acquisition/gnuradio_blocks/pcps_acquisition_cc.h)
+[PcpsAcquisitionAdapter](./src/algorithms/acquisition/adapters/pcps_acquisition_adapter.h)
+for an example of an adapter from a Parallel Code Phase Search (PCPS)
+acquisition block to AcquisitionInterface, and
+[pcps_acquisition](./src/algorithms/acquisition/gnuradio_blocks/pcps_acquisition.h)
 for an example of a block implementation. The source code of all the available
 acquisition algorithms is located at:
 
@@ -1736,27 +1714,28 @@ receiver channel, as well as their parameters, in the configuration file. For a
 GPS L1 C/A receiver:
 
 ```
-;######### ACQUISITION GLOBAL CONFIG ############
+;######### ACQUISITION GPS L1 CONFIG ############
 Acquisition_1C.implementation=GPS_L1_CA_PCPS_Acquisition ; Acquisition algorithm selection for this channel
 Acquisition_1C.item_type=gr_complex
 Acquisition_1C.coherent_integration_time_ms=1 ; Signal block duration for the acquisition signal detection [ms]
 Acquisition_1C.threshold=2.5 ; Acquisition threshold
-Acquisition_1C.pfa=0.01 ; Acquisition false alarm probability. This option overrides the threshold option.
-Acquisition_1C.doppler_max=10000 ; Maximum expected Doppler shift [Hz]
-Acquisition_1C.doppler_step=500 ; Doppler step in the grid search [Hz]
+Acquisition_1C.pfa=0.001 ; Acquisition false alarm probability. This option overrides the threshold option.
+Acquisition_1C.doppler_max=5000 ; Maximum expected Doppler shift [Hz]
+Acquisition_1C.doppler_step=250 ; Doppler step in the grid search [Hz]
 Acquisition_1C.dump=false ; Enables internal data file logging [true] or [false]
 Acquisition_1C.dump_filename=./acq_dump.dat ; Log path and filename
+Acquisition_1C.use_cuda=false ; Evaluate the search grid on a CUDA GPU (requires -DENABLE_CUDA=ON)
 ```
 
 and, for Galileo E1B channels:
 
 ```
-;######### GALILEO ACQUISITION CONFIG ############
+;######### ACQUISITION GALILEO E1 CONFIG ############
 Acquisition_1B.implementation=Galileo_E1_PCPS_Ambiguous_Acquisition
 Acquisition_1B.item_type=gr_complex
 Acquisition_1B.coherent_integration_time_ms=4
 Acquisition_1B.pfa=0.008
-Acquisition_1B.doppler_max=15000
+Acquisition_1B.doppler_max=5000
 Acquisition_1B.doppler_step=125
 Acquisition_1B.dump=false
 Acquisition_1B.dump_filename=./acq_dump.dat
@@ -1777,11 +1756,9 @@ Again, a class hierarchy consisting of a
 [TrackingInterface](./src/core/interfaces/tracking_interface.h) class and
 subclasses implementing algorithms provides a way of testing different
 approaches, with full access to their parameters. Check
-[GpsL1CaDllPllTracking](./src/algorithms/tracking/adapters/gps_l1_ca_dll_pll_tracking.h)
-or
-[GalileoE1DllPllVemlTracking](./src/algorithms/tracking/adapters/galileo_e1_dll_pll_veml_tracking.h)
-for examples of adapters, and
-[Gps_L1_Ca_Dll_Pll_Tracking_cc](./src/algorithms/tracking/gnuradio_blocks/gps_l1_ca_dll_pll_tracking_cc.h)
+[DllPllTrackingAdapter](./src/algorithms/tracking/adapters/dll_pll_tracking_adapter.h)
+for an example of adapter, and
+[dll_pll_veml_tracking](./src/algorithms/tracking/gnuradio_blocks/dll_pll_veml_tracking.h)
 for an example of a signal processing block implementation. There are also
 available some useful classes and functions for signal tracking; take a look at
 [cpu_multicorrelator.h](./src/algorithms/tracking/libs/cpu_multicorrelator.h),
@@ -1855,12 +1832,12 @@ is managed by a finite state machine.
 
 The common interface is
 [TelemetryDecoderInterface](./src/core/interfaces/telemetry_decoder_interface.h).
-Check
-[GpsL1CaTelemetryDecoder](./src/algorithms/telemetry_decoder/adapters/gps_l1_ca_telemetry_decoder.h)
-for an example of the GPS L1 NAV message decoding adapter, and
-[gps_l1_ca_telemetry_decoder_cc](./src/algorithms/telemetry_decoder/gnuradio_blocks/gps_l1_ca_telemetry_decoder_cc.h)
-for an actual implementation of a signal processing block. Configuration
-example:
+Telemetry decoder adapters are provided through
+[TelemetryDecoderAdapter](./src/algorithms/telemetry_decoder/adapters/telemetry_decoder_adapter.h),
+which wraps the corresponding GNU Radio telemetry decoder block. Check
+[gps_l1_ca_telemetry_decoder_gs](./src/algorithms/telemetry_decoder/gnuradio_blocks/gps_l1_ca_telemetry_decoder_gs.h)
+for an actual implementation of a GPS L1 NAV message decoding block.
+Configuration example:
 
 ```
 ;######### TELEMETRY DECODER CONFIG ############
@@ -1915,15 +1892,17 @@ More documentation at the
 
 ### Computation of Position, Velocity, and Time
 
-Although data processing for obtaining high-accuracy PVT solutions is out of the
-scope of GNSS-SDR, we provide a module that can compute position fixes (stored
-in GIS-friendly formats such as [GeoJSON](https://tools.ietf.org/html/rfc7946),
+GNSS-SDR provides a module that can compute standalone position fixes and an
+opt-in NTRIP-corrected RTK solution for dual-band GPS (L1 C/A + L2C or L1 C/A +
+L5), Galileo (E1 + E5a), and combined GPS+Galileo receivers. Results can be
+stored in GIS-friendly formats such as
+[GeoJSON](https://tools.ietf.org/html/rfc7946),
 [GPX](https://www.topografix.com/gpx.asp), and
 [KML](https://www.opengeospatial.org/standards/kml), or transmitted via serial
-port as [NMEA 0183](https://en.wikipedia.org/wiki/NMEA_0183) messages), and
-leaves room for more sophisticated positioning methods by storing observables
-and navigation data in [RINEX](https://en.wikipedia.org/wiki/RINEX) files (v2.11
-or v3.02), and generating
+port as [NMEA 0183](https://en.wikipedia.org/wiki/NMEA_0183) messages. The
+module can also store observables and navigation data in
+[RINEX](https://en.wikipedia.org/wiki/RINEX) files (v2.11, v3.02, or v4.02), and
+generate
 [RTCM](https://www.rtcm.org/ "Radio Technical Commission for Maritime Services")
 3.2 messages that can be disseminated through the Internet in real-time.
 
@@ -1935,15 +1914,18 @@ Configuration example:
 ;######### PVT CONFIG ############
 PVT.implementation=RTKLIB_PVT
 PVT.positioning_mode=Single      ; options: Single, Static, Kinematic, PPP_Static, PPP_Kinematic
-PVT.iono_model=Broadcast         ; options: OFF, Broadcast
-PVT.trop_model=Saastamoinen      ; options: OFF, Saastamoinen
+PVT.satellite_ephemeris=Broadcast ; options: Broadcast, SBAS
+PVT.sbas_satellite=0             ; 0: first SBAS GEO received, or select PRN 120-138
+PVT.iono_model=Broadcast         ; options: OFF, Broadcast, SBAS, Iono-Free-LC, Estimate_STEC, IONEX
+PVT.trop_model=Saastamoinen      ; options: OFF, Saastamoinen, SBAS, Estimate_ZTD, Estimate_ZTD_Grad
 PVT.rinex_version=2              ; options: 2 or 3
 PVT.output_rate_ms=100           ; Period in [ms] between two PVT outputs
 PVT.display_rate_ms=500          ; Position console print (std::out) interval [ms].
 PVT.nmea_dump_filename=./gnss_sdr_pvt.nmea ; NMEA log path and filename
 PVT.flag_nmea_tty_port=false     ; Enables the NMEA log to a serial TTY port
 PVT.nmea_dump_devname=/dev/pts/4 ; serial device descriptor for NMEA logging
-PVT.flag_rtcm_server=true        ; Enables or disables a TCP/IP server dispatching RTCM messages
+PVT.flag_rtcm_server=true        ; Enables an outbound raw TCP server dispatching generated RTCM messages
+PVT.ntrip_client_enabled=false   ; Enables inbound RTCM corrections from an NTRIP caster (physical base or VRS)
 PVT.flag_rtcm_tty_port=false     ; Enables the RTCM log to a serial TTY port
 PVT.rtcm_dump_devname=/dev/pts/1 ; serial device descriptor for RTCM logging
 PVT.rtcm_tcp_port=2101
@@ -1952,6 +1934,116 @@ PVT.rtcm_MT1045_rate_ms=5000
 PVT.rtcm_MT1097_rate_ms=1000
 PVT.rtcm_MT1077_rate_ms=1000
 ```
+
+#### Dual-band RTK through NTRIP
+
+The `RTKLIB_PVT` implementation can obtain base-station corrections from an
+NTRIP caster. This feature is opt-in: `PVT.ntrip_client_enabled` defaults to
+`false`, and no caster connection is attempted while it is disabled. The
+receiver may run, per constellation and freely combined, GPS L1 C/A (`1C`) alone
+or together with one of L2C (`2S`) or L5 (`L5`), Galileo E1 (`1B`) alone or
+together with E5a (`5X`), and BeiDou B1C (`1D`, single-frequency); a second band
+without its first band, both GPS second bands at once, and other signals are
+rejected. Single-band sets run single-frequency RTK, which is viable on the
+short effective baselines of VRS services and benefits from combining
+constellations. `PVT.navigation_system` must match the enabled constellations
+exactly (`1` GPS, `8` Galileo, `32` BeiDou, or their sum), and the number of
+frequency slots is derived from the channel set (1 for single-band sets; 2 with
+GPS L2C; 3 whenever L5 or E5a is involved, since both occupy the third RTKLIB
+slot). GPS L5 and Galileo E5a share the same center frequency, and BeiDou B1C
+shares the GPS L1 / Galileo E1 center, so the combined GPS L1+L5 / Galileo
+E1+E5a dual-frequency receiver needs only two RF channels, and a
+single-frequency GPS+Galileo+BeiDou receiver needs one. Select `Static` for a
+stationary rover or `Kinematic` for a moving rover; other positioning modes are
+rejected when the NTRIP client is enabled.
+
+An NTRIP-corrected rover configuration can include:
+
+```
+Channels_1C.count=8
+Channels_2S.count=8
+
+PVT.implementation=RTKLIB_PVT
+PVT.positioning_mode=Kinematic
+
+PVT.ntrip_client_enabled=true
+PVT.ntrip_caster_address=caster.example.org
+PVT.ntrip_caster_port=2101
+PVT.ntrip_mountpoint=EXAMPLE_MOUNTPOINT
+PVT.ntrip_username=example_user
+PVT.ntrip_password=
+PVT.ntrip_password_env=GNSS_SDR_NTRIP_PASSWORD
+PVT.ntrip_version=2
+PVT.ntrip_tls_enabled=false
+PVT.ntrip_inactivity_timeout_ms=10000
+PVT.ntrip_reconnect_interval_ms=10000
+PVT.ntrip_max_correction_age_s=5.0
+PVT.ntrip_station_id=0
+PVT.ntrip_fallback_to_single=true
+PVT.ntrip_send_gga=true
+PVT.ntrip_gga_period_ms=10000
+```
+
+The caster address, mountpoint, username, password, and password-environment
+variable name default to empty strings; the remaining defaults are those shown
+above, except that `PVT.ntrip_client_enabled` defaults to `false`. Set either
+`PVT.ntrip_password` or `PVT.ntrip_password_env`, never both. The latter names
+an environment variable from which GNSS-SDR reads the password and avoids
+placing the password in the configuration file. Station ID `0` accepts any
+station; otherwise, set the expected RTCM station ID. Setting
+`PVT.ntrip_reconnect_interval_ms=0` disables operational reconnect attempts; the
+one immediate v2-to-v1 compatibility retry still runs and is not counted as an
+automatic reconnect.
+
+The correction stream must provide an RTCM 3 base position message 1005 or 1006
+and observation messages carrying at least each satellite's first band: for GPS,
+L1 (with L2 or L5 when available) as messages 1002 or 1004 or as MSM4 through
+MSM7 (1074 through 1077); for Galileo, E1 (with E5a when available) as MSM4
+through MSM7 (1094 through 1097); for BeiDou, B1C as MSM4 through MSM7 (1124
+through 1127), where the decoder prefers B1C over B1I when the base broadcasts
+both in the shared first slot. Base satellites providing only the first band
+contribute single-band double differences; the second band of the receiver's
+pair is used whenever both sides supply it. Corrections older than
+`PVT.ntrip_max_correction_age_s` are not used. Enabling this client forces a
+separate internal single-point solver for receiver-clock correction,
+independently of the RTK solver. With `PVT.ntrip_fallback_to_single=true`, the
+receiver reports an explicitly labeled `SOLQ_SINGLE` solution while corrections
+are unavailable, incomplete, or stale; it does not label that fallback as an RTK
+solution.
+
+This client sends an NTRIP version 2 HTTP/1.1 request by default and accepts a
+legacy v1 reply on that connection. If the fully-sent v2 exchange closes or
+times out before receiving any response bytes, or returns HTTP 400, 501, or 505,
+it opens one fresh connection and retries using the v1 HTTP/1.0 request. Once
+selected, v1 is retained for operational reconnects until the client is stopped
+and started again. DNS, TCP, TLS, and partial-write failures before the request
+is sent do not trigger a downgrade; `PVT.ntrip_version=1` forces v1 from the
+first connection. Setting `PVT.ntrip_tls_enabled=true` encrypts both attempts
+with TLS 1.2 or newer and validates the caster certificate against the system CA
+store and its host name. Without TLS, Basic authentication only encodes
+credentials; it does not encrypt them, so use a trusted network or a suitable
+secure tunnel. Prefer `PVT.ntrip_password_env` over a password stored in a file.
+VRS and nearest-station mountpoints that require rover GGA reports are
+supported: with `PVT.ntrip_send_gga=true` (the default), the client periodically
+sends an NMEA GGA sentence derived from the receiver's current position
+estimate, every `PVT.ntrip_gga_period_ms` (10 s by default). No GGA is sent
+before the receiver produces its first position solution; the single-point
+bootstrap fix is enough for the caster to start serving the virtual station. Set
+`PVT.ntrip_send_gga=false` if the rover position must not be reported to the
+caster; physical-base mountpoints work either way.
+
+`PVT.flag_rtcm_server` is unrelated to the NTRIP correction client. It controls
+an outbound raw TCP server for RTCM messages generated by GNSS-SDR; it neither
+connects to a caster nor supplies corrections to the RTK solver. The outbound
+server and inbound NTRIP client can be enabled independently.
+
+For legacy SBAS/EGNOS L1 positioning, use GPS L1 observation channels together
+with at least one SBAS L1 telemetry channel, and set
+`PVT.satellite_ephemeris=SBAS`, `PVT.iono_model=SBAS`, and
+`PVT.trop_model=SBAS`. EGNOS currently augments GPS L1; RTKLIB excludes a
+satellite when the selected SBAS stream has no valid correction for it. This
+path provides non-safety-critical Open Service positioning and does not compute
+protection levels or implement a Safety-of-Life receiver.
 
 **Notes on the output formats:**
 
@@ -2036,17 +2128,18 @@ PVT.rinex_version=2
   Services - Version 3_ (February 1, 2013), which can be
   [purchased online](https://ssl29.pair.com/dmarkle/puborder.php?show=3 "RTCM Online Publication Order Form").
   By default, the generated RTCM binary messages are dumped into a text file in
-  hexadecimal format. However, GNSS-SDR is equipped with a TCP/IP server, acting
-  as an NTRIP source that can feed an NTRIP server. NTRIP (Networked Transport
-  of RTCM via Internet Protocol) is an open standard protocol that can be freely
-  downloaded from
+  hexadecimal format. GNSS-SDR can also expose those generated messages through
+  an outbound raw TCP server. This output can be forwarded to an NTRIP caster by
+  a separate tool, but the server is not itself an NTRIP caster client. NTRIP
+  (Networked Transport of RTCM via Internet Protocol) is an open standard
+  protocol that can be freely downloaded from
   [BKG](https://igs.bkg.bund.de/root_ftp/NTRIP/documentation/NtripDocumentation.pdf "Networked Transport of RTCM via Internet Protocol (Ntrip) Version 1.0"),
   and it is designed for disseminating differential correction data (_e.g._ in
   the RTCM-104 format) or other kinds of GNSS streaming data to stationary or
-  mobile users over the Internet. The TCP/IP server can be enabled by setting
-  `PVT.flag_rtcm_server=true` in the configuration file, and will be active
-  during the execution of the software receiver. By default, the server will
-  operate on port 2101 (which is the recommended port for RTCM services
+  mobile users over the Internet. The outbound TCP/IP server can be enabled by
+  setting `PVT.flag_rtcm_server=true` in the configuration file, and will be
+  active during the execution of the software receiver. By default, the server
+  will operate on port 2101 (which is the recommended port for RTCM services
   according to the Internet Assigned Numbers Authority,
   [IANA](https://www.iana.org/assignments/service-names-port-numbers/ "Service Name and Transport Protocol Port Number Registry")),
   and will identify the Reference Station with ID=1234. This behavior can be
@@ -2057,6 +2150,9 @@ PVT.flag_rtcm_server=true
 PVT.rtcm_tcp_port=2102
 PVT.rtcm_station_id=1111
 ```
+
+This outbound server is independent of the inbound NTRIP correction client
+configured with `PVT.ntrip_client_enabled`.
 
 **Important note:**
 

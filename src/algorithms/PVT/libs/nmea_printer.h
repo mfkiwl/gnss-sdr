@@ -52,12 +52,22 @@ public:
     /*!
      * \brief Default destructor.
      */
-    ~Nmea_Printer();
+    ~Nmea_Printer() noexcept;
 
     /*!
      * \brief Print NMEA PVT and satellite info to the initialized device
      */
     bool Print_Nmea_Line(const Rtklib_Solver* const pvt_data);
+
+    /*!
+     * \brief Returns GPGGA message (fix data)
+     */
+    std::string get_GPGGA(const Rtklib_Solver* const pvt_data) const;
+
+    /*!
+     * \brief Returns GPGSA message (overall satellite reception data)
+     */
+    std::string get_GPGSA(const Rtklib_Solver* const pvt_data) const;
 
 private:
     int init_serial(const std::string& serial_device);  // serial port control

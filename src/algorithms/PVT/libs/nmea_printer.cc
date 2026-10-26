@@ -72,7 +72,7 @@ Nmea_Printer::Nmea_Printer(const std::string& filename,
                     nmea_base_path = p.string();
                 }
 
-            if ((nmea_base_path != ".") and (d_flag_nmea_output_file == true))
+            if ((nmea_base_path != ".") && (d_flag_nmea_output_file == true))
                 {
                     std::cout << "NMEA files will be stored at " << nmea_base_path << std::endl;
                 }
@@ -110,14 +110,15 @@ Nmea_Printer::Nmea_Printer(const std::string& filename,
 }
 
 
-Nmea_Printer::~Nmea_Printer()
+Nmea_Printer::~Nmea_Printer() noexcept
 {
     DLOG(INFO) << "NMEA printer destructor called.";
-    const auto pos = nmea_file_descriptor.tellp();
+    std::ofstream::pos_type pos = -1;
     try
         {
             if (nmea_file_descriptor.is_open())
                 {
+                    pos = nmea_file_descriptor.tellp();
                     nmea_file_descriptor.close();
                 }
         }
@@ -131,10 +132,17 @@ Nmea_Printer::~Nmea_Printer()
         }
     if (pos == 0)
         {
-            errorlib::error_code ec;
-            if (!fs::remove(fs::path(nmea_filename), ec))
+            try
                 {
-                    std::cerr << "Problem removing NMEA temporary file: " << nmea_filename << std::endl;
+                    errorlib::error_code ec;
+                    if (!fs::remove(fs::path(nmea_filename), ec))
+                        {
+                            std::cerr << "Problem removing NMEA temporary file: " << nmea_filename << std::endl;
+                        }
+                }
+            catch (const std::exception& e)
+                {
+                    std::cerr << e.what() << std::endl;
                 }
         }
     try
@@ -144,6 +152,10 @@ Nmea_Printer::~Nmea_Printer()
     catch (const std::exception& e)
         {
             std::cerr << e.what() << std::endl;
+        }
+    catch (...)
+        {
+            std::cerr << "Unknown exception while closing NMEA serial port." << std::endl;
         }
 }
 
@@ -437,4 +449,24 @@ std::string Nmea_Printer::get_GPGGA() const
     sentence_str << buff.data();
     return sentence_str.str();
     // $GPGGA,104427.591,5920.7009,N,01803.2938,E,1,05,3.3,78.2,M,23.2,M,0.0,0000*4A
+}
+
+
+std::string Nmea_Printer::get_GPGGA(const Rtklib_Solver* const pvt_data) const
+{
+    std::stringstream sentence_str;
+    std::array<unsigned char, 1024> buff{};
+    outnmea_gga(buff.data(), &pvt_data->pvt_sol);
+    sentence_str << buff.data();
+    return sentence_str.str();
+}
+
+
+std::string Nmea_Printer::get_GPGSA(const Rtklib_Solver* const pvt_data) const
+{
+    std::stringstream sentence_str;
+    std::array<unsigned char, 1024> buff{};
+    outnmea_gsa(buff.data(), &pvt_data->pvt_sol, pvt_data->pvt_ssat.data());
+    sentence_str << buff.data();
+    return sentence_str.str();
 }

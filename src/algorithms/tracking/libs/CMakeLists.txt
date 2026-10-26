@@ -20,6 +20,7 @@ set(TRACKING_LIB_SOURCES
     kf_conf.cc
     bayesian_estimation.cc
     exponential_smoother.cc
+    bit_synchronizer.cc
 )
 
 set(TRACKING_LIB_HEADERS
@@ -38,10 +39,12 @@ set(TRACKING_LIB_HEADERS
     kf_conf.h
     bayesian_estimation.h
     exponential_smoother.h
+    bit_synchronizer.h
 )
 
 if(ENABLE_CUDA)
-    list(APPEND CUDA_NVCC_FLAGS "-gencode arch=compute_30,code=sm_30; -O3; -use_fast_math -default-stream per-thread")
+    # Architecture selection is driven by CMAKE_CUDA_ARCHITECTURES (see the
+    # top-level CMakeLists.txt); do not hardcode -gencode flags here.
     if(CMAKE_VERSION VERSION_GREATER 3.11)
         set(TRACKING_LIB_SOURCES ${TRACKING_LIB_SOURCES} cuda_multicorrelator.cu)
         set(TRACKING_LIB_HEADERS ${TRACKING_LIB_HEADERS} cuda_multicorrelator.h)
@@ -103,6 +106,10 @@ if(ENABLE_CUDA)
         target_include_directories(tracking_libs
             PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
         )
+        target_link_libraries(tracking_libs PUBLIC CUDA::cudart)
+        target_compile_options(tracking_libs PRIVATE
+            $<$<COMPILE_LANGUAGE:CUDA>:--default-stream=per-thread>
+        )
     else()
         target_link_libraries(tracking_libs
             PUBLIC ${CUDA_LIBRARIES}
@@ -112,7 +119,7 @@ if(ENABLE_CUDA)
         )
     endif()
     set_target_properties(tracking_libs PROPERTIES
-        CUDA_SEPARABLE_COMPILATION ON
+        CUDA_SEPARABLE_COMPILATION OFF
         POSITION_INDEPENDENT_CODE ON
         CUDA_RESOLVE_DEVICE_SYMBOLS ON
     )

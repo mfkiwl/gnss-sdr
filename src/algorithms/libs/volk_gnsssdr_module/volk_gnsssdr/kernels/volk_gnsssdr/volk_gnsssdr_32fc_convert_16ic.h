@@ -373,6 +373,7 @@ static inline void volk_gnsssdr_32fc_convert_16ic_a_avx2(lv_16sc_t* outputVector
 
 
 #ifdef LV_HAVE_NEON
+#include <volk_gnsssdr/volk_gnsssdr_neon_intrinsics.h>
 #include <arm_neon.h>
 
 static inline void volk_gnsssdr_32fc_convert_16ic_neon(lv_16sc_t* outputVector, const lv_32fc_t* inputVector, unsigned int num_points)
@@ -388,8 +389,7 @@ static inline void volk_gnsssdr_32fc_convert_16ic_neon(lv_16sc_t* outputVector, 
     unsigned int i;
     const float32x4_t min_val = vmovq_n_f32(min_val_f);
     const float32x4_t max_val = vmovq_n_f32(max_val_f);
-    float32x4_t half = vdupq_n_f32(0.5f);
-    float32x4_t ret1, ret2, a, b, sign, PlusHalf, Round;
+    float32x4_t ret1, ret2, a, b;
 
     int32x4_t toint_a, toint_b;
     int16x4_t intInputVal1, intInputVal2;
@@ -406,16 +406,8 @@ static inline void volk_gnsssdr_32fc_convert_16ic_neon(lv_16sc_t* outputVector, 
             ret1 = vmaxq_f32(vminq_f32(a, max_val), min_val);
             ret2 = vmaxq_f32(vminq_f32(b, max_val), min_val);
 
-            /* in __aarch64__ we can do that with vcvtaq_s32_f32(ret1); vcvtaq_s32_f32(ret2); */
-            sign = vcvtq_f32_u32((vshrq_n_u32(vreinterpretq_u32_f32(ret1), 31)));
-            PlusHalf = vaddq_f32(ret1, half);
-            Round = vsubq_f32(PlusHalf, sign);
-            toint_a = vcvtq_s32_f32(Round);
-
-            sign = vcvtq_f32_u32((vshrq_n_u32(vreinterpretq_u32_f32(ret2), 31)));
-            PlusHalf = vaddq_f32(ret2, half);
-            Round = vsubq_f32(PlusHalf, sign);
-            toint_b = vcvtq_s32_f32(Round);
+            toint_a = _vcvtnq_s32_f32(ret1);
+            toint_b = _vcvtnq_s32_f32(ret2);
 
             intInputVal1 = vqmovn_s32(toint_a);
             intInputVal2 = vqmovn_s32(toint_b);
@@ -460,5 +452,48 @@ static inline void volk_gnsssdr_32fc_convert_16ic_generic(lv_16sc_t* outputVecto
         }
 }
 #endif /* LV_HAVE_GENERIC */
+
+#ifdef LV_HAVE_RVV
+#include <riscv_vector.h>
+
+static inline void volk_gnsssdr_32fc_convert_16ic_rvv(lv_16sc_t* outputVector, const lv_32fc_t* inputVector, unsigned int num_points)
+{
+    // Will be converting by number, with each
+    // complex number containing two component numbers
+    size_t n = num_points * 2;
+
+    // Initialize pointers to keep track as stripmine
+    short* outPtr = (short*)outputVector;
+    const float* inPtr = (const float*)inputVector;
+
+    for (size_t vl; n > 0; n -= vl, outPtr += vl, inPtr += vl)
+        {
+            // Record how many elements will actually be processed
+            vl = __riscv_vsetvl_e32m8(n);
+
+            // Don't have to segment load/store since converting
+            // both real and imaginary components
+            // Load in[0..vl)
+            vfloat32m8_t inVal = __riscv_vle32_v_f32m8(inPtr, vl);
+
+            // Saturate in[i] to 16 bits
+            inVal = __riscv_vfmin_vf_f32m8(inVal, (float)32767, vl);
+            inVal = __riscv_vfmax_vf_f32m8(inVal, (float)-32768, vl);
+
+            // out[i] = (short) in[i]
+            vint16m4_t outVal = __riscv_vfncvt_x_f_w_i16m4(inVal, vl);
+
+            // Store out[0..vl)
+            __riscv_vse16_v_i16m4(outPtr, outVal, vl);
+
+            // In looping, decrement the number of
+            // elements left and increment the pointers
+            // by the number of elements processed,
+            // accounting how the `vl` complex numbers
+            // are each stored as two numbers of their
+            // corresponding size.
+        }
+}
+#endif /* LV_HAVE_RVV */
 
 #endif /* INCLUDED_volk_gnsssdr_32fc_convert_16ic_H */

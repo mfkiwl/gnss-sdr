@@ -25,6 +25,7 @@
 #include "gps_ephemeris.h"
 #include "gps_iono.h"
 #include "gps_utc_model.h"
+#include "qzss.h"
 #include <bitset>
 #include <cstdint>
 #include <map>
@@ -37,11 +38,16 @@
 /** \addtogroup System_Parameters
  * \{ */
 
+enum class LnavSystem
+{
+    GPS,
+    QZSS
+};
 
 /*!
  * \brief This class decodes a GPS NAV Data message as described in IS-GPS-200M
  *
- * See https://www.gps.gov/technical/icwg/IS-GPS-200M.pdf Appendix II
+ * See https://www.gps.gov/sites/default/files/2025-07/IS-GPS-200M.pdf Appendix II
  */
 class Gps_Navigation_Message
 {
@@ -49,7 +55,7 @@ public:
     /*!
      * Default constructor
      */
-    Gps_Navigation_Message();
+    explicit Gps_Navigation_Message(LnavSystem system = LnavSystem::GPS);
 
     /*!
      * \brief Obtain a GPS SV Ephemeris class filled with current SV data
@@ -91,7 +97,7 @@ public:
     }
 
     /*!
-     * \brief Sets Time of Week, in seconds
+     * \brief Gets GPS Week Number
      */
     inline int32_t get_GPS_week() const
     {
@@ -138,6 +144,17 @@ public:
         return flag_utc_model_valid;
     }
 
+    /*!
+     * \brief Gets the almanac health field for a satellite PRN
+     */
+    int32_t get_almanac_health(uint32_t prn) const;
+
+    /*!
+     * \brief Gets the 4-bit A-S flag and SV configuration term (page 25 of
+     * subframe 4) of a satellite, or -1 if not decoded yet.
+     */
+    int32_t get_almanac_config_code(uint32_t prn) const;
+
     bool satellite_validation();
     bool almanac_validation() const;
 
@@ -146,10 +163,18 @@ private:
     int64_t read_navigation_signed(const std::bitset<GPS_SUBFRAME_BITS>& bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const;
     bool read_navigation_bool(const std::bitset<GPS_SUBFRAME_BITS>& bits, const std::vector<std::pair<int32_t, int32_t>>& parameter) const;
     void print_gps_word_bytes(uint32_t GPS_word) const;
+    void decode_lnav_almanac(const std::bitset<GPS_SUBFRAME_BITS>& subframe_bits, uint32_t prn, double eccentricity_ref, double inclination_ref);
+    void decode_lnav_iono_utc(const std::bitset<GPS_SUBFRAME_BITS>& subframe_bits);
+    void decode_gps_almanac_health_sf4(const std::bitset<GPS_SUBFRAME_BITS>& subframe_bits);
+    void decode_gps_almanac_health_sf5(const std::bitset<GPS_SUBFRAME_BITS>& subframe_bits);
+    void decode_qzss_almanac_epoch_health(const std::bitset<GPS_SUBFRAME_BITS>& subframe_bits);
 
-    std::map<int32_t, int32_t> almanacHealth;  //!< Map that stores the health information stored in the almanac
+    std::map<int32_t, int32_t> almanacHealth;      //!< Map that stores the health information stored in the almanac
+    std::map<int32_t, int32_t> almanacConfigCode;  //!< A-S flag and SV configuration (page 25) per PRN
 
     std::map<int32_t, std::string> satelliteBlock;  //!< Map that stores to which block the PRN belongs https://www.navcen.uscg.gov/?Do=constellationStatus
+
+    LnavSystem d_system;
 
     // broadcast orbit 1
     int32_t d_TOW{};      // Time of GPS Week of the ephemeris set (taken from subframes TOW) [s]

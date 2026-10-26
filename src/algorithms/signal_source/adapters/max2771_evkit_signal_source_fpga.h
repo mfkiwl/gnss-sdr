@@ -51,7 +51,7 @@ public:
 
     ~MAX2771EVKITSignalSourceFPGA();
 
-    std::vector<uint32_t> setup_regs(void);
+    std::vector<uint32_t> setup_regs(uint64_t freq);
 
     inline size_t item_size() override
     {
@@ -64,64 +64,69 @@ public:
     gr::basic_block_sptr get_right_block() override;
 
 private:
-    const std::string default_dump_filename = std::string("FPGA_buffer_monitor_dump.dat");
-    const uint64_t default_bandwidth = 2500000;
-    const uint32_t default_filter_order = 5;
-    const uint64_t default_sampling_rate = 4092000;
-    const uint32_t default_PGA_gain_value = 0x3A;  // default PGA gain when AGC is off
+    const std::string DEFAULT_BUFF_MON_FILENAME = std::string("FPGA_buffer_monitor_dump.dat");  // Default buffer monitor output file
+    const std::string FREQ_BAND_0_SPI_DEVICE_NAME = std::string("/dev/spidev2.0");              // SPI 0 device name
+    const std::string FREQ_BAND_1_SPI_DEVICE_NAME = std::string("/dev/spidev1.0");              // SPI 1 device name
+    const uint32_t MAX_NUM_FREQ_BANDS = 2;                                                      // Maximum number of frequency bands
+    const uint32_t DEFAULT_NUM_FREQ_BANDS = 1;                                                  // Default number of frequency bands used
+    const uint64_t DEFAULT_BANDWIDTH = 16400000;                                                // Default bandwidth
+    const uint32_t DEFAULT_FILTER_ORDER = 5;                                                    // Default filter order
+    const uint64_t DEFAULT_SAMPLING_RATE = 16368000;                                            // Default sampling rate
+    const uint32_t DEFAULT_PGA_GAIN_VALUE = 0x3A;                                               // default PGA gain when AGC is off
     // max PGA gain value
-    const uint32_t max_PGA_gain_value = 0x3F;
+    const uint32_t MAX_PGA_GAIN_VALUE = 0x3F;
     // check buffer overflow and perform buffer monitoring every 1s by default
-    const uint32_t buffer_monitor_period_ms = 1000;
+    const uint32_t BUFFER_MONITOR_PERIOD_MS = 1000;
     // buffer overflow and buffer monitoring initial delay
-    const uint32_t buffer_monitoring_initial_delay_ms = 2000;
+    const uint32_t BUFFER_MONITOR_INITIAL_DELAY_MS = 2000;
     // MAX2771 number of configuration registers
     const uint32_t MAX2771_NUM_REGS = 11;
     // MAX2771 configuration register fields
-    const uint32_t NUM_FREQ_BANDS = 1;
-    const uint32_t IDLE = 0x0;             // Idle mode disabled
-    const uint32_t MIXPOLE = 0x0;          // set the passive filter pole at mixer output at 13 MHz.
-    const uint32_t MIXERMODE = 0x0;        // L1 band enabled
-    const uint32_t FCEN = 0x58;            // Center frequency not used when in low-pass filter mode. Set to default value.
-    const uint32_t FCENX = 0x0;            // POlyphase filter selection set to Lowpass filter
-    const uint32_t ANAIMON = 0x0;          // analog monitor disabled
-    const uint32_t IQEN = 0x1;             // I and Q channels enable
-    const uint32_t GAINREF = 0xAA;         // AGC Gain ref
-    const uint32_t SPI_SDIO_CONFIG = 0x0;  // SPI SDIO config when tri-stated: nothing applied
-    const uint32_t FORMAT = 0x1;           // sign and magnitude
-    const uint32_t BITS = 0x2;             // number of bits in the ADC = 2
-    const uint32_t DRVCFG = 0x0;           // output driver configuration = CMOS Logic
-    const uint32_t DIEID = 0x0;            // identifies version of IC
-    const uint32_t HILOADEN = 0x0;         // disable output driver for high loads
-    const uint32_t FHIPEN = 0x1;           // enable highpass coupling between filter and PGA.
-    const uint32_t PGAIEN = 0x1;           // I-Channel PGA Enable
-    const uint32_t PGAQEN = 0x1;           // Q-Channel PGA Enable
-    const uint32_t STRMEN = 0x0;           // disable DSP interface for serial streaming of data
-    const uint32_t STRMSTART = 0x0;        // the rising edge of this bit enables data streaming to the output, clock, data, sync and frame sync outputs.
-    const uint32_t STRMSTOP = 0x0;         // the rising edge of this bit disables data streaming to the output, clock,  data sync and frame sync outputs.
-    const uint32_t STRMBITS = 0x1;         // number of bits to be streamed: I MSB, I LSB
-    const uint32_t STAMPEN = 0x1;          // enable frame number insertion
-    const uint32_t TIMESYNCEN = 0x1;       // enable the output of the time sync pulses at all times when streaming is enabled.
-    const uint32_t DATASYNCEN = 0x0;       // disable the sync pulses at the DATASYNC output
-    const uint32_t STRMRST = 0x0;          // counter reset not active
-    const uint32_t LOBAND = 0x0;           // L1 band
-    const uint32_t REFOUTEN = 0x1;         // Output clock buffer enable
-    const uint32_t IXTAL = 0x1;            // XTAL osscillator/buffer set to normal current
-    const uint32_t ICP = 0x0;              // charge pump current selection set to 0.5 mA
-    const uint32_t INT_PLL = 0x1;          // PLL mode set to integer-N PLL
-    const uint32_t PWRSAV = 0x0;           // PLL power save mode disabled
-    const uint32_t RDIV = 0x10;            // Set the PLL reference division ratio such that the L1 band is tuned to 1575.42 Mhz
-    const uint32_t FDIV = 0x80000;         // PLL fractional division ratio not used. Set to default value
-    const uint32_t EXTADCCLK = 0x0;        // use internally generated clock
-    const uint32_t REFCLK_L_CNT = 0x100;   // set the L counter of the reference clock configuration to its default value
-    const uint32_t REFCLK_M_CNT = 0x61B;   // set the M counter of the reference clock configuration to its default value
-    const uint32_t FCLKIN = 0x0;           // fractional clock divider set to default value
-    const uint32_t ADCCLK = 0x0;           // ADC clock selection set to reference clock divider/multiplier
-    const uint32_t MODE = 0x0;             // DSP interface mode selection
-    const uint32_t ADCCLK_L_CNT = 0x100;   // set the L counter of the ADC clock configuration to its default value
-    const uint32_t ADCCLK_M_CNT = 0x61B;   // set the M counter of the ADC clock configuration to its default value
-    const uint32_t PRE_FRACDIV_SEL = 0x0;  // bypass fractional clock divider
-    const uint32_t CLKOUT_SEL = 0x1;       // CLKOUT selection set to ADC clock
+    const uint32_t IDLE = 0x0;                 // Idle mode disabled
+    const uint32_t MIXPOLE = 0x0;              // set the passive filter pole at mixer output at 13 MHz.
+    const uint32_t MIXERMODE_HIGH_BAND = 0x0;  // L1 band enabled
+    const uint32_t MIXERMODE_LOW_BAND = 0X1;   // L2/L5 band enabled
+    const uint32_t FCEN = 0x58;                // Center frequency not used when in low-pass filter mode. Set to default value.
+    const uint32_t FCENX = 0x0;                // POlyphase filter selection set to Lowpass filter
+    const uint32_t ANAIMON = 0x0;              // analog monitor disabled
+    const uint32_t IQEN = 0x1;                 // I and Q channels enable
+    const uint32_t GAINREF = 0xAA;             // AGC Gain ref
+    const uint32_t SPI_SDIO_CONFIG = 0x0;      // SPI SDIO config when tri-stated: nothing applied
+    const uint32_t FORMAT = 0x1;               // sign and magnitude
+    const uint32_t BITS = 0x2;                 // number of bits in the ADC = 2
+    const uint32_t DRVCFG = 0x0;               // output driver configuration = CMOS Logic
+    const uint32_t DIEID = 0x0;                // identifies version of IC
+    const uint32_t HILOADEN = 0x0;             // disable output driver for high loads
+    const uint32_t FHIPEN = 0x1;               // enable highpass coupling between filter and PGA.
+    const uint32_t PGAIEN = 0x1;               // I-Channel PGA Enable
+    const uint32_t PGAQEN = 0x1;               // Q-Channel PGA Enable
+    const uint32_t STRMEN = 0x0;               // disable DSP interface for serial streaming of data
+    const uint32_t STRMSTART = 0x0;            // the rising edge of this bit enables data streaming to the output, clock, data, sync and frame sync outputs.
+    const uint32_t STRMSTOP = 0x0;             // the rising edge of this bit disables data streaming to the output, clock,  data sync and frame sync outputs.
+    const uint32_t STRMBITS = 0x1;             // number of bits to be streamed: I MSB, I LSB
+    const uint32_t STAMPEN = 0x1;              // enable frame number insertion
+    const uint32_t TIMESYNCEN = 0x1;           // enable the output of the time sync pulses at all times when streaming is enabled.
+    const uint32_t DATASYNCEN = 0x0;           // disable the sync pulses at the DATASYNC output
+    const uint32_t STRMRST = 0x0;              // counter reset not active
+    const uint32_t LOBAND_L1 = 0x0;            // L1 band
+    const uint32_t LOBAND_L5 = 0x1;            // L5 band
+    const uint32_t REFOUTEN = 0x1;             // Output clock buffer enable
+    const uint32_t IXTAL = 0x1;                // XTAL osscillator/buffer set to normal current
+    const uint32_t ICP = 0x0;                  // charge pump current selection set to 0.5 mA
+    const uint32_t INT_PLL = 0x1;              // PLL mode set to integer-N PLL
+    const uint32_t PWRSAV = 0x0;               // PLL power save mode disabled
+    const uint32_t RDIV = 0x10;                // Set the PLL reference division ratio
+    const uint32_t FDIV = 0x80000;             // PLL fractional division ratio not used. Set to default value
+    const uint32_t EXTADCCLK = 0x0;            // use internally generated clock
+    const uint32_t REFCLK_L_CNT = 0x100;       // set the L counter of the reference clock configuration to its default value
+    const uint32_t REFCLK_M_CNT = 0x61B;       // set the M counter of the reference clock configuration to its default value
+    const uint32_t FCLKIN = 0x0;               // fractional clock divider set to default value
+    const uint32_t ADCCLK = 0x0;               // ADC clock selection set to reference clock divider/multiplier
+    const uint32_t MODE = 0x0;                 // DSP interface mode selection
+    const uint32_t ADCCLK_L_CNT = 0x100;       // set the L counter of the ADC clock configuration to its default value
+    const uint32_t ADCCLK_M_CNT = 0x61B;       // set the M counter of the ADC clock configuration to its default value
+    const uint32_t PRE_FRACDIV_SEL = 0x0;      // bypass fractional clock divider
+    const uint32_t CLKOUT_SEL = 0x1;           // CLKOUT selection set to ADC clock
     // MAX2771 configuration register registers
     const uint32_t TEST_MODE_1_REG_VAL = 0x01E0F401;  // reserved
     const uint32_t TEST_MODE_2_REG_VAL = 0x00000002;
@@ -136,9 +141,12 @@ private:
     std::shared_ptr<Fpga_buffer_monitor> buffer_monitor_fpga;
     std::shared_ptr<Fpga_spidev> spidev_fpga;
 
-    uint64_t freq_;  // frequency of local oscillator
+    uint64_t freq_;   // Tuning frequency in single-band mode
+    uint64_t freq0_;  // Tuning frequency for band 0 when dual-band mode is enabled
+    uint64_t freq1_;  // Tuning frequency for band 1 when dual-band mode is enabled
     uint64_t sample_rate_;
 
+    uint32_t RF_channels_;
     uint32_t in_stream_;
     uint32_t out_stream_;
     uint32_t bandwidth_;     // 2500000, 4200000, 8700000, 16400000, 23400000, 36000000

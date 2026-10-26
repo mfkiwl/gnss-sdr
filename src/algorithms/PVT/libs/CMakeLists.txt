@@ -15,15 +15,18 @@ set(PVT_LIB_SOURCES
     gpx_printer.cc
     kml_printer.cc
     nmea_printer.cc
+    ntrip_rtcm_client.cc
     rinex_printer.cc
     rtcm_printer.cc
     rtcm.cc
     rtklib_solver.cc
+    sbas_rtklib_corrections.cc
     monitor_pvt_udp_sink.cc
     monitor_ephemeris_udp_sink.cc
     has_simple_printer.cc
     geohash.cc
     pvt_kf.cc
+    signal_enabled_flags.cc
 )
 
 set(PVT_LIB_HEADERS
@@ -31,13 +34,18 @@ set(PVT_LIB_HEADERS
     pvt_conf.h
     pvt_solution.h
     geojson_printer.h
+    galileo_ephemeris_store.h
     gpx_printer.h
     kml_printer.h
     nmea_printer.h
+    ntrip_rtcm_client.h
+    ntrip_rtk_signals.h
+    secure_string.h
     rinex_printer.h
     rtcm_printer.h
     rtcm.h
     rtklib_solver.h
+    sbas_rtklib_corrections.h
     monitor_pvt_udp_sink.h
     monitor_pvt.h
     serdes_monitor_pvt.h
@@ -47,6 +55,7 @@ set(PVT_LIB_HEADERS
     has_simple_printer.h
     geohash.h
     pvt_kf.h
+    signal_enabled_flags.h
 )
 
 list(SORT PVT_LIB_HEADERS)
@@ -94,6 +103,7 @@ target_link_libraries(pvt_libs
         algorithms_libs
         gnss_sdr_flags
         Matio::matio
+        Threads::Threads
 )
 
 if(ENABLE_GLOG_AND_GFLAGS)
@@ -110,6 +120,7 @@ get_filename_component(PROTO_INCLUDE_HEADERS_DIR ${PROTO_HDRS} DIRECTORY)
 target_include_directories(pvt_libs
     PUBLIC
         ${GNSSSDR_SOURCE_DIR}/src/core/receiver
+        ${GNSSSDR_SOURCE_DIR}/src/core/libs
 )
 
 # Do not apply clang-tidy fixes to protobuf generated headers
@@ -156,6 +167,16 @@ if(Boost_VERSION_STRING VERSION_LESS 1.71.0)
         PUBLIC
             -DBOOST_ASIO_USE_RESOLVER_ITERATOR=1
             -DBOOST_ASIO_USE_IOCONTEXT_POST=1
+    )
+endif()
+
+if((CMAKE_CXX_STANDARD AND CMAKE_CXX_STANDARD VERSION_LESS 17) OR
+  (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8.0") OR
+  (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.0") OR
+  (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "10.0"))
+    target_compile_definitions(pvt_libs
+        PUBLIC
+            -DNO_FOLD_EXPRESSIONS=1
     )
 endif()
 

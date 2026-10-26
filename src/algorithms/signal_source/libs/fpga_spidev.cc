@@ -22,11 +22,12 @@
 #include <unistd.h>            // for close()
 
 
-int Fpga_spidev::SPI_open()
+int Fpga_spidev::SPI_open(std::string spi_device_name)
 {
-    if ((d_fd = open(SPI_DEVICE_NAME.c_str(), O_RDWR)) < 0)
+    std::cout << "opening SPI device file " << spi_device_name << std::endl;
+    if ((d_fd = open(spi_device_name.c_str(), O_RDWR)) < 0)
         {
-            std::cerr << "Failed to open the " << SPI_DEVICE_NAME << " device file \n";
+            std::cerr << "Failed to open the " << spi_device_name << " device file \n";
             return -1;
         }
 

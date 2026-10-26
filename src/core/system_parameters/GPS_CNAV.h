@@ -139,6 +139,23 @@ constexpr double CNAV_BETA3_LSB = TWO_P16;
 const std::vector<std::pair<int32_t, int32_t> > CNAV_WNOP({{257, 8}});
 
 
+// MESSAGE TYPE 32 (CLOCK and EARTH ORIENTATION PARAMETERS)
+const std::vector<std::pair<int32_t, int32_t> > CNAV_T_EOP({{128, 16}});
+constexpr int32_t CNAV_T_EOP_LSB = TWO_P4;
+const std::vector<std::pair<int32_t, int32_t> > CNAV_PM_X({{144, 21}});
+constexpr double CNAV_PM_X_LSB = TWO_N20;
+const std::vector<std::pair<int32_t, int32_t> > CNAV_PM_X_DOT({{165, 15}});
+constexpr double CNAV_PM_X_DOT_LSB = TWO_N21;
+const std::vector<std::pair<int32_t, int32_t> > CNAV_PM_Y({{180, 21}});
+constexpr double CNAV_PM_Y_LSB = TWO_N20;
+const std::vector<std::pair<int32_t, int32_t> > CNAV_PM_Y_DOT({{201, 15}});
+constexpr double CNAV_PM_Y_DOT_LSB = TWO_N21;
+const std::vector<std::pair<int32_t, int32_t> > CNAV_DELTA_UT1_GPS({{216, 31}});
+constexpr double CNAV_DELTA_UT1_GPS_LSB = TWO_N23;
+const std::vector<std::pair<int32_t, int32_t> > CNAV_DELTA_UT1_GPS_DOT({{247, 19}});
+constexpr double CNAV_DELTA_UT1_GPS_DOT_LSB = TWO_N25;
+
+
 // MESSAGE TYPE 33 (CLOCK and UTC)
 const std::vector<std::pair<int32_t, int32_t> > CNAV_A0({{128, 16}});
 constexpr double CNAV_A0_LSB = TWO_N35;
@@ -161,6 +178,7 @@ constexpr int32_t CNAV_DELTA_TLSF_LSB = 1;
 
 constexpr double CNAV_A_REF = 26559710.0;       // [m] See IS-GPS-200M, Table 30-I.
 constexpr double CNAV_OMEGA_DOT_REF = -2.6e-9;  // [semicircles / s], see IS-GPS-200M, Table 30-I.
+constexpr double CNAV_QZSS_A_REF = 42164200.0;
 
 // TODO: Add more frames (Almanac, etc...)
 

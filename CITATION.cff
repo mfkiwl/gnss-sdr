@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# SPDX-FileCopyrightText: 2024-2025 C. Fernandez-Prades carles.fernandez(at)cttc.es
+# SPDX-FileCopyrightText: 2024-2026 C. Fernandez-Prades carles.fernandez(at)cttc.es
 ---
 authors:
   - affiliation: "Centre Tecnològic de Telecomunicacions de Catalunya (CTTC)"
@@ -25,6 +25,15 @@ authors:
     email: xavier.guerrero@cttc.es
     family-names: Guerrero
     given-names: Xavier
+  - affiliation: "The University of Alabama"
+    alias: minhaj6
+    email: mahmad12@crimson.ua.edu
+    family-names: Ahmad
+    given-names: "Minhaj Uddin"
+  - alias: BigTurtle8
+    email: mvala079@gmail.com
+    family-names: Alagar
+    given-names: Marcus
   - alias: Gastd
     email: gabriel.araujo.5000@gmail.com
     family-names: Araujo
@@ -39,6 +48,10 @@ authors:
     email: mara.branzanti@gmail.com
     family-names: Branzanti
     given-names: Mara
+  - affiliation: "Saphyrion SAGL"
+    alias: joebre
+    family-names: Brenner
+    given-names: Joel
   - alias: castle055
     affiliation: "Instituto Nacional de Técnica Aeroespacial"
     email: victorcastilloaguero@gmail.com
@@ -58,6 +71,9 @@ authors:
   - email: fabra@ice.csic.es
     family-names: Fabra
     given-names: Fran
+  - email: favreau.mathieu@hotmail.com
+    family-names: Favreau
+    given-names: Mathieu
   - email: daniel.co@bluewin.ch
     family-names: Fehr
     given-names: Daniel
@@ -70,6 +86,11 @@ authors:
     email: piyush04111999@gmail.com
     family-names: Gupta
     given-names: Piyush
+  - affiliation: "Sun Yat-sen University (SYSU)"
+    alias: HuangChuhan-SYSU
+    email: huangchh37@mail2.sysu.edu.cn
+    family-names: Huang
+    given-names: Chuhan
   - alias: glamountain
     email: gerald@gece.neu.edu
     family-names: LaMountain
@@ -97,11 +118,19 @@ authors:
     email: cillian.odriscoll@gmail.com
     family-names: "O'Driscoll"
     given-names: Cillian
+  - alias: vladisslav2011
+    email: vladisslav2011@gmail.com
+    family-names: P
+    given-names: Vladislav
   - affiliation: "Finnish Geospatial Research Institute"
     alias: IntoPa
     email: into.paakkonen@aalto.fi
     family-names: "Pääkkönen"
     given-names: Into
+  - alias: pedromiguelcp
+    email: pereirapedrocp@gmail.com
+    given-names: Pedro
+    family-names: Pereira
   - alias: Perrielornitorrinco
     affiliation: "Instituto Nacional de Técnica Aeroespacial"
     email: iperrie@inta.es
@@ -126,6 +155,10 @@ authors:
     email: wsilberm@google.com
     family-names: Silberman
     given-names: Will
+  - alias: MrCry0
+    email: github@say.od.ua
+    family-names: Suvorov
+    given-names: Oleksandr
   - email: tonetto.dev@gmail.com
     family-names: Tonetto
     given-names: Leonardo
@@ -133,8 +166,17 @@ authors:
     email: spvdlinden@gmail.com
     family-names: "van der Linden"
     given-names: Stefan
+  - alias: OuWenhao16
+    affiliation: "Sun Yat-sen University (SYSU)"
+    email: ouwh@mail2.sysu.edu.cn
+    family-names: Ou
+    given-names: Wenhao
+  - alias: phillipvu
+    email: phillip.wu19@gmail.com
+    family-names: Vu
+    given-names: Phillip
 cff-version: "1.2.0"
-date-released: "2025-04-01"
+date-released: "2026-10-04"
 identifiers:
   - description: "The concept DOI of the work. This is a DOI always pointing to the latest stable release."
     type: doi
@@ -342,4 +384,4 @@ repository-code: "https://github.com/gnss-sdr/gnss-sdr"
 title: GNSS-SDR
 type: software
 url: "https://gnss-sdr.org"
-version: "0.0.20"
+version: "0.0.22"

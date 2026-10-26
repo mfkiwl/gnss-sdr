@@ -15,9 +15,9 @@
  * -----------------------------------------------------------------------------
  */
 
+#include "acquisition_interface.h"
 #include "concurrent_queue.h"
 #include "fir_filter.h"
-#include "galileo_e5a_noncoherent_iq_acquisition_caf.h"
 #include "gen_signal_source.h"
 #include "gnss_block_factory.h"
 #include "gnss_block_interface.h"
@@ -31,18 +31,28 @@
 #include <gnuradio/blocks/file_source.h>
 #include <gnuradio/blocks/null_sink.h>
 #include <gnuradio/top_block.h>
+#include <gtest/gtest.h>
 #include <pmt/pmt.h>
 #include <chrono>
 #include <utility>
+
 #if HAS_GENERIC_LAMBDA
 #else
 #include <boost/bind/bind.hpp>
 #endif
+
 #ifdef GR_GREATER_38
 #include <gnuradio/analog/sig_source.h>
 #else
 #include <gnuradio/analog/sig_source_c.h>
 #endif
+
+#if USE_GLOG_AND_GFLAGS
+#include <glog/logging.h>
+#else
+#include <absl/log/log.h>
+#endif
+
 #if PMT_USES_BOOST_ANY
 namespace wht = boost;
 #else
@@ -98,7 +108,7 @@ GalileoE5aPcpsAcquisitionGSoC2014GensourceTest_msg_rx::GalileoE5aPcpsAcquisition
     this->message_port_register_in(pmt::mp("events"));
     this->set_msg_handler(pmt::mp("events"),
 #if HAS_GENERIC_LAMBDA
-        [this](auto&& PH1) { msg_handler_channel_events(PH1); });
+        [this](auto&& PH1) { msg_handler_channel_events(std::forward<decltype(PH1)>(PH1)); });
 #else
 #if USE_BOOST_BIND_PLACEHOLDERS
         boost::bind(&GalileoE5aPcpsAcquisitionGSoC2014GensourceTest_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
@@ -139,7 +149,7 @@ protected:
     Concurrent_Queue<int> channel_internal_queue;
     std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue;
     gr::top_block_sptr top_block;
-    std::shared_ptr<GalileoE5aNoncoherentIQAcquisitionCaf> acquisition;
+    std::unique_ptr<AcquisitionInterface> acquisition;
 
     std::shared_ptr<InMemoryConfiguration> config;
     Gnss_Synchro gnss_synchro;
@@ -272,7 +282,7 @@ void GalileoE5aPcpsAcquisitionGSoC2014GensourceTest::config_1()
     config->set_property("Acquisition_5X.CAF_window_hz", std::to_string(CAF_window_hz));
     config->set_property("Acquisition_5X.Zero_padding", std::to_string(Zero_padding));
     config->set_property("Acquisition_5X.pfa", "0.003");
-    //    config->set_property("Acquisition_5X.threshold", "0.01");
+    config->set_property("Acquisition_5X.threshold", "0.0001");
     config->set_property("Acquisition_5X.doppler_max", "10000");
     config->set_property("Acquisition_5X.doppler_step", "250");
     config->set_property("Acquisition_5X.bit_transition_flag", "false");
@@ -442,8 +452,6 @@ void GalileoE5aPcpsAcquisitionGSoC2014GensourceTest::wait_message()
 
     while (!stop)
         {
-            acquisition->reset();
-
             start = std::chrono::system_clock::now();
 
             channel_internal_queue.wait_and_pop(message);
@@ -454,6 +462,11 @@ void GalileoE5aPcpsAcquisitionGSoC2014GensourceTest::wait_message()
             mean_acq_time_us += elapsed_seconds.count() * 1e6;
 
             process_message();
+
+            if (!stop)
+                {
+                    acquisition->reset();  // arm the next realization
+                }
         }
 }
 
@@ -533,7 +546,7 @@ void GalileoE5aPcpsAcquisitionGSoC2014GensourceTest::stop_queue()
 TEST_F(GalileoE5aPcpsAcquisitionGSoC2014GensourceTest, Instantiate)
 {
     config_1();
-    acquisition = std::make_shared<GalileoE5aNoncoherentIQAcquisitionCaf>(config.get(), "Acquisition_5X", 1, 0);
+    acquisition = block_factory::GetAcqBlock(config.get(), "Acquisition_5X", 1, 0);
 }
 
 
@@ -544,7 +557,7 @@ TEST_F(GalileoE5aPcpsAcquisitionGSoC2014GensourceTest, ConnectAndRun)
     int nsamples = 21000 * 3;
     std::chrono::time_point<std::chrono::system_clock> start, end;
     std::chrono::duration<double> elapsed_seconds(0);
-    acquisition = std::make_shared<GalileoE5aNoncoherentIQAcquisitionCaf>(config.get(), "Acquisition_5X", 1, 0);
+    acquisition = block_factory::GetAcqBlock(config.get(), "Acquisition_5X", 1, 0);
     auto msg_rx = GalileoE5aPcpsAcquisitionGSoC2014GensourceTest_msg_rx_make(channel_internal_queue);
     queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
     top_block = gr::make_top_block("Acquisition test");
@@ -574,7 +587,7 @@ TEST_F(GalileoE5aPcpsAcquisitionGSoC2014GensourceTest, ValidationOfSIM)
     config_1();
     queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
     top_block = gr::make_top_block("Acquisition test");
-    acquisition = std::make_shared<GalileoE5aNoncoherentIQAcquisitionCaf>(config.get(), "Acquisition_5X", 1, 0);
+    acquisition = block_factory::GetAcqBlock(config.get(), "Acquisition_5X", 1, 0);
     auto msg_rx = GalileoE5aPcpsAcquisitionGSoC2014GensourceTest_msg_rx_make(channel_internal_queue);
 
     ASSERT_NO_THROW({
@@ -584,18 +597,6 @@ TEST_F(GalileoE5aPcpsAcquisitionGSoC2014GensourceTest, ValidationOfSIM)
     ASSERT_NO_THROW({
         acquisition->set_gnss_synchro(&gnss_synchro);
     }) << "Failure setting gnss_synchro.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_doppler_max(config->property("Acquisition_5X.doppler_max", 5000));
-    }) << "Failure setting doppler_max.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_doppler_step(config->property("Acquisition_5X.doppler_step", 100));
-    }) << "Failure setting doppler_step.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_threshold(config->property("Acquisition_5X.threshold", 0.0001));
-    }) << "Failure setting threshold.";
 
     ASSERT_NO_THROW({
         acquisition->connect(top_block);
@@ -614,7 +615,6 @@ TEST_F(GalileoE5aPcpsAcquisitionGSoC2014GensourceTest, ValidationOfSIM)
     }) << "Failure connecting the blocks of acquisition test.";
 
     acquisition->reset();
-    acquisition->init();
 
     // i = 0 --> satellite in acquisition is visible
     // i = 1 --> satellite in acquisition is not visible
@@ -638,7 +638,7 @@ TEST_F(GalileoE5aPcpsAcquisitionGSoC2014GensourceTest, ValidationOfSIM)
 
             acquisition->set_gnss_synchro(&gnss_synchro);
             acquisition->set_local_code();
-            acquisition->set_state(1);
+            acquisition->reset();
             start_queue();
 
             EXPECT_NO_THROW({

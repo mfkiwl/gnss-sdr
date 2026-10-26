@@ -19,8 +19,7 @@
 #include "glonass_l1_signal_replica.h"
 #include <array>
 #include <bitset>
-
-const auto AUX_CEIL = [](float x) { return static_cast<int32_t>(static_cast<int64_t>((x) + 1)); };
+#include <cmath>
 
 void glonass_l1_ca_code_gen_complex(own::span<std::complex<float>> dest, uint32_t chip_shift)
 {
@@ -76,6 +75,60 @@ void glonass_l1_ca_code_gen_complex(own::span<std::complex<float>> dest, uint32_
         }
 }
 
+void glonass_l1_ca_code_gen_float(own::span<float> dest, uint32_t chip_shift)
+{
+    const uint32_t code_length = 511;
+    std::bitset<code_length> G1{};
+    auto G1_register = std::bitset<9>{}.set();  // All true
+    uint32_t lcv;
+    uint32_t lcv2;
+    bool feedback1;
+    bool aux;
+
+    /* Generate G1 Register */
+    for (lcv = 0; lcv < code_length; lcv++)
+        {
+            G1[lcv] = G1_register[2];
+
+            feedback1 = G1_register[4] ^ G1_register[0];
+
+            for (lcv2 = 0; lcv2 < 8; lcv2++)
+                {
+                    G1_register[lcv2] = G1_register[lcv2 + 1];
+                }
+
+            G1_register[8] = feedback1;
+        }
+
+    /* Generate PRN from G1 Register */
+    for (lcv = 0; lcv < code_length; lcv++)
+        {
+            aux = G1[lcv];
+            if (aux == true)
+                {
+                    dest[lcv] = 1;
+                }
+            else
+                {
+                    dest[lcv] = -1;
+                }
+        }
+
+    /* Generate PRN from G1 and G2 Registers */
+    for (lcv = 0; lcv < code_length; lcv++)
+        {
+            aux = G1[(lcv + chip_shift) % code_length];
+            if (aux == true)
+                {
+                    dest[lcv] = 1;
+                }
+            else
+                {
+                    dest[lcv] = -1;
+                }
+        }
+}
+
 
 /*
  *  Generates complex GLONASS L1 C/A code for the desired SV ID and sampled to specific sampling frequency
@@ -104,8 +157,8 @@ void glonass_l1_ca_code_gen_complex_sampled(own::span<std::complex<float>> dest,
             // number of samples per millisecond (because one C/A code period is
             // one millisecond).
 
-            aux = (ts * (static_cast<float>(i) + 1)) / tc;
-            codeValueIndex = AUX_CEIL(aux) - 1;
+            aux = ts * static_cast<float>(i) / tc;
+            codeValueIndex = static_cast<int32_t>(std::floor(aux));
 
             // --- Make the digitized version of the C/A code ------------------
             // The "upsampled" code is made by selecting values form the CA code

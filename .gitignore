@@ -3,6 +3,7 @@
 *~
 .*.swp
 /build/
+/.build/
 /build*/
 /cmake-build-debug/
 /data/
@@ -28,3 +29,4 @@
 .settings
 .vs/
 .vscode/
+*.pyc

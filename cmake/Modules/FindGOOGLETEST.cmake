@@ -23,7 +23,7 @@ if(NOT PKG_CONFIG_FOUND)
     include(FindPkgConfig)
 endif()
 
-if(NOT GNSSSDR_LIB_PATHS)
+if(NOT DEFINED GNSSSDR_LIB_PATHS)
     include(GnsssdrFindPaths)
 endif()
 
@@ -45,14 +45,13 @@ find_path(LIBGTEST_DEV_DIR
     NAMES src/gtest-all.cc
     PATHS
         ${GTEST_DIR_USER_PROVIDED}
-        ${GTEST_DIR_USER_PROVIDED}/googletest
-        /usr/src/googletest/googletest
-        /usr/src/gtest
-        ${GNSSSDR_INCLUDE_PATHS}/gtest
-        ${GNSSSDR_INCLUDE_PATHS}/googletest
-        ${CMAKE_SYSTEM_PREFIX_PATH}/src/googletest/googletest
+        /usr/src/googletest/
+        /usr/src
+        ${GNSSSDR_INCLUDE_PATHS}
+        ${CMAKE_SYSTEM_PREFIX_PATH}/src/googletest
         ${CMAKE_SYSTEM_PREFIX_PATH}/src/gtest-1.7.0
-        ${CMAKE_SYSTEM_PREFIX_PATH}/opt/googletest/include/googletest/googletest
+        ${CMAKE_SYSTEM_PREFIX_PATH}/opt/googletest/include/googletest
+    PATH_SUFFIXES gtest googletest
 )
 
 find_path(GTEST_INCLUDE_DIRS

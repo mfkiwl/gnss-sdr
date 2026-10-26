@@ -19,6 +19,7 @@
 #define GNSS_SDR_FILE_SOURCE_BASE_H
 
 #include "concurrent_queue.h"
+#include "sensor_data/sensor_data_source.h"
 #include "signal_source_base.h"
 #include <gnuradio/blocks/file_sink.h>  // for dump
 #include <gnuradio/blocks/file_source.h>
@@ -27,6 +28,7 @@
 #include <cstddef>
 #include <string>
 #include <tuple>
+
 
 /** \addtogroup Signal_Source
  * \{ */
@@ -112,10 +114,10 @@ protected:
     virtual double packetsPerSample() const;
 
     //! Compute the number of samples to skip
-    virtual size_t samplesToSkip() const;
+    virtual uint64_t samplesToSkip() const;
 
     //! Compute the number of samples in the file
-    size_t computeSamplesInFile() const;
+    uint64_t computeSamplesInFile() const;
 
     //! Abstracted front-end source. Sub-classes may override if they create specialized chains to
     //! decode source files into a usable format
@@ -131,6 +133,7 @@ protected:
     gnss_shared_ptr<gr::block> valve() const;
     gnss_shared_ptr<gr::block> throttle() const;
     gnss_shared_ptr<gr::block> sink() const;
+    SensorDataSource::sptr sensor_data_source() const;
 
     // The methods create the various blocks, if enabled, and return access to them. The created
     // object is also held in this class
@@ -138,6 +141,7 @@ protected:
     gr::blocks::throttle::sptr create_throttle();
     gnss_shared_ptr<gr::block> create_valve();
     gr::blocks::file_sink::sptr create_sink();
+    SensorDataSource::sptr create_sensor_data_source();
 
     // Subclass hooks to augment created objects, as required
     virtual void create_file_source_hook();
@@ -155,6 +159,7 @@ private:
     gr::blocks::file_source::sptr file_source_;
     gr::blocks::throttle::sptr throttle_;
     gr::blocks::file_sink::sptr sink_;
+    SensorDataSource::sptr sensor_data_source_;
 
     // The valve allows only the configured number of samples through, then it closes.
 
@@ -179,6 +184,9 @@ private:
     bool repeat_;
     bool enable_throttle_control_;
     bool dump_;
+
+    // Configuration for Extra Data source
+    SensorDataSourceConfiguration sensor_data_source_configuration_;
 };
 
 /** \} */

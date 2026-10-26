@@ -20,6 +20,7 @@
 #ifndef GNSS_SDR_RTCM_PRINTER_H
 #define GNSS_SDR_RTCM_PRINTER_H
 
+#include "signal_enabled_flags.h"
 #include <cstdint>  // for int32_t
 #include <fstream>  // for std::ofstream
 #include <map>      // for std::map
@@ -58,13 +59,14 @@ public:
         uint16_t rtcm_tcp_port,
         uint16_t rtcm_station_id,
         const std::string& rtcm_dump_devname,
+        uint32_t signal_enabled_flags,
         bool time_tag_name = true,
         const std::string& base_path = ".");
 
     /*!
      * \brief Default destructor.
      */
-    ~Rtcm_Printer();
+    ~Rtcm_Printer() noexcept;
 
     /*!
      * \brief Print RTCM messages.
@@ -72,13 +74,13 @@ public:
     void Print_Rtcm_Messages(const Rtklib_Solver* pvt_solver,
         const std::map<int, Gnss_Synchro>& gnss_observables_map,
         double rx_time,
-        int32_t type_of_rx,
-        int32_t rtcm_MSM_rate_ms,
-        int32_t rtcm_MT1019_rate_ms,
-        int32_t rtcm_MT1020_rate_ms,
-        int32_t rtcm_MT1045_rate_ms,
-        int32_t rtcm_MT1077_rate_ms,
-        int32_t rtcm_MT1097_rate_ms,
+        bool rtcm_MSM_enabled,
+        bool rtcm_MT1019_enabled,
+        bool rtcm_MT1020_enabled,
+        bool rtcm_MT1045_enabled,
+        bool rtcm_MT1077_enabled,
+        bool rtcm_MT1087_enabled,
+        bool rtcm_MT1097_enabled,
         bool flag_write_RTCM_MSM_output,
         bool flag_write_RTCM_1019_output,
         bool flag_write_RTCM_1020_output,
@@ -100,6 +102,7 @@ public:
     uint32_t lock_time(const Glonass_Gnav_Ephemeris& eph, double obs_time, const Gnss_Synchro& gnss_synchro);
 
     void Print_IGM_Messages(const Galileo_HAS_data& has_data);
+    void Print_SSR_Messages(const Galileo_HAS_data& has_data);
 
     std::string print_MT1005_test();  //!<  For testing purposes
 
@@ -181,10 +184,15 @@ private:
         bool divergence_free,
         bool more_messages);
 
-    bool Print_IGM01(const Galileo_HAS_data& has_data);  // SSR Orbit Corrections
-    bool Print_IGM02(const Galileo_HAS_data& has_data);  // SSR Clock Corrections
-    bool Print_IGM03(const Galileo_HAS_data& has_data);  // SSR Combined Orbit & Clock Corrections
-    bool Print_IGM05(const Galileo_HAS_data& has_data);  // SSR Bias Corrections
+    bool Print_Rtcm_MT1057(const Galileo_HAS_data& has_data, bool ssr_multiple_msg_indicator = false);                                 // SSR GPS Orbit Corrections
+    bool Print_Rtcm_MT1058(const Galileo_HAS_data& has_data, bool use_clock_subset = false, bool ssr_multiple_msg_indicator = false);  // SSR GPS Clock Corrections
+    bool Print_Rtcm_MT1059(const Galileo_HAS_data& has_data, bool ssr_multiple_msg_indicator = false);                                 // SSR GPS Code Bias Corrections
+    bool Print_Rtcm_MT1060(const Galileo_HAS_data& has_data, bool ssr_multiple_msg_indicator = false);                                 // SSR GPS Combined Orbit & Clock Corrections
+
+    bool Print_IGM01(const Galileo_HAS_data& has_data);                                 // SSR Orbit Corrections
+    bool Print_IGM02(const Galileo_HAS_data& has_data, bool use_clock_subset = false);  // SSR Clock Corrections
+    bool Print_IGM03(const Galileo_HAS_data& has_data);                                 // SSR Combined Orbit & Clock Corrections
+    bool Print_IGM05(const Galileo_HAS_data& has_data);                                 // SSR Bias Corrections
 
     int32_t init_serial(const std::string& serial_device);  // serial port control
     void close_serial() const;
@@ -198,8 +206,9 @@ private:
     int32_t rtcm_dev_descriptor;  // RTCM serial device descriptor (i.e. COM port)
     uint16_t port;
     uint16_t station_id;
-    bool d_rtcm_writing_started;
+    bool d_rtcm_has_written_once;
     bool d_rtcm_file_dump;
+    const Signal_Enabled_Flags d_flags;
 };
 
 

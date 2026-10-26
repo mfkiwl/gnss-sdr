@@ -180,8 +180,15 @@ static inline void volk_gnsssdr_32fc_x2_rotator_dot_prod_32fc_xn_u_sse3(lv_32fc_
 
     __VOLK_ATTR_ALIGNED(16)
     lv_32fc_t two_phase_inc[2];
-    two_phase_inc[0] = phase_inc * phase_inc;
-    two_phase_inc[1] = phase_inc * phase_inc;
+    // Phase arguments in double precision. Any float representation of
+    // phase_inc^2 carries an angle error of a few 1e-8 rad, which the rotator
+    // accumulates linearly along the vector (normalization cannot remove it),
+    // so the rotator is periodically regenerated from these arguments.
+    const double arg_phase0 = atan2((double)lv_cimag(*phase), (double)lv_creal(*phase));
+    const double arg_phase_inc = atan2((double)lv_cimag(phase_inc), (double)lv_creal(phase_inc));
+    double phase_est;
+    two_phase_inc[0] = lv_cmake((float)cos(2.0 * arg_phase_inc), (float)sin(2.0 * arg_phase_inc));
+    two_phase_inc[1] = two_phase_inc[0];
     two_phase_inc_reg = _mm_load_ps((float*)two_phase_inc);
     __VOLK_ATTR_ALIGNED(16)
     lv_32fc_t two_phase_acc[2];
@@ -226,11 +233,10 @@ static inline void volk_gnsssdr_32fc_x2_rotator_dot_prod_32fc_xn_u_sse3(lv_32fc_
             // Regenerate phase
             if ((number % 128) == 0)
                 {
-                    tmp1 = _mm_mul_ps(two_phase_acc_reg, two_phase_acc_reg);
-                    tmp2 = _mm_hadd_ps(tmp1, tmp1);
-                    tmp1 = _mm_shuffle_ps(tmp2, tmp2, 0xD8);
-                    tmp2 = _mm_sqrt_ps(tmp1);
-                    two_phase_acc_reg = _mm_div_ps(two_phase_acc_reg, tmp2);
+                    phase_est = arg_phase0 + (double)((number + 1) * 2) * arg_phase_inc;
+                    two_phase_acc[0] = lv_cmake((float)cos(phase_est), (float)sin(phase_est));
+                    two_phase_acc[1] = lv_cmake((float)cos(phase_est + arg_phase_inc), (float)sin(phase_est + arg_phase_inc));
+                    two_phase_acc_reg = _mm_load_ps((float*)two_phase_acc);
                 }
         }
 
@@ -292,8 +298,15 @@ static inline void volk_gnsssdr_32fc_x2_rotator_dot_prod_32fc_xn_a_sse3(lv_32fc_
 
     __VOLK_ATTR_ALIGNED(16)
     lv_32fc_t two_phase_inc[2];
-    two_phase_inc[0] = phase_inc * phase_inc;
-    two_phase_inc[1] = phase_inc * phase_inc;
+    // Phase arguments in double precision. Any float representation of
+    // phase_inc^2 carries an angle error of a few 1e-8 rad, which the rotator
+    // accumulates linearly along the vector (normalization cannot remove it),
+    // so the rotator is periodically regenerated from these arguments.
+    const double arg_phase0 = atan2((double)lv_cimag(*phase), (double)lv_creal(*phase));
+    const double arg_phase_inc = atan2((double)lv_cimag(phase_inc), (double)lv_creal(phase_inc));
+    double phase_est;
+    two_phase_inc[0] = lv_cmake((float)cos(2.0 * arg_phase_inc), (float)sin(2.0 * arg_phase_inc));
+    two_phase_inc[1] = two_phase_inc[0];
     two_phase_inc_reg = _mm_load_ps((float*)two_phase_inc);
     __VOLK_ATTR_ALIGNED(16)
     lv_32fc_t two_phase_acc[2];
@@ -338,11 +351,10 @@ static inline void volk_gnsssdr_32fc_x2_rotator_dot_prod_32fc_xn_a_sse3(lv_32fc_
             // Regenerate phase
             if ((number % 128) == 0)
                 {
-                    tmp1 = _mm_mul_ps(two_phase_acc_reg, two_phase_acc_reg);
-                    tmp2 = _mm_hadd_ps(tmp1, tmp1);
-                    tmp1 = _mm_shuffle_ps(tmp2, tmp2, 0xD8);
-                    tmp2 = _mm_sqrt_ps(tmp1);
-                    two_phase_acc_reg = _mm_div_ps(two_phase_acc_reg, tmp2);
+                    phase_est = arg_phase0 + (double)((number + 1) * 2) * arg_phase_inc;
+                    two_phase_acc[0] = lv_cmake((float)cos(phase_est), (float)sin(phase_est));
+                    two_phase_acc[1] = lv_cmake((float)cos(phase_est + arg_phase_inc), (float)sin(phase_est + arg_phase_inc));
+                    two_phase_acc_reg = _mm_load_ps((float*)two_phase_acc);
                 }
         }
 
@@ -408,7 +420,14 @@ static inline void volk_gnsssdr_32fc_x2_rotator_dot_prod_32fc_xn_u_avx(lv_32fc_t
     lv_32fc_t four_phase_inc[4];
     const lv_32fc_t phase_inc2 = phase_inc * phase_inc;
     const lv_32fc_t phase_inc3 = phase_inc2 * phase_inc;
-    const lv_32fc_t phase_inc4 = phase_inc3 * phase_inc;
+    // Phase arguments in double precision. Any float representation of
+    // phase_inc^4 carries an angle error of a few 1e-8 rad, which the rotator
+    // accumulates linearly along the vector (normalization cannot remove it),
+    // so the rotator is periodically regenerated from these arguments.
+    const double arg_phase0 = atan2((double)lv_cimag(_phase), (double)lv_creal(_phase));
+    const double arg_phase_inc = atan2((double)lv_cimag(phase_inc), (double)lv_creal(phase_inc));
+    double phase_est;
+    const lv_32fc_t phase_inc4 = lv_cmake((float)cos(4.0 * arg_phase_inc), (float)sin(4.0 * arg_phase_inc));
     four_phase_inc[0] = phase_inc4;
     four_phase_inc[1] = phase_inc4;
     four_phase_inc[2] = phase_inc4;
@@ -460,11 +479,12 @@ static inline void volk_gnsssdr_32fc_x2_rotator_dot_prod_32fc_xn_u_avx(lv_32fc_t
             // Regenerate phase
             if ((number % 128) == 0)
                 {
-                    tmp1 = _mm256_mul_ps(four_phase_acc_reg, four_phase_acc_reg);
-                    tmp2 = _mm256_hadd_ps(tmp1, tmp1);
-                    tmp1 = _mm256_shuffle_ps(tmp2, tmp2, 0xD8);
-                    tmp2 = _mm256_sqrt_ps(tmp1);
-                    four_phase_acc_reg = _mm256_div_ps(four_phase_acc_reg, tmp2);
+                    phase_est = arg_phase0 + (double)((number + 1) * 4) * arg_phase_inc;
+                    for (n = 0; n < 4; ++n)
+                        {
+                            four_phase_acc[n] = lv_cmake((float)cos(phase_est + (double)n * arg_phase_inc), (float)sin(phase_est + (double)n * arg_phase_inc));
+                        }
+                    four_phase_acc_reg = _mm256_load_ps((float*)four_phase_acc);
                 }
         }
 
@@ -537,7 +557,14 @@ static inline void volk_gnsssdr_32fc_x2_rotator_dot_prod_32fc_xn_a_avx(lv_32fc_t
     lv_32fc_t four_phase_inc[4];
     const lv_32fc_t phase_inc2 = phase_inc * phase_inc;
     const lv_32fc_t phase_inc3 = phase_inc2 * phase_inc;
-    const lv_32fc_t phase_inc4 = phase_inc3 * phase_inc;
+    // Phase arguments in double precision. Any float representation of
+    // phase_inc^4 carries an angle error of a few 1e-8 rad, which the rotator
+    // accumulates linearly along the vector (normalization cannot remove it),
+    // so the rotator is periodically regenerated from these arguments.
+    const double arg_phase0 = atan2((double)lv_cimag(_phase), (double)lv_creal(_phase));
+    const double arg_phase_inc = atan2((double)lv_cimag(phase_inc), (double)lv_creal(phase_inc));
+    double phase_est;
+    const lv_32fc_t phase_inc4 = lv_cmake((float)cos(4.0 * arg_phase_inc), (float)sin(4.0 * arg_phase_inc));
     four_phase_inc[0] = phase_inc4;
     four_phase_inc[1] = phase_inc4;
     four_phase_inc[2] = phase_inc4;
@@ -589,11 +616,12 @@ static inline void volk_gnsssdr_32fc_x2_rotator_dot_prod_32fc_xn_a_avx(lv_32fc_t
             // Regenerate phase
             if ((number % 128) == 0)
                 {
-                    tmp1 = _mm256_mul_ps(four_phase_acc_reg, four_phase_acc_reg);
-                    tmp2 = _mm256_hadd_ps(tmp1, tmp1);
-                    tmp1 = _mm256_shuffle_ps(tmp2, tmp2, 0xD8);
-                    tmp2 = _mm256_sqrt_ps(tmp1);
-                    four_phase_acc_reg = _mm256_div_ps(four_phase_acc_reg, tmp2);
+                    phase_est = arg_phase0 + (double)((number + 1) * 4) * arg_phase_inc;
+                    for (n = 0; n < 4; ++n)
+                        {
+                            four_phase_acc[n] = lv_cmake((float)cos(phase_est + (double)n * arg_phase_inc), (float)sin(phase_est + (double)n * arg_phase_inc));
+                        }
+                    four_phase_acc_reg = _mm256_load_ps((float*)four_phase_acc);
                 }
         }
 
@@ -653,11 +681,15 @@ static inline void volk_gnsssdr_32fc_x2_rotator_dot_prod_32fc_xn_neon(lv_32fc_t*
     if (neon_iters > 0)
         {
             lv_32fc_t dotProduct = lv_cmake(0.0f, 0.0f);
-            float32_t arg_phase0 = cargf(_phase);
-            float32_t arg_phase_inc = cargf(phase_inc);
-            float32_t phase_est;
+            // Phase arguments are kept in double precision: the regenerated phase
+            // must stay close to the one obtained by the sequential float rotation
+            // of the GENERIC implementation, and a float phase_est (hundreds of
+            // radians after a few thousand samples) loses too much resolution.
+            const double arg_phase0 = atan2((double)lv_cimag(_phase), (double)lv_creal(_phase));
+            const double arg_phase_inc = atan2((double)lv_cimag(phase_inc), (double)lv_creal(phase_inc));
+            double phase_est;
 
-            lv_32fc_t ___phase4 = phase_inc * phase_inc * phase_inc * phase_inc;
+            const lv_32fc_t ___phase4 = lv_cmake((float)cos(4.0 * arg_phase_inc), (float)sin(4.0 * arg_phase_inc));
             __VOLK_ATTR_ALIGNED(16)
             float32_t __phase4_real[4] = {lv_creal(___phase4), lv_creal(___phase4), lv_creal(___phase4), lv_creal(___phase4)};
             __VOLK_ATTR_ALIGNED(16)
@@ -722,12 +754,12 @@ static inline void volk_gnsssdr_32fc_x2_rotator_dot_prod_32fc_xn_neon(lv_32fc_t*
                     // Regenerate phase
                     if ((number % 128) == 0)
                         {
-                            phase_est = arg_phase0 + (number + 1) * 4 * arg_phase_inc;
+                            phase_est = arg_phase0 + (double)((number + 1) * 4) * arg_phase_inc;
 
-                            _phase = lv_cmake(cos(phase_est), sin(phase_est));
-                            phase2 = _phase * phase_inc;
-                            phase3 = phase2 * phase_inc;
-                            phase4 = phase3 * phase_inc;
+                            _phase = lv_cmake((float)cos(phase_est), (float)sin(phase_est));
+                            phase2 = lv_cmake((float)cos(phase_est + arg_phase_inc), (float)sin(phase_est + arg_phase_inc));
+                            phase3 = lv_cmake((float)cos(phase_est + 2.0 * arg_phase_inc), (float)sin(phase_est + 2.0 * arg_phase_inc));
+                            phase4 = lv_cmake((float)cos(phase_est + 3.0 * arg_phase_inc), (float)sin(phase_est + 3.0 * arg_phase_inc));
 
                             __VOLK_ATTR_ALIGNED(16)
                             float32_t ____phase_real[4] = {lv_creal((_phase)), lv_creal(phase2), lv_creal(phase3), lv_creal(phase4)};
@@ -787,5 +819,238 @@ static inline void volk_gnsssdr_32fc_x2_rotator_dot_prod_32fc_xn_neon(lv_32fc_t*
 }
 
 #endif /* LV_HAVE_NEON */
+
+
+#ifdef LV_HAVE_RVV
+#include <riscv_vector.h>
+
+static inline void volk_gnsssdr_32fc_x2_rotator_dot_prod_32fc_xn_rvv(lv_32fc_t* result, const lv_32fc_t* in_common, const lv_32fc_t phase_inc, lv_32fc_t* phase, const lv_32fc_t** in_a, int num_a_vectors, unsigned int num_points)
+{
+    size_t ROTATOR_RELOAD = 256;
+
+    // Initialize reference pointers of compatible type that will not be stripmined
+    float* phasePtr = (float*)phase;
+
+    // Initialize pointers of compatible type to track progress as stripmine
+    float* outPtr = (float*)result;
+    const float* comPtr = (const float*)in_common;
+    const float** inPtrBuf = (const float**)volk_gnsssdr_malloc(
+        num_a_vectors * sizeof(*in_a), volk_gnsssdr_get_alignment());
+
+    for (int n_vec = 0; n_vec < num_a_vectors; n_vec++)
+        {
+            // Initialize `out` to zero
+            result[n_vec] = lv_cmake(0.0f, 0.0f);
+
+            // Treat complex number as struct containing
+            // two 16-bit integers
+            inPtrBuf[n_vec] = (float*)in_a[n_vec];
+        }
+
+    for (int _ = 0; _ < num_points / ROTATOR_RELOAD; _++)
+        {
+            size_t n = ROTATOR_RELOAD;
+
+            for (size_t vl; n > 0; n -= vl, comPtr += vl * 2)
+                {
+                    // Record how many elements will actually be processed
+                    vl = __riscv_vsetvl_e32m4(n);
+
+                    // Splat phase
+                    vfloat32m4_t phaseRealVal = __riscv_vfmv_v_f_f32m4(phasePtr[0], vl);
+                    vfloat32m4_t phaseImagVal = __riscv_vfmv_v_f_f32m4(phasePtr[1], vl);
+
+                    // Splat phaseInc
+                    vfloat32m4_t phaseIncRealVal = __riscv_vfmv_v_f_f32m4(lv_creal(phase_inc), vl);
+                    vfloat32m4_t phaseIncImagVal = __riscv_vfmv_v_f_f32m4(lv_cimag(phase_inc), vl);
+
+                    // iter[i] = i
+                    vuint32m4_t iterVal = __riscv_vid_v_u32m4(vl);
+
+                    // phase[i] = phase[i] * ( phaseInc[i] ^ i )
+                    for (int j = 1; j < vl; j++)
+                        {
+                            vbool8_t maskVal = __riscv_vmsgtu_vx_u32m4_b8(iterVal, 0, vl);
+
+                            // Initialize as copies of phase so that can target masked
+                            // operations onto these copies instead of the original vectors
+                            vfloat32m4_t prodRealVal = phaseRealVal;
+                            vfloat32m4_t prodImagVal = phaseImagVal;
+
+                            // For more details on cross product,
+                            // check `volk_gnsssdr_8ic_x2_multiply_8ic_rvv`,
+                            // for instance
+                            prodRealVal = __riscv_vfmul_vv_f32m4_mu(maskVal, prodRealVal, phaseRealVal, phaseIncRealVal, vl);
+                            prodRealVal = __riscv_vfnmsac_vv_f32m4_mu(maskVal, prodRealVal, phaseImagVal, phaseIncImagVal, vl);
+                            prodImagVal = __riscv_vfmul_vv_f32m4_mu(maskVal, prodImagVal, phaseRealVal, phaseIncImagVal, vl);
+                            prodImagVal = __riscv_vfmacc_vv_f32m4_mu(maskVal, prodImagVal, phaseImagVal, phaseIncRealVal, vl);
+
+                            phaseRealVal = prodRealVal;
+                            phaseImagVal = prodImagVal;
+
+                            iterVal = __riscv_vsub_vx_u32m4_mu(maskVal, iterVal, iterVal, 1, vl);
+                        }
+
+                    // Load com[0..vl)
+                    vfloat32m4x2_t comVal = __riscv_vlseg2e32_v_f32m4x2(comPtr, vl);
+                    vfloat32m4_t comRealVal = __riscv_vget_v_f32m4x2_f32m4(comVal, 0);
+                    vfloat32m4_t comImagVal = __riscv_vget_v_f32m4x2_f32m4(comVal, 1);
+
+                    vfloat32m4_t comProdRealVal = __riscv_vfmul_vv_f32m4(comRealVal, phaseRealVal, vl);
+                    comProdRealVal = __riscv_vfnmsac_vv_f32m4(comProdRealVal, comImagVal, phaseImagVal, vl);
+                    vfloat32m4_t comProdImagVal = __riscv_vfmul_vv_f32m4(comRealVal, phaseImagVal, vl);
+                    comProdImagVal = __riscv_vfmacc_vv_f32m4(comProdImagVal, comImagVal, phaseRealVal, vl);
+
+                    for (int n_vec = 0; n_vec < num_a_vectors; n_vec++)
+                        {
+                            // Load in[0..vl)
+                            vfloat32m4x2_t inVal = __riscv_vlseg2e32_v_f32m4x2(inPtrBuf[n_vec], vl);
+                            vfloat32m4_t inRealVal = __riscv_vget_v_f32m4x2_f32m4(inVal, 0);
+                            vfloat32m4_t inImagVal = __riscv_vget_v_f32m4x2_f32m4(inVal, 1);
+
+                            // out[i] = in[i] * comProd[i]
+                            vfloat32m4_t outRealVal = __riscv_vfmul_vv_f32m4(inRealVal, comProdRealVal, vl);
+                            outRealVal = __riscv_vfnmsac_vv_f32m4(outRealVal, inImagVal, comProdImagVal, vl);
+                            vfloat32m4_t outImagVal = __riscv_vfmul_vv_f32m4(inRealVal, comProdImagVal, vl);
+                            outImagVal = __riscv_vfmacc_vv_f32m4(outImagVal, inImagVal, comProdRealVal, vl);
+
+                            // Load accumulator
+                            vfloat32m1_t accRealVal = __riscv_vfmv_s_f_f32m1(outPtr[2 * n_vec], 1);
+                            vfloat32m1_t accImagVal = __riscv_vfmv_s_f_f32m1(outPtr[2 * n_vec + 1], 1);
+
+                            // acc[0] = sum( acc[0], out[0..vl) )
+                            accRealVal = __riscv_vfredosum_vs_f32m4_f32m1(outRealVal, accRealVal, vl);
+                            accImagVal = __riscv_vfredosum_vs_f32m4_f32m1(outImagVal, accImagVal, vl);
+
+                            // Store acc[0]
+                            outPtr[2 * n_vec] = __riscv_vfmv_f_s_f32m1_f32(accRealVal);
+                            outPtr[2 * n_vec + 1] = __riscv_vfmv_f_s_f32m1_f32(accImagVal);
+
+                            // Increment this pointer, accounting how each complex
+                            // element is two 32-bit floats
+                            inPtrBuf[n_vec] += vl * 2;
+                        }
+
+                    // Store phase[vl - 1]
+                    phaseRealVal = __riscv_vslidedown_vx_f32m4(phaseRealVal, vl - 1, vl);
+                    phasePtr[0] = __riscv_vfmv_f_s_f32m4_f32(phaseRealVal);
+                    phaseImagVal = __riscv_vslidedown_vx_f32m4(phaseImagVal, vl - 1, vl);
+                    phasePtr[1] = __riscv_vfmv_f_s_f32m4_f32(phaseImagVal);
+
+                    // Account for multiplication after last calculation
+                    (*phase) *= phase_inc;
+
+                    // In looping, decrement the number of
+                    // elements left and increment the pointers
+                    // by the number of elements processed
+                }
+                // Regenerate phase
+#ifdef __cplusplus
+            (*phase) /= std::abs((*phase));
+#else
+            (*phase) /= hypotf(lv_creal(*phase), lv_cimag(*phase));
+#endif
+        }
+
+    size_t n = num_points % ROTATOR_RELOAD;
+
+    for (size_t vl; n > 0; n -= vl, comPtr += vl * 2)
+        {
+            // Record how many elements will actually be processed
+            vl = __riscv_vsetvl_e32m4(n);
+
+            // Splat phase
+            vfloat32m4_t phaseRealVal = __riscv_vfmv_v_f_f32m4(phasePtr[0], vl);
+            vfloat32m4_t phaseImagVal = __riscv_vfmv_v_f_f32m4(phasePtr[1], vl);
+
+            // Splat phaseInc
+            vfloat32m4_t phaseIncRealVal = __riscv_vfmv_v_f_f32m4(lv_creal(phase_inc), vl);
+            vfloat32m4_t phaseIncImagVal = __riscv_vfmv_v_f_f32m4(lv_cimag(phase_inc), vl);
+
+            // iter[i] = i
+            vuint32m4_t iterVal = __riscv_vid_v_u32m4(vl);
+
+            // phase[i] = phase[i] * ( phaseInc[i] ^ i )
+            for (int j = 1; j < vl; j++)
+                {
+                    vbool8_t maskVal = __riscv_vmsgtu_vx_u32m4_b8(iterVal, 0, vl);
+
+                    // Initialize as copies of phase so that can target masked
+                    // operations onto these copies instead of the original vectors
+                    vfloat32m4_t prodRealVal = phaseRealVal;
+                    vfloat32m4_t prodImagVal = phaseImagVal;
+
+                    // For more details on cross product,
+                    // check `volk_gnsssdr_8ic_x2_multiply_8ic_rvv`,
+                    // for instance
+                    prodRealVal = __riscv_vfmul_vv_f32m4_mu(maskVal, prodRealVal, phaseRealVal, phaseIncRealVal, vl);
+                    prodRealVal = __riscv_vfnmsac_vv_f32m4_mu(maskVal, prodRealVal, phaseImagVal, phaseIncImagVal, vl);
+                    prodImagVal = __riscv_vfmul_vv_f32m4_mu(maskVal, prodImagVal, phaseRealVal, phaseIncImagVal, vl);
+                    prodImagVal = __riscv_vfmacc_vv_f32m4_mu(maskVal, prodImagVal, phaseImagVal, phaseIncRealVal, vl);
+
+                    phaseRealVal = prodRealVal;
+                    phaseImagVal = prodImagVal;
+
+                    iterVal = __riscv_vsub_vx_u32m4_mu(maskVal, iterVal, iterVal, 1, vl);
+                }
+
+            // Load com[0..vl)
+            vfloat32m4x2_t comVal = __riscv_vlseg2e32_v_f32m4x2(comPtr, vl);
+            vfloat32m4_t comRealVal = __riscv_vget_v_f32m4x2_f32m4(comVal, 0);
+            vfloat32m4_t comImagVal = __riscv_vget_v_f32m4x2_f32m4(comVal, 1);
+
+            vfloat32m4_t comProdRealVal = __riscv_vfmul_vv_f32m4(comRealVal, phaseRealVal, vl);
+            comProdRealVal = __riscv_vfnmsac_vv_f32m4(comProdRealVal, comImagVal, phaseImagVal, vl);
+            vfloat32m4_t comProdImagVal = __riscv_vfmul_vv_f32m4(comRealVal, phaseImagVal, vl);
+            comProdImagVal = __riscv_vfmacc_vv_f32m4(comProdImagVal, comImagVal, phaseRealVal, vl);
+
+            for (int n_vec = 0; n_vec < num_a_vectors; n_vec++)
+                {
+                    // Load in[0..vl)
+                    vfloat32m4x2_t inVal = __riscv_vlseg2e32_v_f32m4x2(inPtrBuf[n_vec], vl);
+                    vfloat32m4_t inRealVal = __riscv_vget_v_f32m4x2_f32m4(inVal, 0);
+                    vfloat32m4_t inImagVal = __riscv_vget_v_f32m4x2_f32m4(inVal, 1);
+
+                    // out[i] = in[i] * comProd[i]
+                    vfloat32m4_t outRealVal = __riscv_vfmul_vv_f32m4(inRealVal, comProdRealVal, vl);
+                    outRealVal = __riscv_vfnmsac_vv_f32m4(outRealVal, inImagVal, comProdImagVal, vl);
+                    vfloat32m4_t outImagVal = __riscv_vfmul_vv_f32m4(inRealVal, comProdImagVal, vl);
+                    outImagVal = __riscv_vfmacc_vv_f32m4(outImagVal, inImagVal, comProdRealVal, vl);
+
+                    // Load accumulator
+                    vfloat32m1_t accRealVal = __riscv_vfmv_s_f_f32m1(outPtr[2 * n_vec], 1);
+                    vfloat32m1_t accImagVal = __riscv_vfmv_s_f_f32m1(outPtr[2 * n_vec + 1], 1);
+
+                    // acc[0] = sum( acc[0], out[0..vl) )
+                    accRealVal = __riscv_vfredosum_vs_f32m4_f32m1(outRealVal, accRealVal, vl);
+                    accImagVal = __riscv_vfredosum_vs_f32m4_f32m1(outImagVal, accImagVal, vl);
+
+                    // Store acc[0]
+                    outPtr[2 * n_vec] = __riscv_vfmv_f_s_f32m1_f32(accRealVal);
+                    outPtr[2 * n_vec + 1] = __riscv_vfmv_f_s_f32m1_f32(accImagVal);
+
+                    // Increment this pointer, accounting how each complex
+                    // element is two 32-bit floats
+                    inPtrBuf[n_vec] += vl * 2;
+                }
+
+            // Store phase[vl - 1]
+            phaseRealVal = __riscv_vslidedown_vx_f32m4(phaseRealVal, vl - 1, vl);
+            phasePtr[0] = __riscv_vfmv_f_s_f32m4_f32(phaseRealVal);
+            phaseImagVal = __riscv_vslidedown_vx_f32m4(phaseImagVal, vl - 1, vl);
+            phasePtr[1] = __riscv_vfmv_f_s_f32m4_f32(phaseImagVal);
+
+            // Account for multiplication after last calculation
+            (*phase) *= phase_inc;
+
+            // In looping, decrement the number of
+            // elements left and increment the pointers
+            // by the number of elements processed
+        }
+
+    // Don't leak memory!
+    volk_gnsssdr_free(inPtrBuf);
+}
+#endif /* LV_HAVE_RVV */
 
 #endif /* INCLUDED_volk_gnsssdr_32fc_x2_rotator_dot_prod_32fc_xn_H */

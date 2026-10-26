@@ -92,13 +92,6 @@ public:
     void set_local_code();
 
     /*!
-     * \brief If set to 1, ensures that acquisition starts at the
-     * first available sample.
-     * \param state - int=1 forces start of acquisition
-     */
-    void set_state(int32_t state);
-
-    /*!
      * \brief Starts acquisition algorithm, turning from standby mode to
      * active mode
      * \param active - bool that activates/deactivates the block.
@@ -120,36 +113,6 @@ public:
     inline void set_channel_fsm(std::weak_ptr<ChannelFsm> channel_fsm)
     {
         d_channel_fsm = std::move(channel_fsm);
-    }
-
-    /*!
-     * \brief Set statistics threshold of PCPS algorithm.
-     * \param threshold - Threshold for signal detection (check \ref Navitec2012,
-     * Algorithm 1, for a definition of this threshold).
-     */
-    inline void set_threshold(float threshold)
-    {
-        d_threshold = threshold;
-    }
-
-    /*!
-     * \brief Set maximum Doppler grid search
-     * \param doppler_max - Maximum Doppler shift considered in the grid search [Hz].
-     */
-    inline void set_doppler_max(uint32_t doppler_max)
-    {
-        d_doppler_max = doppler_max;
-        d_acquisition_fpga->set_doppler_max(doppler_max);
-    }
-
-    /*!
-     * \brief Set Doppler steps for the grid search
-     * \param doppler_step - Frequency bin of the search grid [Hz].
-     */
-    inline void set_doppler_step(uint32_t doppler_step)
-    {
-        d_doppler_step = doppler_step;
-        d_acquisition_fpga->set_doppler_step(doppler_step);
     }
 
     /*!
@@ -186,7 +149,7 @@ private:
 
     uint64_t d_sample_counter;
 
-    float d_threshold;
+    const float d_threshold;
     float d_mag;
     float d_input_power;
     float d_test_statistics;
@@ -198,9 +161,9 @@ private:
 
     uint32_t d_doppler_index;
     uint32_t d_channel;
-    uint32_t d_doppler_step;
-    uint32_t d_doppler_max;
-    uint32_t d_num_doppler_bins;
+    const uint32_t d_doppler_step;
+    const uint32_t d_doppler_max;
+    const uint32_t d_num_doppler_bins;
     uint32_t d_total_block_exp;
     uint32_t d_num_doppler_bins_step2;
     uint32_t d_max_num_acqs;

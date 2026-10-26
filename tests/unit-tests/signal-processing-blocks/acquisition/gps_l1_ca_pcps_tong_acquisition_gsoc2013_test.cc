@@ -17,6 +17,7 @@
  */
 
 
+#include "acquisition_interface.h"
 #include "concurrent_queue.h"
 #include "configuration_interface.h"
 #include "fir_filter.h"
@@ -24,7 +25,6 @@
 #include "gnss_block_interface.h"
 #include "gnss_sdr_valve.h"
 #include "gnss_synchro.h"
-#include "gps_l1_ca_pcps_tong_acquisition.h"
 #include "in_memory_configuration.h"
 #include "signal_generator.h"
 #include "signal_generator_c.h"
@@ -38,15 +38,24 @@
 #include <memory>
 #include <thread>
 #include <utility>
+
 #if HAS_GENERIC_LAMBDA
 #else
 #include <boost/bind/bind.hpp>
 #endif
+
 #ifdef GR_GREATER_38
 #include <gnuradio/analog/sig_source.h>
 #else
 #include <gnuradio/analog/sig_source_c.h>
 #endif
+
+#if USE_GLOG_AND_GFLAGS
+#include <glog/logging.h>
+#else
+#include <absl/log/log.h>
+#endif
+
 #if PMT_USES_BOOST_ANY
 namespace wht = boost;
 #else
@@ -102,7 +111,7 @@ GpsL1CaPcpsTongAcquisitionGSoC2013Test_msg_rx::GpsL1CaPcpsTongAcquisitionGSoC201
     this->message_port_register_in(pmt::mp("events"));
     this->set_msg_handler(pmt::mp("events"),
 #if HAS_GENERIC_LAMBDA
-        [this](auto&& PH1) { msg_handler_channel_events(PH1); });
+        [this](auto&& PH1) { msg_handler_channel_events(std::forward<decltype(PH1)>(PH1)); });
 #else
 #if USE_BOOST_BIND_PLACEHOLDERS
         boost::bind(&GpsL1CaPcpsTongAcquisitionGSoC2013Test_msg_rx::msg_handler_channel_events, this, boost::placeholders::_1));
@@ -142,7 +151,7 @@ protected:
     Concurrent_Queue<int> channel_internal_queue;
     std::shared_ptr<Concurrent_Queue<pmt::pmt_t>> queue;
     gr::top_block_sptr top_block;
-    std::shared_ptr<GpsL1CaPcpsTongAcquisition> acquisition;
+    std::unique_ptr<AcquisitionInterface> acquisition;
     std::shared_ptr<InMemoryConfiguration> config;
     Gnss_Synchro gnss_synchro;
     size_t item_size;
@@ -360,8 +369,6 @@ void GpsL1CaPcpsTongAcquisitionGSoC2013Test::wait_message()
 
     while (!stop)
         {
-            acquisition->reset();
-
             start = std::chrono::system_clock::now();
 
             channel_internal_queue.wait_and_pop(message);
@@ -371,6 +378,11 @@ void GpsL1CaPcpsTongAcquisitionGSoC2013Test::wait_message()
 
             mean_acq_time_us += elapsed_seconds.count() * 1e6;
             process_message();
+
+            if (!stop)
+                {
+                    acquisition->reset();  // arm the next realization
+                }
         }
 }
 
@@ -426,7 +438,7 @@ void GpsL1CaPcpsTongAcquisitionGSoC2013Test::stop_queue()
 TEST_F(GpsL1CaPcpsTongAcquisitionGSoC2013Test, Instantiate)
 {
     config_1();
-    acquisition = std::make_shared<GpsL1CaPcpsTongAcquisition>(config.get(), "Acquisition_1C", 1, 0);
+    acquisition = block_factory::GetAcqBlock(config.get(), "Acquisition_1C", 1, 0);
 }
 
 
@@ -439,7 +451,7 @@ TEST_F(GpsL1CaPcpsTongAcquisitionGSoC2013Test, ConnectAndRun)
     queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
 
     config_1();
-    acquisition = std::make_shared<GpsL1CaPcpsTongAcquisition>(config.get(), "Acquisition_1C", 1, 0);
+    acquisition = block_factory::GetAcqBlock(config.get(), "Acquisition_1C", 1, 0);
     auto msg_rx = GpsL1CaPcpsTongAcquisitionGSoC2013Test_msg_rx_make(channel_internal_queue);
 
     ASSERT_NO_THROW({
@@ -468,7 +480,7 @@ TEST_F(GpsL1CaPcpsTongAcquisitionGSoC2013Test, ValidationOfResults)
     top_block = gr::make_top_block("Acquisition test");
     queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
 
-    acquisition = std::make_shared<GpsL1CaPcpsTongAcquisition>(config.get(), "Acquisition_1C", 1, 0);
+    acquisition = block_factory::GetAcqBlock(config.get(), "Acquisition_1C", 1, 0);
     auto msg_rx = GpsL1CaPcpsTongAcquisitionGSoC2013Test_msg_rx_make(channel_internal_queue);
 
     ASSERT_NO_THROW({
@@ -480,22 +492,8 @@ TEST_F(GpsL1CaPcpsTongAcquisitionGSoC2013Test, ValidationOfResults)
     }) << "Failure setting gnss_synchro.";
 
     ASSERT_NO_THROW({
-        acquisition->set_doppler_max(config->property("Acquisition_1C.doppler_max", 10000));
-    }) << "Failure setting doppler_max.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_doppler_step(config->property("Acquisition_1C.doppler_step", 500));
-    }) << "Failure setting doppler_step.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_threshold(config->property("Acquisition_1C.threshold", 0.0));
-    }) << "Failure setting threshold.";
-
-    ASSERT_NO_THROW({
         acquisition->connect(top_block);
     }) << "Failure connecting acquisition to the top_block.";
-
-    acquisition->init();
 
     ASSERT_NO_THROW({
         std::shared_ptr<GNSSBlockInterface> signal_generator = std::make_shared<SignalGenerator>(config.get(), "SignalSource", 0, 1, queue.get());
@@ -522,7 +520,7 @@ TEST_F(GpsL1CaPcpsTongAcquisitionGSoC2013Test, ValidationOfResults)
                 }
 
             acquisition->set_local_code();
-            acquisition->set_state(1);
+            acquisition->reset();
 
             start_queue();
 
@@ -555,7 +553,7 @@ TEST_F(GpsL1CaPcpsTongAcquisitionGSoC2013Test, ValidationOfResultsProbabilities)
     config_2();
     top_block = gr::make_top_block("Acquisition test");
     queue = std::make_shared<Concurrent_Queue<pmt::pmt_t>>();
-    acquisition = std::make_shared<GpsL1CaPcpsTongAcquisition>(config.get(), "Acquisition_1C", 1, 0);
+    acquisition = block_factory::GetAcqBlock(config.get(), "Acquisition_1C", 1, 0);
     auto msg_rx = GpsL1CaPcpsTongAcquisitionGSoC2013Test_msg_rx_make(channel_internal_queue);
 
     ASSERT_NO_THROW({
@@ -567,22 +565,8 @@ TEST_F(GpsL1CaPcpsTongAcquisitionGSoC2013Test, ValidationOfResultsProbabilities)
     }) << "Failure setting gnss_synchro.";
 
     ASSERT_NO_THROW({
-        acquisition->set_doppler_max(config->property("Acquisition_1C.doppler_max", 10000));
-    }) << "Failure setting doppler_max.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_doppler_step(config->property("Acquisition_1C.doppler_step", 500));
-    }) << "Failure setting doppler_step.";
-
-    ASSERT_NO_THROW({
-        acquisition->set_threshold(config->property("Acquisition_1C.threshold", 0.0));
-    }) << "Failure setting threshold.";
-
-    ASSERT_NO_THROW({
         acquisition->connect(top_block);
     }) << "Failure connecting acquisition to the top_block.";
-
-    acquisition->init();
 
     ASSERT_NO_THROW({
         std::shared_ptr<GNSSBlockInterface> signal_generator = std::make_shared<SignalGenerator>(config.get(), "SignalSource", 0, 1, queue.get());
@@ -611,7 +595,7 @@ TEST_F(GpsL1CaPcpsTongAcquisitionGSoC2013Test, ValidationOfResultsProbabilities)
                 }
 
             acquisition->set_local_code();
-            acquisition->set_state(1);
+            acquisition->reset();
             start_queue();
 
             EXPECT_NO_THROW({
